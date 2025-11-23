@@ -4,7 +4,10 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import math
 
 import utils.geometry as vec  # ditt eksisterende vektor-API
-
+from problem.spec import TaskSpec, AnchorType, Tolerances
+from problem.tasks import NAME_MISMATCH_PENALTY, COVERAGE_PENALTY_EXP
+from utils.settings import GRID_STEP
+from engine.forces import normalize_name
 Vec2 = Tuple[float, float]
 
 # ------------------------------------------------------
@@ -141,8 +144,8 @@ def sumF_score(
 def name_matches(name: Optional[str], aliases: Iterable[str]) -> bool:
     if not name:
         return False
-    n = name.strip().lower()
-    return n in aliases
+    n = normalize_name(name)
+    return n in {normalize_name(a) for a in aliases}
 
 def score_name(force, *, aliases: Iterable[str], weight: float) -> Tuple[float, float]:
     ok = 1.0 if name_matches(force.name, aliases) else 0.0
@@ -186,8 +189,6 @@ def coverage_scale(num_matched: int, num_expected: int) -> float:
 # Relasjons-skår (forhold mellom krefter og/eller komponenter)
 # ------------------------------------------------------
 
-Component = Optional[str]  # None | 'x' | 'y' | 'n' | 'p'
-
 def _mag_term_value(f, mag_term) -> float:
     """
     Hent verdi for en MagTerm:
@@ -203,6 +204,8 @@ def _mag_term_value(f, mag_term) -> float:
         if e_vec_unit == (0.0, 0.0):
             raise ValueError(f"_mag_term_value: e_vec cannot be zero vector")
         return vec.dot(f.vec, e_vec_unit)
+
+Component = Optional[str]  # None | 'x' | 'y' | 'n' | 'p'
 
 def _force_component(f, comp: Component, n_vec: Optional[Vec2]) -> float:
     """
@@ -394,9 +397,6 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
         - 'feedback': list of feedback strings
         - 'details': dict with per-force scoring details
     """
-    from .spec import TaskSpec, Component, AnchorType, AnchorSpec, Tolerances
-    # Import scoring configuration from tasks.py
-    from .tasks import NAME_MISMATCH_PENALTY, COVERAGE_PENALTY_EXP
     
     # Helper function to resolve anchor specs to actual coordinates
     def resolve_anchor_spec(anchor_spec, scene):
@@ -472,8 +472,10 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
     overlays: Dict[Union[str, int], List[Dict]] = {}  # Store overlays per feedback index (0, 1, 2, ...)
     
     # Empty drawing?
-    if not drawn_forces:
-        feedback.append("Ingen kraftpiler er tegnet.")
+    # Check for non-editable forces in drawn_forces
+    editable_forces = [f for f in drawn_forces if getattr(f, 'editable', True)]
+    if not editable_forces:
+        feedback.append("Ingen andre enn forhåndstegnet kraft er tegnet")
         return {
             'score': 0.0,
             'feedback': feedback,
@@ -481,21 +483,6 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
             'overlays': overlays,
         }
     
-    # Filter out incomplete forces (missing vec or A)
-    complete_forces = [f for f in drawn_forces if hasattr(f, 'vec') and f.vec and hasattr(f, 'anchor') and f.anchor]
-    for i, f in enumerate(drawn_forces):
-        has_vec = hasattr(f, 'vec') and f.vec is not None
-        has_a = hasattr(f, 'anchor') and f.anchor is not None
-        has_name = hasattr(f, 'name') and f.name
-    
-    if not complete_forces:
-        feedback.append("Tegnede krefter er ufullstendige (mangler angrepspunkt eller vektor).")
-        return {
-            'score': 0.0,
-            'feedback': feedback,
-            'details': details,
-            'overlays': overlays,
-        }
     
     # --- Extract tolerances ---
     ANG_TOL = tol.ang_tol_deg
@@ -521,60 +508,20 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
     else:
         # If list, convert to dict by .name
         expected_dict = {f.name: f for f in expected_forces}
-    
+
+    #################################################
     # --- Try to match drawn forces to expected ---
-    matched: Dict[str, object] = {}  # canonical_name -> drawn_force
-    used_indices = set()
-    
-    # Debug: print what we're matching
-    for canonical_name, expected_spec in expected_dict.items():
-        best_force = None
-        best_score = -1.0
-        best_idx = -1
-        
-        # Try each unmatched drawn force (use complete_forces, not drawn_forces)
-        for idx, drawn_f in enumerate(complete_forces):
-            if idx in used_indices:
-                continue
-            
-            # Name match?
-            name_match = False
-            if hasattr(drawn_f, 'name') and drawn_f.name:
-                drawn_name = drawn_f.name.strip().lower()
-                if drawn_name == canonical_name.lower():
-                    name_match = True
-                elif drawn_name in {a.lower() for a in expected_spec.aliases}:
-                    name_match = True
-            
-            # Direction match?
-            if hasattr(drawn_f, 'vec') and expected_spec.dir_unit:
-                angle_err = angle_error_deg(drawn_f.vec, expected_spec.dir_unit)
-            else:
-                angle_err = 180.0
-            
-            dir_score = ramp_down_linear(angle_err, ANG_TOL, ANG_SPAN)
-            
-            # Combined score: name + direction
-            combined = (1.0 if name_match else NAME_MISMATCH_PENALTY) * dir_score
-            
-            if combined > best_score:
-                best_score = combined
-                best_force = drawn_f
-                best_idx = idx
-        
-        if best_force is not None and best_score > 0.2:
-            matched[canonical_name] = best_force
-            used_indices.add(best_idx)
-        else:
-            pass  # No good match found
+    ##################################################
+    matched = match_forces_to_expected(expected_dict, drawn_forces, ANG_TOL, ANG_SPAN)
     
     # --- Score each expected force ---
     total_score = 0.0
     total_weight = 0.0
+    editable_weight = 0.0
     
-    for canonical_name, expected_spec in expected_dict.items():
+    for task_force_name, expected_spec in expected_dict.items():
         force_detail = {
-            'expected': canonical_name,
+            'expected': task_force_name,
             'found': False,
             'name_score': 0.0,
             'dir_score': 0.0,
@@ -582,199 +529,236 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
             'combined': 0.0,
         }
         
-        if canonical_name in matched:
-            drawn_f = matched[canonical_name]
+        if task_force_name in matched:
+            drawn_f = matched[task_force_name]
             force_detail['found'] = True
+            # Check if force is editable
+            is_editable = getattr(drawn_f, 'editable', True)  # Default to True if not specified
+            force_detail['is_editable'] = is_editable
             
-            # --- Name score ---
-            name_ok = False
-            if hasattr(drawn_f, 'name') and drawn_f.name:
-                drawn_name = drawn_f.name.strip().lower()
-                if drawn_name == canonical_name.lower():
-                    name_ok = True
-                elif drawn_name in {a.lower() for a in expected_spec.aliases}:
-                    name_ok = True
-            
-            name_score = 1.0 if name_ok else 0.5
-            force_detail['name_score'] = name_score
-            
-            # Add feedback if name is wrong
-            if not name_ok:
-                drawn_name = getattr(drawn_f, 'name', '(tomt)')
-                feedback.append(f"{canonical_name}: navn er '{drawn_name}' (burde være '{canonical_name}' eller {', '.join(expected_spec.aliases)})")
-            
-            # --- Direction score ---
-            dir_score = 0.0
-            angle_err = None
-            if hasattr(drawn_f, 'vec') and expected_spec.dir_unit:
-                angle_err = angle_error_deg(drawn_f.vec, expected_spec.dir_unit)
-                dir_score = ramp_down_linear(angle_err, ANG_TOL, ANG_SPAN)
-                force_detail['angle_error_deg'] = angle_err
-                # Add feedback if direction is wrong
-                if dir_score < 1.0:
-                    fb_idx = len(feedback)
-                    feedback.append(f"{canonical_name}: retning {angle_err:.0f}° fra forventet (bør være ≈ 0°)")
-                    # Generate direction overlay (wedge) - assumes drawn_f.anchor is available
-                    if hasattr(drawn_f, 'anchor') and drawn_f.anchor:
-                        drawn_angle_deg = math.degrees(math.atan2(drawn_f.vec[1], drawn_f.vec[0]))
-                        expected_angle_deg = math.degrees(math.atan2(expected_spec.dir_unit[1], expected_spec.dir_unit[0]))
-                        overlay_item = {
-                            'type': 'wedge',
-                            'center': drawn_f.anchor,
-                            'heading_deg': expected_angle_deg,
-                            'ang_ok': ANG_TOL,
-                            'ang_span': ANG_SPAN,
-                            'r_ok': 30,
-                            'r_span': 50,
-                        }
-                        overlays[fb_idx] = [overlay_item]
-            
-            force_detail['dir_score'] = dir_score
-            
-            # --- Position score ---
-            pos_score = 0.0
-            selected_anchor = None  # Track which anchor was used
-            
-            if hasattr(drawn_f, 'anchor') and drawn_f.anchor and expected_spec.anchor:
-                # Handle both single anchor and list of anchors
-                anchors_to_try = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
-                best_pos_score = 0.0
-                best_anchor = None  # Track best anchor even if score is 0
+            # Only score editable forces
+            if is_editable:
+                # --- Name score ---
+                name_ok = False
+                drawn_name_str = ""
+                if hasattr(drawn_f, 'name') and drawn_f.name:
+                    drawn_name_str = drawn_f.name
+                name_ok = is_name_expected(drawn_f, task_force_name, expected_spec)
+                name_score = 1.0 if name_ok else 0.5
+                force_detail['name_score'] = name_score
+                force_detail['drawn_name'] = drawn_name_str  # Store drawn name for later use in feedback
                 
-                for anchor in anchors_to_try:
-                    # Handle both enum (Task 1/2) and string (Task 3) kinds
-                    is_point = (anchor.kind == AnchorType.POINT) or (anchor.kind == "point") or (anchor.kind == AnchorType.POINT.value)
-                    is_segment = (anchor.kind == AnchorType.SEGMENT) or (anchor.kind == "segment") or (anchor.kind == AnchorType.SEGMENT.value)
-                    
-                    curr_score = 0.0
-                    if is_point and anchor.point:
-                        d = vec.distance(drawn_f.anchor, anchor.point)
-                        curr_score = ramp_down_linear(d, POS_TOL, POS_SPAN)
-                        if curr_score > best_pos_score or best_anchor is None:  # Set anchor even if curr_score=0
-                            best_pos_score = curr_score
-                            pos_score = curr_score
-                            selected_anchor = anchor
-                            best_anchor = anchor
-                            force_detail['pos_error'] = d
-                    elif is_segment and anchor.segment:
-                        d = vec.dist_point_to_segment(drawn_f.anchor, anchor.segment[0], anchor.segment[1])
-                        curr_score = ramp_down_linear(d, POS_TOL, POS_SPAN)
-                        if curr_score > best_pos_score or best_anchor is None:  # Set anchor even if curr_score=0
-                            best_pos_score = curr_score
-                            pos_score = curr_score
-                            selected_anchor = anchor
-                            best_anchor = anchor
-                            force_detail['pos_error'] = d
-            
-            force_detail['pos_score'] = pos_score
-            
-            # Add feedback and overlays if position is wrong (including when pos_score = 0)
-            if expected_spec.anchor and selected_anchor and pos_score < 1.0:
-                pos_err = force_detail.get('pos_error')
-                # Determine anchor type from selected anchor (handle both enum and string kinds)
-                is_point = (selected_anchor.kind == AnchorType.POINT) or (selected_anchor.kind == "point") or (selected_anchor.kind == AnchorType.POINT.value)
-                is_segment = (selected_anchor.kind == AnchorType.SEGMENT) or (selected_anchor.kind == "segment") or (selected_anchor.kind == AnchorType.SEGMENT.value)
+                # Add feedback if name is wrong AND a name was provided (not empty)
+                if not name_ok and drawn_name_str and drawn_name_str.strip():
+                    feedback.append(f"Feil navn på kraften: '{drawn_name_str}'")
                 
-                if pos_err is not None:
-                    anchor_type = "punkt" if is_point else "kontaktflate"
-                    fb_idx = len(feedback)
-                    feedback.append(f"{canonical_name}: angrepspunkt {pos_err:.0f}px fra forventet {anchor_type}")
-                    
-                    # Generate position overlays for ALL anchor candidates when position is wrong
-                    anchors_to_show = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
-                    try:
-                        for anchor_candidate in anchors_to_show:
-                            is_cand_point = (anchor_candidate.kind == AnchorType.POINT) or (anchor_candidate.kind == "point") or (anchor_candidate.kind == AnchorType.POINT.value)
-                            is_cand_segment = (anchor_candidate.kind == AnchorType.SEGMENT) or (anchor_candidate.kind == "segment") or (anchor_candidate.kind == AnchorType.SEGMENT.value)
+                # --- Direction score ---
+                dir_score = 0.0
+                angle_err = None
+                if hasattr(drawn_f, 'vec') and expected_spec.dir_unit:
+                    angle_err = angle_error_deg(drawn_f.vec, expected_spec.dir_unit)
+                    dir_score = ramp_down_linear(angle_err, ANG_TOL, ANG_SPAN)
+                    force_detail['angle_error_deg'] = angle_err
+                    # Add feedback/overlay only if direction is wrong AND name is accepted
+                    if dir_score < 1.0 and name_ok:
+                        fb_idx = len(feedback)
+                        feedback.append(f"Juster retningen til {task_force_name}")
+                        # Generate direction overlay (wedge) - assumes drawn_f.anchor is available
+                        if hasattr(drawn_f, 'anchor') and drawn_f.anchor:
+                            expected_angle_deg = math.degrees(math.atan2(expected_spec.dir_unit[1], expected_spec.dir_unit[0]))
+                            # Set r_ok to half the drawn force length, r_span to full force length
+                            force_length = vec.norm(drawn_f.vec) if hasattr(drawn_f, 'vec') else 30
+                            overlay_item = {
+                                'type': 'wedge',
+                                'center': drawn_f.arrowBase if hasattr(drawn_f, 'arrowBase') else drawn_f.anchor,
+                                'heading_deg': expected_angle_deg,
+                                'ang_ok': ANG_TOL,
+                                'ang_span': ANG_SPAN,
+                                'r_ok': clamp(force_length/2, 2*GRID_STEP,10*GRID_STEP),
+                                'r_span': clamp(force_length/2, 2*GRID_STEP,10*GRID_STEP),
+                            }
+                            overlays[fb_idx] = [overlay_item]
+                
+                    force_detail['dir_score'] = dir_score
+                
+                # --- Position score ---
+                pos_score = 0.0
+                selected_anchor = None  # Track which anchor was used
+                
+                # Only show position feedback if name is accepted
+                if name_ok:
+                    if hasattr(drawn_f, 'anchor') and drawn_f.anchor and expected_spec.anchor:
+                        # Handle both single anchor and list of anchors
+                        anchors_to_try = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
+                        best_pos_score = 0.0
+                        best_anchor = None  # Track best anchor even if score is 0
+                        
+                        for anchor in anchors_to_try:
+                            # Handle both enum (Task 1/2) and string (Task 3) kinds
+                            is_point = (anchor.kind == AnchorType.POINT) or (anchor.kind == "point") or (anchor.kind == AnchorType.POINT.value)
+                            is_segment = (anchor.kind == AnchorType.SEGMENT) or (anchor.kind == "segment") or (anchor.kind == AnchorType.SEGMENT.value)
                             
-                            if is_cand_point:
-                                pt = resolve_anchor_spec(anchor_candidate, task_spec.scene)
-                                if pt:
-                                    overlay_item = {
-                                        'type': 'circle',
-                                        'center': pt,
-                                        'r_ok': POS_TOL,
-                                        'r_span': POS_SPAN,
-                                    }
-                                    if fb_idx not in overlays:
-                                        overlays[fb_idx] = []
-                                    overlays[fb_idx].append(overlay_item)
-                            elif is_cand_segment:
-                                seg = resolve_anchor_spec(anchor_candidate, task_spec.scene)
-                                if seg and len(seg) == 2:
-                                    p1, p2 = seg
-                                    overlay_item = {
-                                        'type': 'stadium',
-                                        'a': p1,
-                                        'b': p2,
-                                        'r_ok': POS_TOL,
-                                        'r_span': POS_SPAN,
-                                    }
-                                    if fb_idx not in overlays:
-                                        overlays[fb_idx] = []
-                                    overlays[fb_idx].append(overlay_item)
-                    except Exception:
-                        pass  # If resolution fails, skip overlay generation
+                            curr_score = 0.0
+                            if is_point and anchor.point:
+                                d = vec.distance(drawn_f.anchor, anchor.point)
+                                curr_score = ramp_down_linear(d, POS_TOL, POS_SPAN)
+                                if curr_score > best_pos_score or best_anchor is None:  # Set anchor even if curr_score=0
+                                    best_pos_score = curr_score
+                                    pos_score = curr_score
+                                    selected_anchor = anchor
+                                    best_anchor = anchor
+                                    force_detail['pos_error'] = d
+                            elif is_segment and anchor.segment:
+                                d = vec.dist_point_to_segment(drawn_f.anchor, anchor.segment[0], anchor.segment[1])
+                                curr_score = ramp_down_linear(d, POS_TOL, POS_SPAN)
+                                if curr_score > best_pos_score or best_anchor is None:  # Set anchor even if curr_score=0
+                                    best_pos_score = curr_score
+                                    pos_score = curr_score
+                                    selected_anchor = anchor
+                                    best_anchor = anchor
+                                    force_detail['pos_error'] = d
+                
+                force_detail['pos_score'] = pos_score
+                
+                # Add feedback and overlays if position is wrong (including when pos_score = 0)
+                # Only show position feedback if name is accepted
+                if name_ok and expected_spec.anchor and selected_anchor and pos_score < 1.0:
+                    pos_err = force_detail.get('pos_error')
+                    # Determine anchor type from selected anchor (handle both enum and string kinds)
+                    is_point = (selected_anchor.kind == AnchorType.POINT) or (selected_anchor.kind == "point") or (selected_anchor.kind == AnchorType.POINT.value)
+                    is_segment = (selected_anchor.kind == AnchorType.SEGMENT) or (selected_anchor.kind == "segment") or (selected_anchor.kind == AnchorType.SEGMENT.value)
+                    
+                    if pos_err is not None:
+                        anchor_type = "massemidtpunkt" if is_point else "kontaktflaten"
+                        fb_idx = len(feedback)
+                        feedback.append(f"Angrepspunkt til {drawn_name_str}  bør ligge i {anchor_type}")
+                        
+                        # Generate position overlays for ALL anchor candidates when position is wrong
+                        anchors_to_show = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
+                        try:
+                            for anchor_candidate in anchors_to_show:
+                                is_cand_point = (anchor_candidate.kind == AnchorType.POINT) or (anchor_candidate.kind == "point") or (anchor_candidate.kind == AnchorType.POINT.value)
+                                is_cand_segment = (anchor_candidate.kind == AnchorType.SEGMENT) or (anchor_candidate.kind == "segment") or (anchor_candidate.kind == AnchorType.SEGMENT.value)
+                                
+                                if is_cand_point:
+                                    pt = resolve_anchor_spec(anchor_candidate, task_spec.scene)
+                                    if pt:
+                                        overlay_item = {
+                                            'type': 'circle',
+                                            'center': pt,
+                                            'r_ok': POS_TOL,
+                                            'r_span': POS_SPAN,
+                                        }
+                                        if fb_idx not in overlays:
+                                            overlays[fb_idx] = []
+                                        overlays[fb_idx].append(overlay_item)
+                                elif is_cand_segment:
+                                    seg = resolve_anchor_spec(anchor_candidate, task_spec.scene)
+                                    if seg and len(seg) == 2:
+                                        p1, p2 = seg
+                                        overlay_item = {
+                                            'type': 'stadium',
+                                            'a': p1,
+                                            'b': p2,
+                                            'r_ok': POS_TOL,
+                                            'r_span': POS_SPAN,
+                                        }
+                                        if fb_idx not in overlays:
+                                            overlays[fb_idx] = []
+                                        overlays[fb_idx].append(overlay_item)
+                        except Exception:
+                            pass  # If resolution fails, skip overlay generation
+                    else:
+                        # pos_score is 0 but no pos_error recorded - anchor type might be unsupported
+                        anchor_type = "massemidtpunkt" if is_point else "kontaktflaten"
+                        fb_idx = len(feedback)
+                        feedback.append(f"Angrepspunkt til {drawn_name_str}  bør ligge i {anchor_type}")
+                        # Still try to show expected anchor positions for all candidates
+                        anchors_to_show = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
+                        try:
+                            for anchor_candidate in anchors_to_show:
+                                is_cand_point = (anchor_candidate.kind == AnchorType.POINT) or (anchor_candidate.kind == "point") or (anchor_candidate.kind == AnchorType.POINT.value)
+                                is_cand_segment = (anchor_candidate.kind == AnchorType.SEGMENT) or (anchor_candidate.kind == "segment") or (anchor_candidate.kind == AnchorType.SEGMENT.value)
+                                
+                                if is_cand_point:
+                                    pt = resolve_anchor_spec(anchor_candidate, task_spec.scene)
+                                    if pt:
+                                        overlay_item = {
+                                            'type': 'circle',
+                                            'center': pt,
+                                            'r_ok': POS_TOL,
+                                            'r_span': POS_SPAN,
+                                        }
+                                        if fb_idx not in overlays:
+                                            overlays[fb_idx] = []
+                                        overlays[fb_idx].append(overlay_item)
+                                elif is_cand_segment:
+                                    seg = resolve_anchor_spec(anchor_candidate, task_spec.scene)
+                                    if seg and len(seg) == 2:
+                                        p1, p2 = seg
+                                        overlay_item = {
+                                            'type': 'stadium',
+                                            'a': p1,
+                                            'b': p2,
+                                            'r_ok': POS_TOL,
+                                            'r_span': POS_SPAN,
+                                        }
+                                        if fb_idx not in overlays:
+                                            overlays[fb_idx] = []
+                                        overlays[fb_idx].append(overlay_item)
+                        except Exception:
+                            pass  # If resolution fails, skip overlay generation
+            
+                # --- Combined score (weighted average) ---
+                w_n = expected_spec.w_name
+                w_d = expected_spec.w_dir
+                w_p = expected_spec.w_pos
+                w_sum = w_n + w_d + w_p
+                
+                if w_sum > 0:
+                    combined = (w_n * name_score + w_d * dir_score + w_p * pos_score) / w_sum
                 else:
-                    # pos_score is 0 but no pos_error recorded - anchor type might be unsupported
-                    anchor_type = "punkt" if is_point else "kontaktflaten"
-                    fb_idx = len(feedback)
-                    feedback.append(f"{canonical_name}: angrepspunkt feil (bør være i {anchor_type})")
-                    # Still try to show expected anchor positions for all candidates
-                    anchors_to_show = expected_spec.anchor if isinstance(expected_spec.anchor, list) else [expected_spec.anchor]
-                    try:
-                        for anchor_candidate in anchors_to_show:
-                            is_cand_point = (anchor_candidate.kind == AnchorType.POINT) or (anchor_candidate.kind == "point") or (anchor_candidate.kind == AnchorType.POINT.value)
-                            is_cand_segment = (anchor_candidate.kind == AnchorType.SEGMENT) or (anchor_candidate.kind == "segment") or (anchor_candidate.kind == AnchorType.SEGMENT.value)
-                            
-                            if is_cand_point:
-                                pt = resolve_anchor_spec(anchor_candidate, task_spec.scene)
-                                if pt:
-                                    overlay_item = {
-                                        'type': 'circle',
-                                        'center': pt,
-                                        'r_ok': POS_TOL,
-                                        'r_span': POS_SPAN,
-                                    }
-                                    if fb_idx not in overlays:
-                                        overlays[fb_idx] = []
-                                    overlays[fb_idx].append(overlay_item)
-                            elif is_cand_segment:
-                                seg = resolve_anchor_spec(anchor_candidate, task_spec.scene)
-                                if seg and len(seg) == 2:
-                                    p1, p2 = seg
-                                    overlay_item = {
-                                        'type': 'stadium',
-                                        'a': p1,
-                                        'b': p2,
-                                        'r_ok': POS_TOL,
-                                        'r_span': POS_SPAN,
-                                    }
-                                    if fb_idx not in overlays:
-                                        overlays[fb_idx] = []
-                                    overlays[fb_idx].append(overlay_item)
-                    except Exception:
-                        pass  # If resolution fails, skip overlay generation
-            
-            # --- Combined score (weighted average) ---
-            w_n = expected_spec.w_name
-            w_d = expected_spec.w_dir
-            w_p = expected_spec.w_pos
-            w_sum = w_n + w_d + w_p
-            
-            if w_sum > 0:
-                combined = (w_n * name_score + w_d * dir_score + w_p * pos_score) / w_sum
+                    combined = 0.0
+                
+                total_score += combined
+                editable_weight += 1.0  # Only count editable forces
             else:
-                combined = 0.0
+                # Non-editable force: skip all scoring but mark as found
+                force_detail['name_score'] = 1.0  # Accept as-is for relations
+                force_detail['drawn_name'] = getattr(drawn_f, 'name', '')
+                force_detail['dir_score'] = 1.0
+                force_detail['pos_score'] = 1.0
+                force_detail['combined'] = 0.0  # Don't contribute to force scoring
             
-            force_detail['combined'] = combined
-            total_score += combined
-            total_weight += 1.0
+            total_weight += 1.0  # All forces count for coverage
         else:
-            feedback.append(f"Mangler kraft: {canonical_name} ({', '.join(expected_spec.aliases)})")
             total_weight += 1.0
         
-        details[canonical_name] = force_detail
+        details[task_force_name] = force_detail
+
+    # --- Count forces without a provided name (found but no drawn name) ---
+    # Details entries set 'drawn_name' (possibly empty) for found forces.
+    # Only count EDITABLE forces (non-editable forces are pre-defined and don't need names)
+    forces_without_name = [
+        d for d in details.values()
+        if isinstance(d, dict) and d.get('found', False) and d.get('is_editable', True) and not d.get('drawn_name', '').strip()
+    ]
+    num_missing_names = len(forces_without_name)
+    num_wrong_names = num_missing_names    
+    
+    # Add consolidated feedback for forces with wrong names (only if names were provided)
+    if num_wrong_names > 0:
+        if num_wrong_names == 1:
+            feedback.insert(0, "Det mangler navn på en kraft.")
+        else:
+            feedback.insert(0, f"Det mangler navn på {num_wrong_names} krefter.")
+
+    # --- Check for missing forces ---
+    missing_forces = [name for name in expected_dict.keys() if name not in matched]
+    if missing_forces:
+        num_missing = len(missing_forces)
+        if num_missing > 0:
+            feedback.append(f"Det mangler en eller flere krefter.")
     
     # --- Compute force sum equilibrium bonus ---
     equilibrium_score = 1.0
@@ -783,22 +767,12 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
     
     if not has_relations and matched and basis in ("xy", "np"):
         # Fallback: compute equilibrium only if relations not defined
-        matched_forces = list(matched.values())
-        
-        # [DEBUG] Print forces being summed
-        print("\n[DEBUG] Equilibrium check - Forces being summed:")
-        for fname, f in matched.items():
-            if hasattr(f, 'vec') and f.vec:
-                print(f"  {fname}: vec={f.vec}, magnitude={vec.norm(f.vec):.2f}")
-        
+        matched_forces = list(matched.values())      
         total_vec, c1, c2 = sumF(matched_forces, basis=basis, n_vec=n_vec, angle_deg=0.0)
         
         # ΣF magnitude (combined component check)
         res = math.hypot(c1, c2)
-        
-        # [DEBUG] Print result
-        print(f"  ΣF total_vec={total_vec}, c1={c1:.2f}, c2={c2:.2f}, magnitude={res:.2f}")
-        
+             
         # Find largest force magnitude for relative error calculation
         max_force = 0.0
         for f in matched_forces:
@@ -827,7 +801,7 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
         
         if eq_score < 1.0:
             fb_idx = len(feedback)
-            feedback.append(f"ΣF bør være ≈ 0 (basis={basis}): |ΣF|/max_force = {rel_err:.2%} (bør være < 15%)")
+            feedback.append(f"ΣF bør være ≈ 0 (basis={basis})")
             # Generate equilibrium overlay (circle at scene origin showing tolerance)
             # Use scene origin if available, otherwise use a default position
             origin = getattr(task_spec.scene, 'origin', None) or (320, 240)  # fallback to approximate center
@@ -846,6 +820,39 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
         
         relation_scores = []
         for mag_rel in rel_req.relations:
+            # Check if all related forces are present AND have correct names (not just direction guesses)
+            all_names_correct = True
+            for term in mag_rel.lhs:
+                if term.force_name not in matched:
+                    all_names_correct = False
+                    break
+                # Check if the name was actually accepted (name_ok was True)
+                if not details[term.force_name].get('found', False):
+                    all_names_correct = False
+                    break
+                # Check if name_score indicates the name was correct (1.0 for correct, 0.5 for wrong)
+                if details[term.force_name].get('name_score', 0.0) < 1.0:
+                    all_names_correct = False
+                    break
+            
+            if all_names_correct:
+                for term in mag_rel.rhs:
+                    if term.force_name not in matched:
+                        all_names_correct = False
+                        break
+                    # Check if the name was actually accepted (name_ok was True)
+                    if not details[term.force_name].get('found', False):
+                        all_names_correct = False
+                        break
+                    # Check if name_score indicates the name was correct (1.0 for correct, 0.5 for wrong)
+                    if details[term.force_name].get('name_score', 0.0) < 1.0:
+                        all_names_correct = False
+                        break
+            
+            # Skip feedback for this relation if any related force has incorrect name
+            if not all_names_correct:
+                continue
+            
             # Compute LHS = sum of (sign * mag_term_value(force, term))
             lhs_val = 0.0
             for term in mag_rel.lhs:
@@ -886,9 +893,9 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
             
             # Add feedback if relation check fails
             if rel_score < 1.0:
-                # Build descriptive relation name from lhs and rhs force names
-                lhs_names = [term.force_name for term in mag_rel.lhs]
-                rhs_names = [term.force_name for term in mag_rel.rhs]
+                # Build descriptive relation name from lhs and rhs force names (use drawn names)
+                lhs_names = [details[term.force_name].get('drawn_name', term.force_name) for term in mag_rel.lhs]
+                rhs_names = [details[term.force_name].get('drawn_name', term.force_name) for term in mag_rel.rhs]
                 lhs_str = "+".join(lhs_names) if lhs_names else "(?)"
                 rhs_str = "+".join(rhs_names) if rhs_names else "(?)"
                 # Add parentheses if multiple terms
@@ -900,7 +907,7 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
                 
                 measured_ratio = (lhs_val / rhs_val) if abs(rhs_val) > 1e-9 else float('inf')
                 if measured_ratio != float('inf'):
-                    feedback.append(f"{relation_desc}: {measured_ratio:.2f} (burde være {mag_rel.ratio:.2f} +/- {mag_rel.tol_rel*100:.0f}%)")
+                    feedback.append(f"{relation_desc} burde være {mag_rel.ratio:.2f}")
                 else:
                     feedback.append(f"{relation_desc}: kan ikke beregne (divisjon med null)")
         
@@ -910,9 +917,9 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
     details['relations'] = {'score': relations_score}
     
     # --- Final score ---
-    if total_weight > 0:
+    if editable_weight > 0:
         coverage = len([d for d in details.values() if isinstance(d, dict) and d.get('found', False)]) / total_weight
-        base_score = total_score / total_weight
+        base_score = total_score / editable_weight  # Only divide by editable forces
     else:
         coverage = 0.0
         base_score = 0.0
@@ -961,3 +968,154 @@ def evaluate_task(task_spec: object, drawn_forces: Sequence[object]) -> Dict[str
         'relations_score': relations_score,
         'overlays': overlays,
     }
+
+def match_forces_to_expected(
+    expected_dict: Dict[str, object],
+    drawn_forces: Sequence[object],
+    ang_tol: float,
+    ang_span: float,
+) -> Dict[str, object]:
+    """
+    Match drawn forces to expected forces.
+
+    Approach:
+      - Compute a match score for every (expected, drawn) pair (allowing reuse).
+      - Sort pairs by score descending and greedily assign unique matches so each expected and drawn is used at most once.
+      - Uses same scoring heuristic and threshold (0.2) as before.
+
+    Returns (matched, used_indices).
+    """
+    # Collect all pairwise scores
+    pairs = []  # (score, task_force_name, drawn_idx)
+    for task_force_name, expected_spec in expected_dict.items():
+        for idx, drawn_f in enumerate(drawn_forces):
+            # Name match?
+            name_match = False
+            if hasattr(drawn_f, 'name') and drawn_f.name:
+                drawn_name = normalize_name(drawn_f.name)
+                task_force_name_norm = normalize_name(task_force_name)
+                if drawn_name == task_force_name_norm:
+                    name_match = True
+                elif drawn_name in {normalize_name(a) for a in expected_spec.aliases}:
+                    name_match = True
+
+            # Direction match?
+            if hasattr(drawn_f, 'vec') and expected_spec.dir_unit:
+                angle_err = angle_error_deg(drawn_f.vec, expected_spec.dir_unit)
+            else:
+                angle_err = 180.0
+
+            dir_match = ramp_down_linear(angle_err, ang_tol, ang_span)
+
+            if name_match:
+                combined = 0.5 + 0.5 * dir_match
+            else:
+                combined = NAME_MISMATCH_PENALTY * dir_match
+
+            pairs.append((combined, task_force_name, idx))
+
+    # Sort pairs by score descending and greedily pick unique matches
+    pairs.sort(key=lambda x: x[0], reverse=True)
+    matched: Dict[str, object] = {}
+    used_drawn = set()
+    used_expected = set()
+    for score, task_name, idx in pairs:
+        if score <= 0.2:
+            continue
+        if task_name in used_expected or idx in used_drawn:
+            continue
+        matched[task_name] = drawn_forces[idx]
+        used_drawn.add(idx)
+        used_expected.add(task_name)
+
+    return matched
+
+def is_name_expected(drawn_f: object, task_force_name: str, expected_spec: object) -> bool:
+    """
+    Return True if drawn_f.name matches canonical task_force_name or any alias (case-insensitive).
+    """
+    if not (hasattr(drawn_f, 'name') and drawn_f.name):
+        return False
+    drawn_name = normalize_name(drawn_f.name)
+    task_force_name_norm = normalize_name(task_force_name)
+    if drawn_name == task_force_name_norm:
+        return True
+    if drawn_name in {normalize_name(a) for a in expected_spec.aliases}:
+        return True
+    return False
+
+"""
+Wrapper for evaluate_task result dict to provide string methods for debugging.
+"""
+
+class EvaluationResult(dict):
+    """
+    A dict subclass that wraps the result from evaluate_task and adds string methods.
+    
+    Usage:
+        result = EvaluationResult(evaluate_task(task_spec, forces))
+        print(result.getScoresString())
+        print(result.getFeedbackString())
+        print(result.getOverlaysString())
+    """
+    
+    def getScoresString(self) -> str:
+        """Return formatted scores as a string."""
+        score = self.get('score', 0.0)
+        coverage = self.get('coverage')
+        eq_score = self.get('equilibrium_score')
+        rel_score = self.get('relations_score')
+        cov_str = f"{coverage:.4f}" if coverage is not None else "N/A"
+        eq_str = f"{eq_score:.4f}" if eq_score is not None else "N/A"
+        rel_str = f"{rel_score:.4f}" if rel_score is not None else "N/A"
+        return (
+            f"SCORES:\n"
+            f"  Final Score:        {score:.4f}\n"
+            f"  Coverage:           {cov_str}\n"
+            f"  Equilibrium Score:  {eq_str}\n"
+            f"  Relations Score:    {rel_str}"
+        )
+    
+    def getFeedbackString(self) -> str:
+        """Return formatted feedback as a string."""
+        feedback = self.get('feedback', [])
+        out = [f"FEEDBACK ({len(feedback)} items):"]
+        if feedback:
+            for i, msg in enumerate(feedback, 1):
+                out.append(f"  {i}. {msg}")
+        else:
+            out.append("  (ingen merknader)")
+        return "\n".join(out)
+    
+    def getOverlaysString(self) -> str:
+        """Return formatted overlays as a string."""
+        overlays = self.get('overlays', {})
+        if not overlays:
+            return "OVERLAYS: (none)"
+        out = ["OVERLAYS:"]
+        for fb_idx in sorted([k for k in overlays.keys() if isinstance(k, int)]):
+            items = overlays[fb_idx]
+            out.append(f"  Feedback {fb_idx}: {len(items)} overlay(s)")
+            for ov in items:
+                out.append(f"    - {ov.get('type')}: {ov}")
+        return "\n".join(out)
+    
+    def getDetailsString(self) -> str:
+        """Return formatted details as a string."""
+        details = self.get('details', {})
+        if not details:
+            return "DETAILS: (none)"
+        out = [f"DETAILS ({len(details)} entries):"]
+        for key, value in details.items():
+            if isinstance(value, dict):
+                out.append(f"  [{key}]")
+                for subkey, subval in value.items():
+                    if isinstance(subval, float):
+                        out.append(f"      {subkey}: {subval:.4f}")
+                    elif isinstance(subval, tuple):
+                        out.append(f"      {subkey}: {subval}")
+                    else:
+                        out.append(f"      {subkey}: {subval}")
+            else:
+                out.append(f"  {key}: {value}")
+        return "\n".join(out)

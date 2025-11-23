@@ -8,7 +8,7 @@ class Plane:
         self.angle_deg = angle_deg
         self.p_vec, self.n_vec = vec.np_axes(angle_deg)
         if self.n_vec[1] > 0:
-            self.n_vec = (-self.n_vec[0], -self.n_vec[1]) # pek "oppover" i skjerm-koord
+            self.n_vec = (self.n_vec[0], self.n_vec[1]) # pek "oppover" i skjerm-koord
 
         self.friction = friction
         self.color = color

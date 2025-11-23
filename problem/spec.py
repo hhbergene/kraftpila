@@ -97,14 +97,23 @@ class AnchorSpec:
 @dataclass
 class Tolerances:
     """Standard toleranser for evaluering. Kan overstyres per Task/Force."""
-    ang_tol_deg: float = 5.0     # vinkel – full score innenfor dette
-    ang_span_deg: float = 20.0   # vinkel – falloff opp til dette
+    ang_tol_deg: float = 1.0     # vinkel – full score innenfor dette
+    ang_span_deg: float = 40.0   # vinkel – falloff opp til dette
     pos_tol: float = 10.0        # posisjon – full score innenfor dette
     pos_span: float = 40.0       # posisjon – falloff opp til dette
     sumF_tol: float = 0.15       # equilibrium – full score hvis |ΣF|/max_force <= denne (relativ feil)
     sumF_span: float = 0.40      # equilibrium – falloff fra sumF_tol til sumF_tol+sumF_span (relativ feil)
     rel_tol: float = 0.15        # relation – full score innenfor dette (relativ feil)
     rel_span: float = 0.30       # relation – falloff opp til dette (relativ feil)
+
+    def getTolerancesString(self) -> str:
+        return (
+            f"TOLERANCES (from task_spec.tol):\n"
+            f"  Direction: ±{self.ang_tol_deg}° (falloff ±{self.ang_span_deg}°)\n"
+            f"  Position:  ±{self.pos_tol}px (falloff ±{self.pos_span}px)\n"
+            f"  Equilibrium: ±{self.sumF_tol} (falloff ±{self.sumF_span})\n"
+            f"  Relations: ±{self.rel_tol} (falloff ±{self.rel_span})"
+        )
 
     @classmethod
     def from_dict(cls, d: dict) -> Tolerances:
@@ -1195,6 +1204,10 @@ class SceneSpec:
 
 @dataclass
 class TaskSpec:
+    def getTolerancesString(self) -> str:
+        if hasattr(self, 'tol') and self.tol:
+            return self.tol.getTolerancesString()
+        return "No tolerances defined."
     """
     Full spesifikasjon for en oppgave.
     - task_id: "1", "2", ...
@@ -1261,6 +1274,7 @@ class TaskSpec:
         }
 
     def alias_map(self) -> Dict[str, str]:
+
         """Map alle alias → canonical name."""
         amap: Dict[str, str] = {}
         for fs in self.expected_forces:

@@ -1,34 +1,41 @@
 # main.py
-import sys, os
+import sys
+import os
+import pygame
+
+# Detect runtime environment
+IS_WEB = 'pyodide' in sys.modules or hasattr(sys, '_base_executable') is False
+SAVE_PATH = "Tegnede krefter.xml" if IS_WEB else os.path.join(os.path.dirname(__file__), "Tegnede krefter.xml")
+
 sys.path.append(os.path.dirname(__file__))
 
-import pygame
-import math
+from engine.snapping import DEBUG_snap_points
 
-# --- App utils / engine ---
 from utils.settings import (
-    WIDTH, HEIGHT, CENTER_X, CENTER_Y, BG_COLOR, GRID_STEP, GRID_COLOR, DRAW_CENTER,
-    HIT_LINE_TH, SNAP_ON_DEFAULT, GRID_ON_DEFAULT, GUIDELINES_ON_DEFAULT, MIN_LEN, get_font,
-    RIGHT_PANEL_X, RIGHT_LABEL_Y
+    WIDTH, HEIGHT, CENTER_X, CENTER_Y, BG_COLOR, GRID_STEP, GRID_COLOR,
+    SNAP_ON_DEFAULT, GRID_ON_DEFAULT, GUIDELINES_ON_DEFAULT, get_font,
+
 )
 from ui.layout import make_panel
-from ui.dialogs import show_feedback, draw_help_dialog, draw_live_feedback
+from ui.dialogs import show_feedback, draw_help_dialog, FeedbackDialogState, HelpDialogState
+from engine.render import draw_live_feedback
 from engine.forces_manager import ForcesManager
 from problem.render import Renderer
 from problem.tasks import make_tasks
 from problem.taskset import TaskSet
 from utils.persist import save_state, load_state
 
-SAVE_PATH = os.path.join(os.path.dirname(__file__), "Tegnede krefter.xml")
-
-# Per-oppgave buffer (i minnet). Verdier: {"forces":[ForceDict], "feedback":[str]}
 problem_store: dict[str, dict] = {}
 
 # Tilstand
-SNAP_ON = SNAP_ON_DEFAULT  # snapping av/på
-GRID_ON = GRID_ON_DEFAULT  # vis/skjul rutenett
-GUIDELINES_ON = GUIDELINES_ON_DEFAULT  # guidelines av/på
+SNAP_ON = SNAP_ON_DEFAULT
+GRID_ON = GRID_ON_DEFAULT
+GUIDELINES_ON = GUIDELINES_ON_DEFAULT
 LIVE_HUD_ON = False
+
+# Dialog state management
+feedback_dialog_state = None
+help_dialog_state = None
 
 # ================ TaskSet/Renderer =================
 pygame.init()
@@ -36,11 +43,10 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Fysikk – Tegn krefter")
 clock = pygame.time.Clock()
 
-tasks = make_tasks()                 # -> list[TaskSpec]
+tasks = make_tasks()
 renderer = Renderer(grid=10)
-taskset = TaskSet(renderer=renderer)  # TaskSet holds current scene/task
+taskset = TaskSet(renderer=renderer)
 
-# Forces manager handles all force/textbox state and rendering
 fm = ForcesManager(taskset=taskset)
 
 # ================ Helpers =================
@@ -86,83 +92,31 @@ def set_grid_xy():
     GRID_ON = True
 
 def check_answer():
+    global feedback_dialog_state
     result = taskset.check_forces(fm.get_forces())
     score = result.get('score', 0.0)
     feedback = result.get('feedback', [])
     overlays = result.get('overlays', {})
+
+    # Wrap result i EvaluationResult for å få debug-metodene
+    #from problem.evaluate import EvaluationResult
+    #result = EvaluationResult(result)
     
-    # [DEBUG] Print all details from evaluate_task with tolerances and weights
-    print("\n" + "="*80)
-    print("[DEBUG] check_answer() - Full Evaluation Result with Tolerances & Weights")
-    print("="*80)
+    # [DEBUG] For full evaluation details, uncomment below:
+    # task = taskset.current
+    # print(task.getTolerancesString())
+    # print(result.getScoresString())
+    # print(result.getFeedbackString())
+    # print(result.getOverlaysString())
+    #print(result.get('details', {}))
     
-    # Get current task's tolerances
-    task = taskset.current  # Use .current property instead of get_current_task()
-    if task and hasattr(task, 'tol'):
-        tol = task.tol
-        print(f"\nTOLERANCES (from task_spec.tol):")
-        print(f"  Direction: ±{tol.ang_tol_deg}° (falloff ±{tol.ang_span_deg}°)")
-        print(f"  Position:  ±{tol.pos_tol}px (falloff ±{tol.pos_span}px)")
-        print(f"  Equilibrium: ±{tol.sumF_tol} (falloff ±{tol.sumF_span})")
-        print(f"  Relations: ±{tol.rel_tol} (falloff ±{tol.rel_span})")
-    
-    # Safe extraction with defaults
-    coverage = result.get('coverage')
-    eq_score = result.get('equilibrium_score')
-    rel_score = result.get('relations_score')
-    
-    print(f"\nSCORES:")
-    print(f"  Final Score:        {score:.4f}")
-    cov_str = f"{coverage:.4f}" if coverage is not None else "N/A"
-    eq_str = f"{eq_score:.4f}" if eq_score is not None else "N/A"
-    rel_str = f"{rel_score:.4f}" if rel_score is not None else "N/A"
-    print(f"  Coverage:           {cov_str}")
-    print(f"  Equilibrium Score:  {eq_str}")
-    print(f"  Relations Score:    {rel_str}")
-    
-    print(f"\nFEEDBACK ({len(feedback)} items):")
-    if feedback:
-        for i, msg in enumerate(feedback, 1):
-            print(f"  {i}. {msg}")
-    else:
-        print(f"  (ingen merknader)")
-    
-    # Print overlays
-    overlays = result.get('overlays', {})
-    if overlays:
-        print(f"\nOVERLAYS:")
-        for fb_idx in sorted([k for k in overlays.keys() if isinstance(k, int)]):
-            items = overlays[fb_idx]
-            print(f"  Feedback {fb_idx}: {len(items)} overlay(s)")
-            for ov in items:
-                print(f"    - {ov.get('type')}: {ov}")
-    
-    details = result.get('details', {})
-    if details:
-        print(f"\nDETAILS ({len(details)} entries):")
-        for key, value in details.items():
-            if isinstance(value, dict):
-                print(f"  [{key}]")
-                for subkey, subval in value.items():
-                    if isinstance(subval, float):
-                        print(f"      {subkey}: {subval:.4f}")
-                    elif isinstance(subval, tuple):
-                        print(f"      {subkey}: {subval}")
-                    else:
-                        print(f"      {subkey}: {subval}")
-            else:
-                print(f"  {key}: {value}")
-    
-    print("="*80 + "\n")
-    
-    # Vis feedback-dialog med poengsum, hinttekster og overlays
-    show_feedback(screen, score, feedback, overlays=overlays)
+    feedback_dialog_state = FeedbackDialogState(score, feedback, overlays)
 
 def show_problem_help():
-    # Vis hjelpedialog for oppgaven
+    global help_dialog_state
     heading = taskset.get_heading()
     lines = taskset.get_short_lines()
-    draw_help_dialog(screen, heading, lines)
+    help_dialog_state = HelpDialogState(heading, lines)
 
 def reset_task():
     """Reset all forces and repopulate initial forces for current task."""
@@ -184,7 +138,7 @@ def to_prev():  # gå til forrige oppgave
     panel.btn_help.set_text(f"Oppgave {pid}")
     restore_from_store_or_empty(pid)
 
-def draw_xy_grid(surf):
+def draw_grid(surf):
     """Globalt XY-rutenett over hele skjermen."""
     if not GRID_ON:
         return
@@ -227,31 +181,23 @@ while running:
     t = pygame.time.get_ticks()
     screen.fill(BG_COLOR)
 
-    # ===== TEGNINGSREKKEFØLGE (bakgrunn til forgrunn) =====
-    
-    # 1. Rutenett (under alt)
-    draw_xy_grid(screen)
-
-    # 2. Scene fra oppgave (plan, geometri, snap_points, title, short_lines)
+    # ===== TEGNINGSREKKEFØLGE =====
+    draw_grid(screen)
     taskset.draw(screen, snap_on=SNAP_ON)
 
-    # 3. Krefter, guidelines, og tekstbokser (delegert til ForcesManager)
     shift_held = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
     mouse_pos = pygame.mouse.get_pos()
     fm.update(t)
     fm.draw(screen, snap_on=SNAP_ON, guidelines_on=GUIDELINES_ON,
             plane_angle=taskset.get_plane_angle(), mouse_pos=mouse_pos, shift_held=shift_held)
 
-    # 4. Knapper i panelet
     panel.draw_buttons(
         screen,
         snap_on=SNAP_ON,
         guidelines_on=GUIDELINES_ON,
-        grid_on=GRID_ON,
-        plane_angle=taskset.get_plane_angle()
+        grid_on=GRID_ON
     )
 
-    # Hent snap_points fra taskset
     snap_points = taskset.get_snap_points()
 
     # Events
@@ -262,20 +208,42 @@ while running:
                 save_state(SAVE_PATH, problem_store)
             finally:
                 running = False
+            continue
 
-        # Panel-knapper
+        # Dialog events block all other input
+        if feedback_dialog_state is not None:
+            feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=e)
+            continue
+
+        if help_dialog_state is not None:
+            help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=e)
+            continue
+
+        # Normal input (only if no dialog active)
         if panel.handle_event(e):
             continue
 
-        # TAB for å hoppe mellom krefter
         if e.type == pygame.KEYDOWN and e.key == pygame.K_TAB:
             reverse = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
             if fm.handle_tab_navigation(reverse=reverse):
                 continue
 
-        # Krefter og tekstbokser (delegert til ForcesManager)
         if fm.handle_event(e, snap_points, angle_deg=taskset.get_plane_angle(), snap_on=SNAP_ON):
             continue
+
+    # Draw dialogs (once per frame, no event)
+    if feedback_dialog_state is not None:
+        feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=None)
+
+    if help_dialog_state is not None:
+        help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=None)
+
+
+    #DEBUG: Draw snap candidates
+    #candidates=DEBUG_snap_points()
+    #"if candidates:
+    #    for px,py in candidates:
+    #        pygame.draw.circle(screen, (55, 55, 55), (px, py), 3)
 
     # Live HUD
     if LIVE_HUD_ON:
@@ -283,11 +251,9 @@ while running:
         score = result.get('score', 0.0)
         feedback = result.get('feedback', [])
         overlays = result.get('overlays', {})
-        # Tegn live poengsum og hinttekster i hjørnet (ikke-modal)
-        # Collect all overlays from all feedback indices for live display
         all_overlays = []
         for key in overlays.keys():
-            if isinstance(key, int):  # Only get integer indices (feedback indices)
+            if isinstance(key, int):
                 all_overlays.extend(overlays[key])
         draw_live_feedback(screen, score, feedback, 
                           top_right=(WIDTH - 16, HEIGHT - 16),

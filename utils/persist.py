@@ -1,8 +1,9 @@
 # utils/persist.py
 from __future__ import annotations
 from typing import Iterable, Dict, List, Tuple, Any
-import os, xml.etree.ElementTree as ET
-from xml.dom import minidom
+import os
+import sys
+import json
 
 from engine.forces import Force
 
@@ -10,18 +11,19 @@ Point = Tuple[float, float]
 ForceDict = Dict[str, Any]
 ProblemBlob = Dict[str, Any]   # {"forces": List[ForceDict], "feedback": List[str]}
 
+# ---------- Runtime detection ----------
+IS_WEB = 'pyodide' in sys.modules
+
+# Initialize storage backend
+_storage = None
+if IS_WEB:
+    try:
+        import js # type: ignore
+        _storage = js.localStorage
+    except ImportError:
+        _storage = None
+
 # ---------- Konvertering ----------
-
-def _pt_to_str(p: Point | None) -> str:
-    if not p: return ""
-    return f"{float(p[0]):.1f},{float(p[1]):.1f}"
-
-def _str_to_pt(s: str) -> Point | None:
-    s = (s or "").strip()
-    if not s: return None
-    x, y = s.split(",")
-    return (float(x), float(y))
-
 def force_to_dict(f: Force) -> ForceDict:
     return {
         "name": f.name or "",
@@ -52,69 +54,43 @@ def forces_to_dicts(forces: Iterable[Force]) -> List[ForceDict]:
 def dicts_to_forces(items: Iterable[ForceDict]) -> List[Force]:
     return [dict_to_force(d) for d in items]
 
-# ---------- Fil I/O (XML) ----------
+# ---------- Fil I/O (JSON) ----------
 
-def save_state(filepath: str, problems: Dict[str, ProblemBlob]) -> None:
+def save_state(filepath: str, data: Dict[str, ProblemBlob]) -> None:
     """
-    problems: { problem_id: {"forces":[ForceDict,...], "feedback":[str,...]} }
+    Save state to file (standalone) or localStorage (web).
+    data: { problem_id: {"forces":[ForceDict,...], "feedback":[str,...]} }
     """
-    root = ET.Element("tegnedeKrefter")
-    for pid, blob in problems.items():
-        e_prob = ET.SubElement(root, "oppgave", {"id": str(pid)})
-        # Krefter
-        e_forces = ET.SubElement(e_prob, "krefter")
-        for fd in blob.get("forces", []):
-            e_f = ET.SubElement(e_forces, "kraft", {
-                "editable": str(fd.get("editable", True)).lower(),
-                "moveable": str(fd.get("moveable", True)).lower(),
-            })
-            ET.SubElement(e_f, "navn").text = fd.get("name", "")
-            ET.SubElement(e_f, "anchor").text = _pt_to_str(fd.get("anchor"))
-            ET.SubElement(e_f, "arrowTip").text = _pt_to_str(fd.get("arrowTip"))
-            ET.SubElement(e_f, "arrowBase").text = _pt_to_str(fd.get("arrowBase"))
-        # Feedback (lagres, men ignoreres ved load)
-        #e_fb = ET.SubElement(e_prob, "feedback")
-        #for line in blob.get("feedback", []):
-        #    ET.SubElement(e_fb, "line").text = line
+    try:
+        json_str = json.dumps(data)
+        
+        if IS_WEB and _storage:
+            # Web version: use localStorage
+            _storage.setItem(filepath, json_str)
+        else:
+            # Standalone version: use file
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(json_str)
+    except Exception as e:
+        print(f"Error saving state: {e}")
 
-    # pen prettify
-    xml_bytes = ET.tostring(root, encoding="utf-8")
-    xml_str = minidom.parseString(xml_bytes).toprettyxml(indent="  ", encoding="utf-8")
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "wb") as f:
-        f.write(xml_str)
-
-def load_state(filepath: str) -> Dict[str, ProblemBlob]:
-    if not os.path.exists(filepath):
-        return {}
-    tree = ET.parse(filepath)
-    root = tree.getroot()
-    out: Dict[str, ProblemBlob] = {}
-
-    for e_prob in root.findall("oppgave"):
-        pid = e_prob.attrib.get("id", "").strip() or "1"
-        # krefter
-        found: List[ForceDict] = []
-        e_forces = e_prob.find("krefter")
-        if e_forces is not None:
-            for e_f in e_forces.findall("kraft"):
-                fd: ForceDict = {
-                    "name": (e_f.findtext("navn") or "").strip(),
-                    "editable": e_f.attrib.get("editable", "true").lower() != "false",
-                    "moveable": e_f.attrib.get("moveable", "true").lower() != "false",
-                }
-                # Nye navn, med fallback til gamle for bakover-kompatibilitet
-                fd["anchor"] = _str_to_pt(e_f.findtext("anchor") or "") or _str_to_pt(e_f.findtext("A") or "")
-                fd["arrowTip"] = _str_to_pt(e_f.findtext("arrowTip") or "") or _str_to_pt(e_f.findtext("B") or "")
-                fd["arrowBase"] = _str_to_pt(e_f.findtext("arrowBase") or "") or _str_to_pt(e_f.findtext("C") or "")
-                found.append(fd)
-
-        # feedback (IGNORERES ved lasting, men leses hvis du vil vise historikk andre steder)
-        #fb_lines: List[str] = []
-        #e_fb = e_prob.find("feedback")
-        #if e_fb is not None:
-        #    for e_line in e_fb.findall("line"):
-        #        fb_lines.append(e_line.text or "")
-
-        out[pid] = {"forces": found}#, "feedback": fb_lines}
-    return out
+def load_state(filepath: str) -> Dict[str, ProblemBlob] | None:
+    """
+    Load state from file (standalone) or localStorage (web).
+    Returns dict or None if not found.
+    """
+    try:
+        if IS_WEB and _storage:
+            # Web version: load from localStorage
+            data = _storage.getItem(filepath)
+            return json.loads(data) if data else None
+        else:
+            # Standalone version: load from file
+            if os.path.exists(filepath):
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return None
+    except Exception as e:
+        print(f"Error loading state: {e}")
+        return None

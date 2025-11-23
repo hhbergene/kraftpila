@@ -5,32 +5,40 @@ import warnings
 
 import utils.geometry as vec
 from utils.settings import (
-    HANDLE_R, MIN_LEN, A_IDLE_R, HIT_LINE_TH, FORCE_COLOR, GRID_STEP, TEXT_COLOR,
-    FORCE_DRAW_LIMIT_LEFT, FORCE_DRAW_LIMIT_TOP, FORCE_DRAW_LIMIT_RIGHT, FORCE_DRAW_LIMIT_BOTTOM,
-    GUIDELINES_COLOR, GUIDELINES_WIDTH, GUIDELINES_DASH_SIZE,
+    MIN_LEN, HANDLE_RADIUS, FORCE_COLOR,ACTIVE_FORCE_COLOR, ACTIVE_FORCE_HANDLE_COLOR, HIGHLIGHT_FORCE_COLOR, GRID_STEP, TEXT_COLOR,
+    GUIDELINES_COLOR, GUIDELINES_WIDTH, GUIDELINES_DASH_SIZE, CENTER_X, CENTER_Y, 
     is_within_force_draw_limits, clamp_to_force_draw_limits
 )
 from utils.settings import get_font
-from engine.snapping import snap_point, snap_to_block_points
+from engine.snapping import snap_point
 from engine.render import draw_dotted_line
-#from utils.geometry import add, vec.sub, dist, point_to_segment_distance, norm, normalize, perp, proj_point_on_line, dot
 from engine.text_render import render_text
 
-def _name_norm(s: str) -> str:
-    """Normaliser navn for matching: trim, lower, fjern ' ', '_' og '^'."""
+def normalize_name(s: str) -> str:
+    """
+    Normaliser navn for matching: trim, lower, fjern mellomrom, underscore, caret og braces.
+    
+    Brukt for:
+    - Kraftnavn-matching (case-insensitive, ignorer subscript/superscript syntax)
+    - Alias-matching
+    
+    Eksempler:
+      "G_x" -> "gx"
+      "Force N" -> "forcen"
+      "F^{2}" -> "f2"
+    """
     if not s:
         return ""
     s = s.strip().lower()
-    remove = {" ", "_", "^"}
+    remove = {" ", "_", "^", "{", "}"}
     return "".join(ch for ch in s if ch not in remove)
-
 
 class Force:
     """
     En kraft definert av:
       - anchor: angrepspunkt (hvor kraften virker, vises liten sirkel)
       - arrowBase: basispunkt for pila (usynlig, men referansepunkt)
-      - arrowTip: endepunkt på pila (hvor pila peker, vises som håndtak i redigering)
+      - arrowTip: endepunkt på pila (hvor pila peker, vises som redigeringspunkt i redigering)
 
     Tilstander:
       - drawing: vi tegner ny kraft (anchor/arrowBase finnes, arrowTip følger mus)
@@ -44,15 +52,16 @@ class Force:
         self.arrowBase = None
 
         # Interaksjon
-        self.drawing = False
+        self.drawing = False        # True om vi er i gang med å tegne ny kraft
         self.dragging = None        # None, "anchor", "arrowTip", "body"
+        self.hovering = None        # None, "anchor", "arrowTip", "body" (mus nær, ingen dra)
         self.drag_offset = (0, 0)   # brukes for "body"
 
         # Kraft (arrowBase -> arrowTip)
         self.force_dir = (1.0, 0.0)
         self.force_len = 0.0
 
-        # Metadata (kobles gjerne til tekstboks)
+        # Navn på kraft (kobles til tekstboks)
         self.name = ""
 
         # Redigerbarhet
@@ -61,33 +70,81 @@ class Force:
 
     # ------------------ Tegning ------------------
     def draw(self, surf, active=False):
-        """Tegn hjelpe-linjen anchor–arrowBase, kraftpilen arrowBase→arrowTip, håndtak – og navn ved pila."""
+        """Tegn hjelpe-linjen anchor-arrowBase, kraftpilen arrowBase→arrowTip, redigeringspunkt - og navn ved pila."""
         # 1) Linje + pil
         if self.anchor and self.arrowTip and self.arrowBase:
-            # hjelpelinje anchor–arrowBase
-            pygame.draw.line(surf, FORCE_COLOR, self.anchor, self.arrowBase, 2)
+            # hjelpelinje anchor-arrowBase
+            force_color = ACTIVE_FORCE_COLOR if active else FORCE_COLOR
+            pygame.draw.line(surf, force_color, self.anchor, self.arrowBase, width=2)
+
+            # Beregn pilspiss-geometri og
+            # forkort body slik at den ikke stikker ut på enden
+            dx, dy = self.arrowTip[0] - self.arrowBase[0], self.arrowTip[1] - self.arrowBase[1]
+            ang = math.atan2(dy, dx)
+            ARROW_HEAD_LENGTH = 12
+            a = math.pi / 6
+            arrow_head_left  = (self.arrowTip[0] - ARROW_HEAD_LENGTH * math.cos(ang - a), self.arrowTip[1] - ARROW_HEAD_LENGTH * math.sin(ang - a))
+            arrow_head_right = (self.arrowTip[0] - ARROW_HEAD_LENGTH * math.cos(ang + a), self.arrowTip[1] - ARROW_HEAD_LENGTH * math.sin(ang + a))
+            arrow_length = math.hypot(dx, dy)
+            margin = ARROW_HEAD_LENGTH
+            t_end = 1.0 - (margin / arrow_length)
+            
+            body_start = self.arrowBase
+            body_end = (self.arrowBase[0] + dx * t_end, self.arrowBase[1] + dy * t_end)
+
 
             # pil arrowBase→arrowTip
-            pygame.draw.line(surf, FORCE_COLOR, self.arrowBase, self.arrowTip, 4)
-            dx, dy = self.arrowTip[0] - self.arrowBase[0], self.arrowTip[1] - self.arrowBase[1]
-            if abs(dx) > 1e-6 or abs(dy) > 1e-6:
-                ang = math.atan2(dy, dx)
-                L = 12
-                a = math.pi / 6
-                left  = (self.arrowTip[0] - L * math.cos(ang - a), self.arrowTip[1] - L * math.sin(ang - a))
-                right = (self.arrowTip[0] - L * math.cos(ang + a), self.arrowTip[1] - L * math.sin(ang + a))
-                pygame.draw.polygon(surf, FORCE_COLOR, [self.arrowTip, left, right])
+            # Bestem farge og bredde basert på state
+            if self.dragging == "body" or self.hovering == "body" or self.hovering == "arrowTip" or self.hovering == "anchor":
+                # Dra body: vis som tofarget pil (highlight bakgrunn + aktiv forgrunn)
+                arrow_color_bg = HIGHLIGHT_FORCE_COLOR
+                pil_width_bg = 6
+                arrow_color_fg = ACTIVE_FORCE_COLOR
+                pil_width_fg = 4
+                
+                pygame.draw.line(surf, arrow_color_bg, body_start, body_end, pil_width_bg)
+                pygame.draw.line(surf, arrow_color_fg, body_start, body_end, pil_width_fg)
+                pygame.draw.polygon(surf, arrow_color_fg, [self.arrowTip, arrow_head_left, arrow_head_right])
+            elif self.dragging == "arrowTip":
+                arrow_color = HIGHLIGHT_FORCE_COLOR
+                pil_width = 4
+                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
+                pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
+            elif active and self.dragging == "anchor":
+                arrow_color = HIGHLIGHT_FORCE_COLOR
+                pil_width = 4
+                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
+                pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
+            else:
+                arrow_color = ACTIVE_FORCE_COLOR if active else FORCE_COLOR
+                pil_width = 4
+                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
+                pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
 
-        # 2) Punkter (anchor/arrowTip-håndtak)
-        # anchor-håndtak: vis hvis editable og kraft er active, eller hvis editable uansett
-        if self.editable and self.anchor and active:
-            color = (0, 0, 0) if active else FORCE_COLOR
-            r = A_IDLE_R + 1 if active else A_IDLE_R
-            pygame.draw.circle(surf, color, self.anchor, r)
 
-        # arrowTip-håndtak: vis hvis editable og kraft er active
+        # 2) Punkter (anchor/arrowTip-redigeringspunkt)
+        # anchor-redigeringspunkt: vis hvis editable og kraft er active, eller hvis editable uansett
+        if self.editable and self.anchor:
+            # Highlight anchor if dragging it
+            if self.dragging == "anchor" or self.hovering == "anchor":
+                handle_color = HIGHLIGHT_FORCE_COLOR  # Red for dragging anchor
+                handle_radius = HANDLE_RADIUS
+                pygame.draw.circle(surf, handle_color, self.anchor, handle_radius)
+            elif active:
+                handle_color = ACTIVE_FORCE_HANDLE_COLOR 
+                handle_radius = HANDLE_RADIUS
+                pygame.draw.circle(surf, handle_color, self.anchor, handle_radius)
+
+        # arrowTip-redigeringspunkt: vis hvis editable og kraft er active
         if self.editable and active and self.arrowTip:
-            pygame.draw.circle(surf, (0, 0, 0), self.arrowTip, HANDLE_R)
+            # Highlight arrowTip if dragging it
+            if self.dragging == "arrowTip" or self.hovering == "arrowTip":
+                handle_color = HIGHLIGHT_FORCE_COLOR  # Orange for dragging arrowTip
+                handle_radius = HANDLE_RADIUS
+            else:
+                handle_color = ACTIVE_FORCE_HANDLE_COLOR
+                handle_radius = HANDLE_RADIUS
+            pygame.draw.circle(surf, handle_color, self.arrowTip, handle_radius)
 
         # 3) Navn ved pila – midt på linja, forskjøvet til "anchor-siden"
         if self.name and self.anchor and self.arrowTip and self.arrowBase:
@@ -207,19 +264,19 @@ class Force:
 
     def has_name(self, aliases: set[str]) -> bool:
         """Robust alias-sjekk: ignorer mellomrom/underscore/caret, case-insensitiv."""
-        nm = _name_norm(getattr(self, "name", ""))
-        return nm in {_name_norm(a) for a in aliases}
+        nm = normalize_name(getattr(self, "name", ""))
+        return nm in {normalize_name(a) for a in aliases}
     
     # ------------------ Interaksjon ------------------
     def handle_mouse_down(self, pos, snap_pts,
-                        angle_deg=None, GRID_STEP=None, SNAP_ON=True):
+                        angle_deg=0.0, step=GRID_STEP, SNAP_ON=True):
         """
-        Starter ny kraft ved første klikk (setter anchor og arrowBase), ellers velger håndtak:
+        Starter ny kraft ved første klikk-og-dra (setter anchor og arrowBase), ellers velger redigeringspunkt:
         - Treffer anchor  -> dra anchor  (hele kraften parallellforskyves)
         - Treffer arrowTip  -> dra arrowTip  (endre retning/lengde)
         - Treffer linje arrowBase–arrowTip -> dra "body" (parallellforskyvning)
         Merk:
-        - Når ny kraft startes snappes anchor primært til klosspunkter, ellers til grid.
+        - Når ny kraft startes snappes anchor til block_points først, deretter grid.
         - arrowTip settes ikke her; den følger mus i handle_motion (med snapping).
         - Tegning og anchor-redigering er begrenset til force drawing area.
         - arrowTip og arrowBase kan strekke seg UTENFOR boundaries (ingen grensebegrensning).
@@ -233,51 +290,42 @@ class Force:
         if not self.anchor:
             # Må være redigerbar for å kunne starte ny kraft
             if not self.editable:
+                print("WARNING: Force not editable; cannot start new force.")
                 return
             
             # Check if click is within drawing boundaries
             if not is_within_force_draw_limits(pos):
                 return
 
-            # Prøv å snappe til definerte klosspunkter (hjørner, kantmidter, senter)
-            snapped_anchor = snap_to_block_points(pos, snap_pts, snap_on=SNAP_ON)
-            if not snapped_anchor:
-                # Fallback: snapp til valgt rutenett (origin = pos midlertidig)
-                origin = pos
-                snapped_anchor = snap_point(
-                    pos, angle_deg or 0.0, GRID_STEP or 20, origin,
-                    mode="xy", snap_on=SNAP_ON
-                )
+            # Snappe anchor til block_points eller grid
+            origin = snap_pts[0] if snap_pts else (CENTER_X, CENTER_Y)  
+            snapped_anchor = snap_point(
+                pos, angle_deg, step, origin,
+                snap_on=SNAP_ON,
+                snap_points=snap_pts,
+            )
 
             # Sett angrepspunkt og initier tegning
-            self.anchor = snapped_anchor if snapped_anchor else pos
+            self.anchor = snapped_anchor
             self.arrowBase = self.anchor
             self.drawing = True               
             return
+        # End of 1) Start ny kraft
 
-        # 2) Velg håndtak for redigering/forskyvning på eksisterende kraft
-        #    (rekkefølge: anchor, arrowTip, deretter linje arrowBase–arrowTip)
-        #    BARE anchor-drag sjekkes mot grenser; arrowTip og body kan gå utenfor
-        if self.editable and self.anchor and  vec.distance(pos, self.anchor) <= HANDLE_R + 3:
-            if is_within_force_draw_limits(pos):
-                self.dragging = "anchor"
-            return
-
-        # arrowTip og body drag har INGEN grensebegrensning
-        if self.editable and self.arrowTip and  vec.distance(pos, self.arrowTip) <= HANDLE_R + 3:
-            self.dragging = "arrowTip"
-            return
-
-        # "body"-drag kan gå utenfor grenser
-        if self.moveable and self.anchor and self.arrowTip and self.arrowBase:
-            if vec.dist_point_to_segment(pos, self.arrowBase, self.arrowTip) <= HIT_LINE_TH:
-                self.dragging = "body"
-                # Offset for å holde "grep" på pila under parallellforskyvning
+        # 2) Velg redigeringspunkt for redigering/forskyvning på eksisterende kraft
+        #    Velg det punktet som har MINSTE avstand (innenfor hit-radius)
+    
+        if self.hovering:            
+            self.dragging = self.hovering
+            
+            # Hvis "body"-drag, sett drag_offset for å holde "grep" på pila
+            if self.dragging == "body":
                 self.drag_offset = vec.sub(self.arrowBase, pos)
-                return
+            
+            return
 
-        # Ikke truffet håndtak – ingen umiddelbar endring her (motion kan håndtere tegning)
-
+        # Ikke truffet redigeringspunkt – ingen umiddelbar endring (motion kan håndtere tegning)
+        return
 
     def handle_motion(self, pos, rel, snap_pts,
                     origin_scene=None, angle_deg=0.0, GRID_STEP=20, SNAP_ON=True):
@@ -295,42 +343,35 @@ class Force:
         """
 
         if not (self.drawing or self.dragging):
-            return
+            return False
 
         # Hvis kraft ikke er redigerbar/bevegelig, ignorer bevegelse
         if not self.editable and not self.moveable:
-            return
+            return False
 
-        # Lokal hjelper for snapping - BARE clamper anchor
-        def snap(p):
-            return snap_point(
-                p,
-                angle_deg, GRID_STEP,
-                (0, 0),  # bruker globalt origo
-                mode="xy",
-                snap_on=SNAP_ON
-            )
-        
-        # Lokal hjelper for snapping med clamping (kun for anchor)
-        def snap_clamped(p):
-            snapped = snap(p)
-            # Clamp ONLY anchor to drawing limits
-            return clamp_to_force_draw_limits(snapped)
+        origin = (CENTER_X, CENTER_Y)
 
         # ---- Tegnemodus: arrowTip følger mus (retning fra arrowBase mot musposisjon) ----
         if self.drawing and self.arrowBase:
             # arrowTip har INGEN grensebegrensning - kan strekke seg utenfor
-            self.arrowTip = snap(pos)
+            self.arrowTip = snap_point(
+                pos, angle_deg, GRID_STEP, self.arrowBase,
+                snap_on=SNAP_ON
+            )
             # Oppdater midlertidig retning/lengde for visning (hvis brukt i UI)
             dx, dy = self.arrowTip[0] - self.arrowBase[0], self.arrowTip[1] - self.arrowBase[1]
             L = math.hypot(dx, dy)
             self.force_dir = (dx / L, dy / L) if L > 1e-6 else (1.0, 0.0)
             self.force_len = L
-            return
+            return True
 
         # ---- Dra anchor: parallellforskyv hele kraften (anchor begrenset til tegningsområde) ----
         if self.dragging == "anchor" and self.anchor:
-            snapped_anchor = snap_clamped(pos)  # Clamp ONLY anchor
+            origin = snap_pts[0] if snap_pts else (CENTER_X, CENTER_Y)  
+            snapped_anchor = clamp_to_force_draw_limits(
+                snap_point(pos, angle_deg, GRID_STEP, origin,
+                          snap_on=SNAP_ON, snap_points=snap_pts)
+            )
             delta = vec.sub(snapped_anchor, self.anchor)   # delta ETTER snapping
             self.anchor = snapped_anchor
             if self.arrowBase:
@@ -338,26 +379,32 @@ class Force:
             if self.arrowTip:
                 self.arrowTip =   vec.add(self.arrowTip, delta)
             self.update_direction_and_length()
-            return
+            return True
 
         # ---- Dra arrowTip: endre kun retning/lengde (INGEN grensebegrensning) ----
         if self.dragging == "arrowTip" and self.arrowBase:
-            self.arrowTip = snap(pos)  # NO clamping for arrowTip
+            self.arrowTip = snap_point(
+                pos, angle_deg, GRID_STEP, self.arrowBase, snap_on=SNAP_ON
+            )
             self.update_direction_and_length()
-            return
+            return True
 
         # ---- Dra "body": parallellforskyvning (arrowTip kan gå utenfor grenser) ----
         if self.dragging == "body" and self.arrowBase:
             # Hold grep via drag_offset; snapp arrowBase; flytt arrowTip med samme delta
-            raw_arrowBase =   vec.add(pos, self.drag_offset)
-            arrowBase_new = snap(raw_arrowBase)  # NO clamping for body drag
+            raw_arrowBase = vec.add(pos, self.drag_offset)
+            f_angle=self.angle_to((0,1)) # 0 Hvis pilen peker rett nedover
+            arrowBase_new = snap_point(
+                raw_arrowBase, f_angle, GRID_STEP, self.anchor, snap_on=SNAP_ON
+            )
             delta = vec.sub(arrowBase_new, self.arrowBase)       # delta ETTER snapping
             self.arrowBase = arrowBase_new
             if self.arrowTip:
                 self.arrowTip =   vec.add(self.arrowTip, delta)
             # anchor (angrepspunktet) skal ikke flyttes ved "body"-drag
             self.update_direction_and_length()
-            return
+            return True
+        return False
 
 
     def handle_mouse_up(self, pos):

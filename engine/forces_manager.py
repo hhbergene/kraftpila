@@ -7,7 +7,7 @@ Handles state, rendering, and event processing for forces in the application.
 import pygame
 import utils.geometry as vec
 from utils.settings import (
-    HIT_LINE_TH, GRID_STEP, MIN_LEN,
+    PICKING_DISTANCE_THRESHOLD,HIT_LINE_TH, GRID_STEP, MIN_LEN,
     RIGHT_PANEL_X, RIGHT_PANEL_W, TEXTBOX_FIRST_Y, TEXTBOX_GAP, TEXTBOX_H, TEXTBOX_FONT_SIZE,
     get_font, RIGHT_LABEL_FONT_SIZE, RIGHT_LABEL_Y
 )
@@ -67,9 +67,8 @@ class ForcesManager:
         f.update_direction_and_length()
         
         self.forces.append(f)
-        # Use len(self.forces) - 1 to get the index of the newly added force
         y = TEXTBOX_FIRST_Y + TEXTBOX_GAP * (len(self.forces) - 1)
-        tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "")
+        tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "", editable=f.editable)
         self.boxes.append(tb)
         
         return f
@@ -105,7 +104,7 @@ class ForcesManager:
         
         # Create textbox at the same position
         y = TEXTBOX_FIRST_Y + TEXTBOX_GAP * insert_pos
-        tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "")
+        tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "", editable=f.editable)
         self.boxes.insert(insert_pos, tb)
         
         self.num_initial_forces += 1
@@ -126,23 +125,33 @@ class ForcesManager:
     
     def add_empty_force_if_needed(self):
         """Ensure we always have exactly one empty textbox at the end."""
+        # If there are no forces, add one
         if not self.forces:
             f = Force()
             self.forces.append(f)
-            self.boxes.append(TextBox(RIGHT_PANEL_X, TEXTBOX_FIRST_Y, RIGHT_PANEL_W, TEXTBOX_H))
+            tb = TextBox(RIGHT_PANEL_X, TEXTBOX_FIRST_Y, RIGHT_PANEL_W, TEXTBOX_H, editable=f.editable)
+            self.boxes.append(tb)
             return
 
         last_f = self.forces[-1]
-        used = (last_f.anchor is not None) or (last_f.arrowTip is not None) or (last_f.arrowBase is not None)
-        if used:
-            y = TEXTBOX_FIRST_Y + TEXTBOX_GAP * len(self.forces)
-            f = Force()
-            self.forces.append(f)
-            self.boxes.append(TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H))
-    
+        # Force is "used" if it has geometry or name
+        # (A force with only a name but no geometry is still being edited)
+        has_geometry = (last_f.anchor is not None) or (last_f.arrowTip is not None) or (last_f.arrowBase is not None)
+        has_name = last_f.name != "" 
+        used = has_geometry or has_name   # If either geometry or name is set, consider it used
+        
+        if not used:
+            return  # Don't create new force if current one is incomplete
+        
+        # Only create new force if the last one is complete
+        y = TEXTBOX_FIRST_Y + TEXTBOX_GAP * len(self.forces)
+        f = Force()
+        self.forces.append(f)
+        tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, editable=f.editable)
+        self.boxes.append(tb)
+
     def select_active(self, index: int):
         """Set the active force/textbox by index."""
-        self.add_empty_force_if_needed()
         self.active_index = max(0, min(index, len(self.forces) - 1))
         for j, tb in enumerate(self.boxes):
             tb.active = (j == self.active_index)
@@ -164,8 +173,8 @@ class ForcesManager:
         
         # Add an empty force/textbox for user drawing
         self.add_empty_force_if_needed()
-        self.active_index = 0
-        if self.boxes:
+        self.active_index = self._find_last_editable_index()
+        if self.boxes and self.active_index >= 0:
             self.boxes[self.active_index].active = True
     
     def get_forces(self) -> list[Force]:
@@ -198,11 +207,11 @@ class ForcesManager:
         for i, f in enumerate(loaded):
             self.forces.append(f)
             y = TEXTBOX_FIRST_Y + TEXTBOX_GAP * i
-            tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "")
+            tb = TextBox(RIGHT_PANEL_X, y, RIGHT_PANEL_W, TEXTBOX_H, text=f.name or "", editable=f.editable)
             self.boxes.append(tb)
         
         self.add_empty_force_if_needed()
-        self.active_index = 0
+        self.active_index = self._find_last_editable_index()
         for j, tb in enumerate(self.boxes):
             tb.active = (j == self.active_index)
     
@@ -254,7 +263,74 @@ class ForcesManager:
         """Update textbox cursors and animation state."""
         for tb in self.boxes:
             tb.update(time_ms)
-    
+
+    def update_hovering(self, pos, active):
+        candidates = []  # Liste av (distance, drag_type, requirement_met)
+
+        for force in self.forces:
+            # Kandidat 1: anchor (MÅ være innenfor tegningsområde)
+            if force.anchor:
+                dist = vec.distance(pos, force.anchor)
+                if dist <= PICKING_DISTANCE_THRESHOLD:
+                    candidates.append((dist,force,"anchor"))
+            
+            # Kandidat 2: arrowTip 
+            if force.moveable and force.arrowTip:
+                dist = vec.distance(pos, force.arrowTip)
+                if dist <= PICKING_DISTANCE_THRESHOLD:
+                    candidates.append((dist,force,"arrowTip"))
+            
+            # Kandidat 3: body-linje 
+            if  force.anchor and force.arrowTip and force.arrowBase:
+                dist = vec.dist_point_to_segment(pos, force.arrowBase, force.arrowTip)
+                if dist <= HIT_LINE_TH:
+                    da=vec.distance(pos, force.arrowTip)
+                    db=vec.distance(pos, force.arrowBase)
+                    if da*3<db and da<PICKING_DISTANCE_THRESHOLD*2: # Nærmere arrowTip
+                        candidates.append((dist,force,"arrowTip"))
+                    else:
+                        candidates.append((dist,force,"body"))
+
+            # Kandidat 4: anchor-linje
+            if  force.anchor and force.arrowTip and force.arrowBase:
+                dist = vec.dist_point_to_segment(pos, force.anchor, force.arrowBase)
+                if dist <= HIT_LINE_TH:
+                    if force.moveable:
+                        da=vec.distance(pos, force.anchor)
+                        db=vec.distance(pos, force.arrowBase)
+                        if da<db:
+                            candidates.append((dist,force,"anchor"))
+                        else:
+                            candidates.append((dist,force,"body"))
+                    else: # Can only move body
+                        candidates.append((dist,force,"body"))
+
+
+        # Reset hovering for all forces
+        for force in self.forces:
+            force.hovering = None
+        
+        # Velg beste kandidat: prioriter active force, så sorter på avstand
+        best = None
+        
+        # Sorter på avstand først
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+
+        # Sjekk om active force er i sortert liste
+        for dist, force, drag_type in candidates:
+            if force == active:
+                best = (dist, force, drag_type)
+                break
+        
+        # Hvis ikke: velg første (minst avstand)
+        if not best and candidates:
+            best = candidates[0]
+                    
+        # Sett hovering på beste kandidaten
+        if best:
+            _, best_force, best_part = best
+            best_force.hovering = best_part                    
     # ============ Event Handling ============
     
     def handle_event(self, e, snap_points, angle_deg: float = 0.0, 
@@ -275,7 +351,6 @@ class ForcesManager:
         if e.type == pygame.MOUSEBUTTONDOWN:
             for i, tb in enumerate(self.boxes):
                 if tb.can_delete and tb._del_rect.collidepoint(e.pos):
-                    tb.request_delete = True
                     self._delete_force(i)
                     return True
         
@@ -292,11 +367,11 @@ class ForcesManager:
         if textbox_handled:
             return True
         
-        # Handle force interaction events (only if no textbox is active)
+        # Handle force interaction events (only if textbox didn't consume)
         if self.forces:
+            # Ensure textbox is active
             active = self.forces[self.active_index]
             
-            # Ensure textbox is active for force interaction
             if e.type == pygame.MOUSEBUTTONDOWN:
                 self.boxes[self.active_index].active = True
                 
@@ -304,24 +379,30 @@ class ForcesManager:
                 if active.drawing:
                     active.handle_mouse_down(
                         e.pos, snap_points, angle_deg=angle_deg,
-                        GRID_STEP=GRID_STEP, SNAP_ON=snap_on
+                        step=GRID_STEP, SNAP_ON=snap_on
                     )
                     return True
                 
-                # Otherwise, pick which force was clicked
-                picked = self._pick_force(e.pos, snap_points)
+                # Pick force based on hovering state
+                # Check if active force was hovered
+                picked = self.active_index
+                
+                if not active.hovering:
+                    # Active force wasn't hovered, check other forces
+                    for i, f in enumerate(self.forces):
+                        if i != self.active_index and f.hovering:
+                            picked = i
+                            break
+                
                 if picked != self.active_index:
                     self.select_active(picked)
                     active = self.forces[self.active_index]
-                
-                # Ensure textbox is active
-                self.boxes[self.active_index].active = True
                 
                 # Start drawing/interacting
                 pre_draw = active.drawing
                 active.handle_mouse_down(
                     e.pos, snap_points, angle_deg=angle_deg,
-                    GRID_STEP=GRID_STEP, SNAP_ON=snap_on
+                    step=GRID_STEP, SNAP_ON=snap_on
                 )
                 if not pre_draw and active.drawing:
                     active.handle_motion(
@@ -331,6 +412,7 @@ class ForcesManager:
                 return True
             
             elif e.type == pygame.MOUSEMOTION:
+                self.update_hovering(e.pos, active)
                 active.handle_motion(
                     e.pos, e.rel, snap_points,
                     angle_deg=angle_deg, GRID_STEP=GRID_STEP, SNAP_ON=snap_on
@@ -338,8 +420,13 @@ class ForcesManager:
                 return True
             
             elif e.type == pygame.MOUSEBUTTONUP:
+                was_drawing = active.drawing
                 active.handle_mouse_up(e.pos)
-                self.add_empty_force_if_needed()
+
+                # Only add empty force if user actually completed a drawing
+                # (if drawing was True before, it means user finished intentionally)
+                if was_drawing and not active.drawing:
+                    self.add_empty_force_if_needed()
                 return True
         
         return False
@@ -387,8 +474,6 @@ class ForcesManager:
             if self._hit_force(f, pos):
                 return i
         
-        # Nothing hit - create new empty force if needed
-        self.add_empty_force_if_needed()
         return len(self.forces) - 1
     
     def _hit_force(self, f: Force, pos) -> bool:
@@ -415,6 +500,24 @@ class ForcesManager:
             self.add_empty_force_if_needed()
             
             # Update active index
-            self.active_index = max(0, min(self.active_index, len(self.forces) - 1))
+            self.active_index = self._find_last_editable_index()
+            if self.boxes and self.active_index >= 0:
+                self.boxes[self.active_index].active = True
+#                self.active_index = max(0, min(self.active_index, len(self.forces) - 1))
             for j, b in enumerate(self.boxes):
                 b.active = (j == self.active_index)
+    
+    def _find_last_editable_index(self) -> int:
+        """
+        Find index of first editable force.
+        If none are editable, return index of last force (empty slot).
+        """
+        # Look for last editable force
+        for i in range(len(self.forces) - 1, -1, -1):
+            if self.forces[i].editable:
+                return i
+        
+        # No editable forces found; return last force (typically empty user slot)
+        if self.forces:
+            return len(self.forces) - 1
+        return 0

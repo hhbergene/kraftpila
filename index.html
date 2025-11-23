@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fysikk – Tegn krefter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #f0f0f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            text-align: center;
+            min-width: 300px;
+        }
+        #loading p {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 16px;
+        }
+        #loading progress {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+        }
+        #error {
+            color: #d32f2f;
+            margin-top: 20px;
+            font-size: 14px;
+            max-height: 200px;
+            overflow: auto;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <p>Laster applikasjonen...</p>
+        <progress id="progress" max="100" value="0"></progress>
+        <div id="error"></div>
+    </div>
+
+    <!-- Pyodide -->
+    <script async src="https://cdn.jsdelivr.net/pyodide/v0.24.0/full/pyodide.js"></script>
+    
+    <script>
+        let pyodide;
+        
+        async function initPyodide() {
+            try {
+                pyodide = await loadPyodide({
+                    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.0/full/"
+                });
+                
+                // Installer pygame
+                document.querySelector('#loading p').textContent = 'Installerer pygame...';
+                await pyodide.loadPackage("pygame");
+                
+                // Last Python-kode
+                document.querySelector('#loading p').textContent = 'Laster applikasjonen...';
+                const response = await fetch('./main.py');
+                if (!response.ok) throw new Error('Kunne ikke laste main.py');
+                
+                const code = await response.text();
+                
+                document.getElementById('loading').remove();
+                
+                // Kjør applikasjonen
+                await pyodide.runPythonAsync(code);
+            } catch (err) {
+                console.error('Feil:', err);
+                const errorDiv = document.getElementById('error');
+                errorDiv.innerHTML = `<strong>Feil:</strong><br>${err.message}`;
+            }
+        }
+        
+        initPyodide();
+    </script>
+</body>
+</html>

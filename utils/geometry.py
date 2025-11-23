@@ -69,8 +69,8 @@ def angle_between_deg(a: Vec2d, b: Vec2d, eps: float = 1e-9) -> float:
 
 def np_axes(angle_deg: float) -> tuple[Vec2d, Vec2d]:
     a = math.radians(angle_deg)
-    t = (math.cos(a), -math.sin(a))  # tangent langs planet (y peker ned)
-    n = (-t[1], -t[0])               # normal på planet (oppover i pygame)
+    t = (math.cos(a), -math.sin(a))  
+    n = (t[1], -t[0])                
     return t, n
 
 def uvec_from_deg(angle_deg: float) -> Vec2d:
@@ -100,58 +100,24 @@ def dist_point_to_segment(p, a, b):
     proj = (a[0] + t*ab[0], a[1] + t*ab[1])
     return distance(p, proj)
 
-# def dist_segment_to_segment(a1, a2, b1, b2):
-#     """Rimelig robust min-avstand mellom to segmenter i 2D."""
-#     d1 = dist_point_to_segment(a1, b1, b2)
-#     d2 = dist_point_to_segment(a2, b1, b2)
-#     d3 = dist_point_to_segment(b1, a1, a2)
-#     d4 = dist_point_to_segment(b2, a1, a2)
-#     return min(d1, d2, d3, d4)
+def dist_point_to_line(point: Vec2d, origin: Vec2d, unit_v: Vec2d) -> float:
+    """Distance from point to infinite line defined by origin and unit direction vector."""
+    v = sub(point, origin)
+    proj_length = dot(v, unit_v)
+    proj = (unit_v[0] * proj_length, unit_v[1] * proj_length)
+    perp_v = sub(v, proj)
+    return norm(perp_v)
 
+def x_on_line(y: float, origin: Vec2d, unit_v: Vec2d) -> float:
+    """Find x-coordinate on line at given y, where line is defined by origin and unit direction vector."""
+    if abs(unit_v[1]) < 1e-9:
+        return float("inf")  # Horizontal line, no x for this y
+    t = (y - origin[1]) / unit_v[1]
+    return origin[0] + t * unit_v[0]
 
-#Ctrl + K,C to comment block
-# # --- vektoroperasjoner ---
-# def add(p, q): return (p[0] + q[0], p[1] + q[1])
-# def sub(p, q): return (p[0] - q[0], p[1] - q[1])
-# def dist(p, q): return math.hypot(p[0] - q[0], p[1] - q[1])
-
-# def dot(a, b): return a[0]*b[0] + a[1]*b[1]
-# def norm(v):   return math.hypot(v[0], v[1])
-
-# def normalize(v, eps=1e-6):
-#     n = norm(v)
-#     if n < eps:
-#         return (0.0, 0.0)
-#     return (v[0]/n, v[1]/n)
-
-# def perp(v):
-#     """90° rotasjon (x, y) -> (-y, x)"""
-#     return (-v[1], v[0])
-
-# # --- vinkler ---
-# def angle_deg(v):
-#     """Absolutt vinkel (0..180) mot x-aksen, uten fortegn."""
-#     a = math.degrees(math.atan2(v[1], v[0]))
-#     a = abs((a + 360) % 360)
-#     return a if a <= 180 else 360 - a
-
-# def angle_diff_deg(v1, v2):
-#     """Minste vinkelavvik (0..180) mellom v1 og v2."""
-#     a1 = math.degrees(math.atan2(v1[1], v1[0]))
-#     a2 = math.degrees(math.atan2(v2[1], v2[0]))
-#     return abs(((a1 - a2 + 180) % 360) - 180)
-
-# # --- projeksjoner / avstander ---
-# def proj_point_on_line(p, a, b):
-#     """Projiser punkt p på uendelig linje gjennom a->b."""
-#     ab = sub(b, a)
-#     ab2 = dot(ab, ab)
-#     if ab2 == 0:
-#         return a
-#     t = dot(sub(p, a), ab) / ab2
-#     return (a[0] + t*ab[0], a[1] + t*ab[1])
-
-# def offset_from(v, length):
-#     """Unit(v) * length (returnerer (0,0) hvis v≈0)."""
-#     u = normalize(v)
-#     return (u[0]*length, u[1]*length)
+def y_on_line(x: float, origin: Vec2d, unit_v: Vec2d) -> float:
+    """Find y-coordinate on line at given x, where line is defined by origin and unit direction vector."""
+    if abs(unit_v[0]) < 1e-9:
+        return float("inf")  # Vertical line, no y for this x
+    t = (x - origin[0]) / unit_v[0]
+    return origin[1] + t * unit_v[1]

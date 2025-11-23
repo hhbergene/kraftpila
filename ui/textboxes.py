@@ -7,36 +7,65 @@ from engine.text_render import render_text
 
             
 class TextBox:
-    def __init__(self, x, y, w, h, text=""):
+    # Register all instances so only one textbox can be active at a time
+    _instances = []
+
+    def __init__(self, x, y, w, h, text="", editable=True):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = text
         self.active = False
         self.cursor_visible = True
         self.last_toggle = 0
         self.can_delete = False
-        self.request_delete = False
         self._del_rect = pygame.Rect(self.rect.right - 20, self.rect.y + 6, 14, 14)
         self.caret = len(text)
         self.font = get_font(TEXTBOX_FONT_SIZE)
+        self.editable = editable
+        # Register instance
+        self.__class__._instances.append(self)
 
-    
+    def __del__(self):
+        # Try to remove from registry (safe if already removed)
+        try:
+            self.__class__._instances.remove(self)
+        except ValueError:
+            pass
+
+    @classmethod
+    def deactivate_others(cls, active_box):
+        for tb in cls._instances:
+            if tb is not active_box:
+                tb.active = False
+
+    def set_active(self, value: bool):
+        """Set active state; if activating, deactivate all other textboxes."""
+        if value:
+            self.__class__.deactivate_others(self)
+        self.active = value
+
+    def set_editable(self, editable: bool):
+        """Set editable state; non-editable textboxes cannot be activated or edited."""
+        if not editable:
+            self.set_active(False)
+        self.editable = editable
+
     def handle_event(self, e):
         if e.type == pygame.MOUSEBUTTONDOWN:
-            if self.can_delete and self._del_rect.collidepoint(e.pos):
-                self.request_delete = True
-                return True
             if self.rect.collidepoint(e.pos):
-                debug_text = self.text[:self.caret] + "|" + self.text[self.caret:]
-                print(f"DEBUG TextBox: '{debug_text}'")
-                self.active = True
+                if not self.editable:
+                    self.set_active(False)
+                    return False
+                self.set_active(True)  # Ensure others are deactivated
                 return True
             else:
-                self.active = False
+                self.set_active(False)
                 return False
             return False
         elif e.type == pygame.KEYDOWN and self.active:
+            if not self.editable:
+                return False
             if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
-                self.active = False
+                self.set_active(False)
                 return True
             # Navigering etc. (valgfritt)
             if e.key == pygame.K_LEFT:
@@ -72,6 +101,16 @@ class TextBox:
                         else:
                             # Just delete the control char
                             self.text = self.text[:self.caret-1] + self.text[self.caret:]
+                    # If next char is {, also delete matching }
+                    elif self.caret < len(self.text) and self.text[self.caret] == "{":
+                        # Find matching }
+                        close_idx = self.text.find("}", self.caret)
+                        if close_idx != -1:
+                            # Delete char_to_delete and everything up to and including }
+                            self.text = self.text[:self.caret-1] + self.text[close_idx+1:]
+                        else:
+                            # No matching }, just delete the char
+                            self.text = self.text[:self.caret-1] + self.text[self.caret:]
                     # If trying to delete { or }, do nothing (skip)
                     elif char_to_delete not in ("{", "}"):
                         self.text = self.text[:self.caret-1] + self.text[self.caret:]
@@ -94,6 +133,16 @@ class TextBox:
                             self.text = self.text[:self.caret] + self.text[self.caret+3:]
                         else:
                             # Just delete the control char
+                            self.text = self.text[:self.caret] + self.text[self.caret+1:]
+                    # If next char after current is {, also delete matching }
+                    elif self.caret + 1 < len(self.text) and self.text[self.caret+1] == "{":
+                        # Find matching }
+                        close_idx = self.text.find("}", self.caret + 1)
+                        if close_idx != -1:
+                            # Delete char_to_delete and everything up to and including }
+                            self.text = self.text[:self.caret] + self.text[close_idx+1:]
+                        else:
+                            # No matching }, just delete the char
                             self.text = self.text[:self.caret] + self.text[self.caret+1:]
                     # If trying to delete { or }, do nothing (skip)
                     elif char_to_delete not in ("{", "}"):
@@ -183,11 +232,10 @@ class TextBox:
         pygame.draw.rect(surf, color, self.rect, border_radius=6)
         pygame.draw.rect(surf, (80, 80, 80), self.rect, 2, border_radius=6)
         
-        # Draw the text without caret
         txt = self.text
         text_surf = render_text(txt, self.font, True, TEXT_COLOR)
         text_x = self.rect.x + 6
-        text_y = self.rect.y
+        text_y = self.rect.y - 6
         surf.blit(text_surf, (text_x, text_y))
         
         # Draw caret on top if active
@@ -198,7 +246,7 @@ class TextBox:
             # Adjust caret y position based on mode
             caret_color = (100, 100, 255)  # Light blue caret
             caret_height = self.font.get_height()*0.8
-            caret_y = text_y+caret_height*0.25
+            caret_y = text_y+6+caret_height*0.25
             
             if caret_mode == "sup":
                 caret_y -= int(0.04 * caret_height)  # Raise for superscript

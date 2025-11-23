@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict
 
 import utils.geometry as vec
-from utils.settings import GRID_STEP, DRAW_CENTER, UP, DOWN, LEFT, RIGHT
+from utils.settings import GRID_STEP, DRAW_CENTER, UP, DOWN, LEFT, RIGHT, FORCE_DRAW_LIMIT_LEFT
 
 from .spec import (
     TaskSpec,
@@ -227,8 +227,8 @@ def make_task_3() -> TaskSpec:
         ),
         # Nb (fra B på A): ned, langs toppsegmentet til A
         ForceSpec(
-            name="Nb",
-            aliases={"nb", "n_b", "n_ba", "nb_a", "rb", "r_b"},
+            name="N_B",
+            aliases={"nb*","n*","nb'","n'", "b", "nba", "nab"},
             anchor=AnchorSpec(kind=AnchorType.SEGMENT, segment=rectA.top),
             dir_unit=DOWN,   # ned (B trykker A ned ovenfra)
         ),
@@ -405,7 +405,7 @@ def make_task_6() -> TaskSpec:
     plane = PlaneSpec(angle_deg=0, through=DRAW_CENTER)
     rect  = RectSpec(position=vec.add(DRAW_CENTER,(GRID_STEP*10,0)), width=wA, height=hA, 
                      position_kind="bottom_center", 
-                     normal_vector=plane.n_vec)
+                     normal_vector=plane.n_vec,snap_on=True)
     windshield = RectSpec(position=vec.add(rect.center,(0,0)), width=wA-GRID_STEP, height=(hA-GRID_STEP)//2, position_kind="bottom_center",fill_color=(100,200,255), snap_on=False)
     headlight_left = CircleSpec(center=vec.add(rect.center, (-GRID_STEP*2, +GRID_STEP)), radius=GRID_STEP//2, snap_on=False,color=(155,155,0), fill_color=(255,255,0))
     headlight_right = CircleSpec(center=vec.add(rect.center, (GRID_STEP*2, +GRID_STEP)), radius=GRID_STEP//2, snap_on=False,color=(155,155,0), fill_color=(255,255,0))
@@ -496,7 +496,7 @@ def make_task_7() -> TaskSpec:
     plane = PlaneSpec(angle_deg=15.0, through=road_center,visible=False,snap_on=False)
     rect  = RectSpec(position=road_center, width=wA, height=hA, 
                      position_kind="bottom_center", 
-                     normal_vector=plane.n_vec,snap_on=False)
+                     normal_vector=plane.n_vec,snap_on=True)
     windshield = RectSpec(position=vec.add(rect.center,(0,0)), width=wA-GRID_STEP, height=(hA-GRID_STEP)//2, 
                           position_kind="bottom_center",normal_vector=plane.n_vec, fill_color=(100,200,255), snap_on=False)
     headlight_left = CircleSpec(center=vec.add(rect.center, vec.add(vec.scale(plane.p_vec, -GRID_STEP*2), vec.scale(plane.n_vec, -GRID_STEP))),
@@ -506,10 +506,20 @@ def make_task_7() -> TaskSpec:
     road = SegmentSpec(a=vec.add(rect.left_bottom,vec.scale(plane.p_vec, -wA)),
                        b=vec.add(rect.right_bottom,vec.scale(plane.p_vec,+wA)),
                        color=(0, 0, 255),snap_on=False)
-    radius = SegmentSpec(a=vec.add(rect.center,(-GRID_STEP*20,hA*1.5)),
-                       b=vec.add(rect.center,(0,hA*1.5)),
+    y = road.a[1]
+    left_x = FORCE_DRAW_LIMIT_LEFT
+    ground = SegmentSpec(a=(left_x,y),
+                       b=road.a,
                        color=(0, 0, 255),snap_on=False)
-    scene=SceneSpec(plane=plane, rects=[rect,windshield], segments=[road], circles=[headlight_left, headlight_right])
+    y+=+hA*0.8
+    arrow_radius = ArrowSpec(a=(left_x,y),
+                       b=(road.a[0],y),
+                       color=(0, 0, 255),body="dashed",snap_on=False)
+    text_radius = TextSpec(txt="Til sentrum av sirkelbevegelsen",pos=vec.add(rect.center,(-GRID_STEP*10,hA*1.5+GRID_STEP//2)),
+                           size=10,
+                           color=(0,0,255),
+                           align="center")
+    scene=SceneSpec(plane=plane, rects=[rect,windshield], segments=[road,ground], circles=[headlight_left, headlight_right],  arrows=[arrow_radius], texts=[text_radius])
 
     forces: Dict[str, ForceSpec] = {
         "G": ForceSpec(

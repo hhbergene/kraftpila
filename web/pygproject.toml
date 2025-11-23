@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kraftpila"
+version = "0.1.0"
+description = "Tegne Krefter - Force diagram drawing application"
+authors = [{name = "Håvard Bergene"}]
+
+[tool.pygbag]
+title = "Kraftpila"
+build-dir = "build/web"

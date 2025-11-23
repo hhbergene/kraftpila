@@ -1,6 +1,7 @@
 from .tasks import TASKS
 from .evaluate import evaluate_task
 from .render import Renderer
+from .result_wrapper import EvaluationResult
 from utils.settings import MIN_LEN
 
 class TaskSet:
@@ -34,13 +35,10 @@ class TaskSet:
         self.renderer.draw_scene(canvas, self.current, snap_on=snap_on)
 
     def check_forces(self, forces):
-        """Evaluate drawn forces against current task specification.
-        
-        Filters out incomplete forces before evaluation.
-        """
-        # Filter out incomplete forces (missing name, vec, or A)
+        """Evaluate drawn forces against current task specification."""
         completed_forces = [f for f in forces if f.is_completed(MIN_LEN)]
-        return evaluate_task(self.current, completed_forces)
+        result = evaluate_task(self.current, completed_forces)
+        return EvaluationResult(result)
     
     # --- Helper methods for main.py ---
     def get_heading(self) -> str:

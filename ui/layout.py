@@ -67,11 +67,8 @@ class ButtonPanel:
         # Tittel
         self._title_font = get_font(TITLE_SIZE)
         self._small_font = get_font_stack("math",18)
-        self.plane_angle = 0.0
 
-    def draw_buttons(self, screen, *, snap_on: bool, guidelines_on: bool, grid_on: bool, plane_angle: float):
-        self.plane_angle = plane_angle
-        
+    def draw_buttons(self, screen, *, snap_on: bool, guidelines_on: bool, grid_on: bool):
         # Topp: tegn “← ? →”
         for b in (self.btn_prev, self.btn_help, self.btn_next):
             b.draw(screen, on=False)

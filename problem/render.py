@@ -9,6 +9,7 @@ import utils.geometry as vec
 from utils.settings import BLOCK_COLOR, TEXT_COLOR, GRID_COLOR, FORCE_COLOR, SCENE_ALPHA, get_font
 from utils.settings import WIDTH, TOP_Y, BTN_H, BTN_GAP
 from engine.render import _aa_line, _arrow, _circle, _text
+from engine.text_render import render_text
 from .spec import TaskSpec, SceneSpec, PlaneSpec, RectSpec, ArrowSpec, TextSpec, AnchorType
 
 
@@ -247,7 +248,7 @@ class Renderer:
             _circle(surface, COLOR_SNAP, pt, 4, 1)  # outline circle
 
     def _draw_title_and_short_lines(self, surface: pygame.Surface, task: TaskSpec):
-        """Draw task title and short instruction lines at top-left."""
+        """Draw task title and short instruction lines at top-left using render_text for sub/sup support."""
         if not task.title:
             return
 
@@ -255,7 +256,8 @@ class Renderer:
         x = WIDTH // 4
         y = TOP_Y + BTN_H + BTN_GAP
 
-        title_surf = self.font_title.render(task.title, True, COLOR_TEXT)
+        # Use render_text for title to support _ and ^ notation
+        title_surf = render_text(task.title, self.font_title, True, COLOR_TEXT)
         title_rect = title_surf.get_rect()
         title_rect.midleft = (x, y + title_rect.height // 2)
         surface.blit(title_surf, title_rect)
@@ -263,7 +265,8 @@ class Renderer:
         if task.short_lines:
             y_line = title_rect.bottom + 2
             for line in task.short_lines[:3]:
-                line_surf = self.font_hint.render(line, True, COLOR_DIM)
+                # Use render_text for hint lines to support _ and ^ notation
+                line_surf = render_text(line, self.font_hint, True, COLOR_DIM)
                 line_rect = line_surf.get_rect(midleft=(x, y_line + line_surf.get_height() // 2))
                 surface.blit(line_surf, line_rect)
                 y_line = line_rect.bottom + 2

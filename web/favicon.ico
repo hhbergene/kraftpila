@@ -1,0 +1,3 @@
+# Binary ICO ikke representert; lag et enkelt ikon ved å kjøre:
+# Python (engangs):
+# from PIL import Image; im=Image.new("RGBA",(16,16),(34,34,34,255)); im.save("web/favicon.ico")

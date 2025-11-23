@@ -2,6 +2,7 @@
 import sys
 import os
 import pygame
+import asyncio
 
 # Detect runtime environment
 IS_WEB = 'pyodide' in sys.modules or hasattr(sys, '_base_executable') is False
@@ -176,91 +177,123 @@ except Exception:
     fm.reset_all()
 
 # ================ Main loop =================
-running = True
-while running:
-    t = pygame.time.get_ticks()
-    screen.fill(BG_COLOR)
+async def main_loop():
+    global feedback_dialog_state, help_dialog_state
 
-    # ===== TEGNINGSREKKEFØLGE =====
-    draw_grid(screen)
-    taskset.draw(screen, snap_on=SNAP_ON)
+    running = True
+    while running:
+        t = pygame.time.get_ticks()
+        screen.fill(BG_COLOR)
 
-    shift_held = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
-    mouse_pos = pygame.mouse.get_pos()
-    fm.update(t)
-    fm.draw(screen, snap_on=SNAP_ON, guidelines_on=GUIDELINES_ON,
-            plane_angle=taskset.get_plane_angle(), mouse_pos=mouse_pos, shift_held=shift_held)
+        # ===== TEGNINGSREKKEFØLGE =====
+        draw_grid(screen)
+        taskset.draw(screen, snap_on=SNAP_ON)
 
-    panel.draw_buttons(
-        screen,
-        snap_on=SNAP_ON,
-        guidelines_on=GUIDELINES_ON,
-        grid_on=GRID_ON
-    )
+        shift_held = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
+        mouse_pos = pygame.mouse.get_pos()
+        fm.update(t)
+        fm.draw(screen, snap_on=SNAP_ON, guidelines_on=GUIDELINES_ON,
+                plane_angle=taskset.get_plane_angle(), mouse_pos=mouse_pos, shift_held=shift_held)
 
-    snap_points = taskset.get_snap_points()
+        panel.draw_buttons(
+            screen,
+            snap_on=SNAP_ON,
+            guidelines_on=GUIDELINES_ON,
+            grid_on=GRID_ON
+        )
 
-    # Events
-    for e in pygame.event.get():
-        if e.type == pygame.QUIT:
-            snapshot_current_into_store()
-            try:
-                save_state(SAVE_PATH, problem_store)
-            finally:
-                running = False
-            continue
+        snap_points = taskset.get_snap_points()
 
-        # Dialog events block all other input
-        if feedback_dialog_state is not None:
-            feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=e)
-            continue
-
-        if help_dialog_state is not None:
-            help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=e)
-            continue
-
-        # Normal input (only if no dialog active)
-        if panel.handle_event(e):
-            continue
-
-        if e.type == pygame.KEYDOWN and e.key == pygame.K_TAB:
-            reverse = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
-            if fm.handle_tab_navigation(reverse=reverse):
+        # Events
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                snapshot_current_into_store()
+                try:
+                    save_state(SAVE_PATH, problem_store)
+                finally:
+                    running = False
                 continue
 
-        if fm.handle_event(e, snap_points, angle_deg=taskset.get_plane_angle(), snap_on=SNAP_ON):
-            continue
+            # Dialog events block all other input
+            if feedback_dialog_state is not None:
+                feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=e)
+                continue
 
-    # Draw dialogs (once per frame, no event)
-    if feedback_dialog_state is not None:
-        feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=None)
+            if help_dialog_state is not None:
+                help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=e)
+                continue
 
-    if help_dialog_state is not None:
-        help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=None)
+            # Normal input (only if no dialog active)
+            if panel.handle_event(e):
+                continue
+
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_TAB:
+                reverse = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
+                if fm.handle_tab_navigation(reverse=reverse):
+                    continue
+
+            if fm.handle_event(e, snap_points, angle_deg=taskset.get_plane_angle(), snap_on=SNAP_ON):
+                continue
+
+        # Draw dialogs (once per frame, no event)
+        if feedback_dialog_state is not None:
+            feedback_dialog_state = show_feedback(screen, feedback_dialog_state, event=None)
+
+        if help_dialog_state is not None:
+            help_dialog_state = draw_help_dialog(screen, help_dialog_state, event=None)
 
 
-    #DEBUG: Draw snap candidates
-    #candidates=DEBUG_snap_points()
-    #"if candidates:
-    #    for px,py in candidates:
-    #        pygame.draw.circle(screen, (55, 55, 55), (px, py), 3)
+        #DEBUG: Draw snap candidates
+        #candidates=DEBUG_snap_points()
+        #"if candidates:
+        #    for px,py in candidates:
+        #        pygame.draw.circle(screen, (55, 55, 55), (px, py), 3)
 
-    # Live HUD
-    if LIVE_HUD_ON:
-        result = taskset.check_forces(fm.get_forces())
-        score = result.get('score', 0.0)
-        feedback = result.get('feedback', [])
-        overlays = result.get('overlays', {})
-        all_overlays = []
-        for key in overlays.keys():
-            if isinstance(key, int):
-                all_overlays.extend(overlays[key])
-        draw_live_feedback(screen, score, feedback, 
-                          top_right=(WIDTH - 16, HEIGHT - 16),
-                          max_width=320, max_lines=6,
-                          overlays=all_overlays)
+        # Live HUD
+        if LIVE_HUD_ON:
+            result = taskset.check_forces(fm.get_forces())
+            score = result.get('score', 0.0)
+            feedback = result.get('feedback', [])
+            overlays = result.get('overlays', {})
+            all_overlays = []
+            for key in overlays.keys():
+                if isinstance(key, int):
+                    all_overlays.extend(overlays[key])
+            draw_live_feedback(screen, score, feedback, 
+                            top_right=(WIDTH - 16, HEIGHT - 16),
+                            max_width=320, max_lines=6,
+                            overlays=all_overlays)
 
-    pygame.display.flip()
-    clock.tick(60)
+        pygame.display.flip()
+        await asyncio.sleep(1/30)
 
-pygame.quit()
+    pygame.quit()
+    if not IS_WEB:  # Unngå sys.exit() i nettleser
+        sys.exit()
+
+# Ny robust oppstart
+def run():
+    if IS_WEB:
+        # Pyodide: gjenbruk eksisterende event loop
+        try:
+            import pyodide  # pyright: ignore[reportMissingImports] # noqa: F401
+        except ImportError:
+            pass
+        loop = asyncio.get_event_loop()
+        loop.create_task(main_loop())
+    else:
+        # Desktop: eksplisitt event loop + Windows policy
+        if os.name == "nt":
+            try:
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            except AttributeError:
+                pass
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(main_loop())
+        finally:
+            loop.close()
+
+if __name__ == "__main__":
+    run()

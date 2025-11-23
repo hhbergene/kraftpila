@@ -5,7 +5,7 @@ import warnings
 
 import utils.geometry as vec
 from utils.settings import (
-    MIN_LEN, HANDLE_RADIUS, FORCE_COLOR,ACTIVE_FORCE_COLOR, ACTIVE_FORCE_HANDLE_COLOR, HIGHLIGHT_FORCE_COLOR, GRID_STEP, TEXT_COLOR,
+    MIN_LEN, HANDLE_RADIUS, FORCE_COLOR,ACTIVE_FORCE_COLOR, ACTIVE_FORCE_HANDLE_COLOR, HIGHLIGHT_FORCE_HANDLE_COLOR, HIGHLIGHT_FORCE_COLOR, GRID_STEP, TEXT_COLOR,
     GUIDELINES_COLOR, GUIDELINES_WIDTH, GUIDELINES_DASH_SIZE, CENTER_X, CENTER_Y, 
     is_within_force_draw_limits, clamp_to_force_draw_limits
 )
@@ -71,8 +71,34 @@ class Force:
     # ------------------ Tegning ------------------
     def draw(self, surf, active=False):
         """Tegn hjelpe-linjen anchor-arrowBase, kraftpilen arrowBase→arrowTip, redigeringspunkt - og navn ved pila."""
-        # 1) Linje + pil
-        if self.anchor and self.arrowTip and self.arrowBase:
+
+        # 1) Punkter (anchor/arrowTip-redigeringspunkt)
+        # anchor-redigeringspunkt:
+        if self.editable and self.anchor:
+            # Highlight anchor if dragging it
+            if self.dragging == "anchor" or self.hovering == "anchor":
+                handle_color_bg = HIGHLIGHT_FORCE_HANDLE_COLOR
+                #handle_color_fg = ACTIVE_FORCE_HANDLE_COLOR
+                pygame.draw.circle(surf, handle_color_bg, self.anchor, HANDLE_RADIUS)
+                #pygame.draw.circle(surf, handle_color_bg, self.anchor, HANDLE_RADIUS, width=2)
+            elif active:
+                handle_color = ACTIVE_FORCE_HANDLE_COLOR 
+                pygame.draw.circle(surf, handle_color, self.anchor, HANDLE_RADIUS)
+
+        # arrowTip-redigeringspunkt:
+        if self.editable and self.arrowTip:
+            if self.dragging == "arrowTip" or self.hovering == "arrowTip":
+                handle_color_bg = HIGHLIGHT_FORCE_HANDLE_COLOR
+                #handle_color_fg = ACTIVE_FORCE_HANDLE_COLOR
+                pygame.draw.circle(surf, handle_color_bg, self.arrowTip, HANDLE_RADIUS)
+                #pygame.draw.circle(surf, handle_color_bg, self.arrowTip, HANDLE_RADIUS, width=2)
+            elif active:
+                handle_color = ACTIVE_FORCE_HANDLE_COLOR 
+                handle_radius = HANDLE_RADIUS
+                pygame.draw.circle(surf, handle_color, self.arrowTip, handle_radius)
+
+        # 2) Linje + pil
+        if self.anchor and self.arrowTip and self.arrowBase and  self.force_len >= 1e-3:
             # hjelpelinje anchor-arrowBase
             force_color = ACTIVE_FORCE_COLOR if active else FORCE_COLOR
             pygame.draw.line(surf, force_color, self.anchor, self.arrowBase, width=2)
@@ -82,69 +108,43 @@ class Force:
             dx, dy = self.arrowTip[0] - self.arrowBase[0], self.arrowTip[1] - self.arrowBase[1]
             ang = math.atan2(dy, dx)
             ARROW_HEAD_LENGTH = 12
-            a = math.pi / 6
+            a = math.pi / 6 # 30 grader
             arrow_head_left  = (self.arrowTip[0] - ARROW_HEAD_LENGTH * math.cos(ang - a), self.arrowTip[1] - ARROW_HEAD_LENGTH * math.sin(ang - a))
             arrow_head_right = (self.arrowTip[0] - ARROW_HEAD_LENGTH * math.cos(ang + a), self.arrowTip[1] - ARROW_HEAD_LENGTH * math.sin(ang + a))
-            arrow_length = math.hypot(dx, dy)
-            margin = ARROW_HEAD_LENGTH
+            arrow_head_tip_fg = (self.arrowTip[0] + 2 * math.cos(ang), self.arrowTip[1] + 2 * math.sin(ang)) 
+            arrow_head_left_fg  = (arrow_head_tip_fg[0] - (ARROW_HEAD_LENGTH+2) * math.cos(ang - a), arrow_head_tip_fg[1] - (ARROW_HEAD_LENGTH+2) * math.sin(ang - a))
+            arrow_head_right_fg = (arrow_head_tip_fg[0] - (ARROW_HEAD_LENGTH+2) * math.cos(ang + a), arrow_head_tip_fg[1] - (ARROW_HEAD_LENGTH+2) * math.sin(ang + a))
+            arrow_length = self.force_len
+            margin = ARROW_HEAD_LENGTH-2
             t_end = 1.0 - (margin / arrow_length)
-            
+          
             body_start = self.arrowBase
             body_end = (self.arrowBase[0] + dx * t_end, self.arrowBase[1] + dy * t_end)
-
+        
 
             # pil arrowBase→arrowTip
             # Bestem farge og bredde basert på state
-            if self.dragging == "body" or self.hovering == "body" or self.hovering == "arrowTip" or self.hovering == "anchor":
+            if self.dragging == "body" or self.hovering == "body":
                 # Dra body: vis som tofarget pil (highlight bakgrunn + aktiv forgrunn)
                 arrow_color_bg = HIGHLIGHT_FORCE_COLOR
-                pil_width_bg = 6
                 arrow_color_fg = ACTIVE_FORCE_COLOR
-                pil_width_fg = 4
-                
-                pygame.draw.line(surf, arrow_color_bg, body_start, body_end, pil_width_bg)
-                pygame.draw.line(surf, arrow_color_fg, body_start, body_end, pil_width_fg)
                 pygame.draw.polygon(surf, arrow_color_fg, [self.arrowTip, arrow_head_left, arrow_head_right])
-            elif self.dragging == "arrowTip":
-                arrow_color = HIGHLIGHT_FORCE_COLOR
-                pil_width = 4
-                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
-                pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
+                pygame.draw.line(surf, arrow_color_bg, body_start, body_end, 6)
+                pygame.draw.line(surf, arrow_color_fg, body_start, body_end, 4)
+            elif self.dragging == "arrowTip" or self.hovering == "arrowTip":
+                arrow_color_bg = HIGHLIGHT_FORCE_COLOR
+                arrow_color_fg = ACTIVE_FORCE_COLOR
+                pygame.draw.polygon(surf, arrow_color_bg, [arrow_head_tip_fg, arrow_head_left_fg, arrow_head_right_fg], width=4)
+                pygame.draw.polygon(surf, arrow_color_fg, [self.arrowTip, arrow_head_left, arrow_head_right])
+                pygame.draw.line(surf, arrow_color_fg, body_start, body_end, 4)
             elif active and self.dragging == "anchor":
                 arrow_color = HIGHLIGHT_FORCE_COLOR
-                pil_width = 4
-                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
                 pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
+                pygame.draw.line(surf, arrow_color, body_start, body_end, 4)
             else:
                 arrow_color = ACTIVE_FORCE_COLOR if active else FORCE_COLOR
-                pil_width = 4
-                pygame.draw.line(surf, arrow_color, body_start, body_end, pil_width)
                 pygame.draw.polygon(surf, arrow_color, [self.arrowTip, arrow_head_left, arrow_head_right])
-
-
-        # 2) Punkter (anchor/arrowTip-redigeringspunkt)
-        # anchor-redigeringspunkt: vis hvis editable og kraft er active, eller hvis editable uansett
-        if self.editable and self.anchor:
-            # Highlight anchor if dragging it
-            if self.dragging == "anchor" or self.hovering == "anchor":
-                handle_color = HIGHLIGHT_FORCE_COLOR  # Red for dragging anchor
-                handle_radius = HANDLE_RADIUS
-                pygame.draw.circle(surf, handle_color, self.anchor, handle_radius)
-            elif active:
-                handle_color = ACTIVE_FORCE_HANDLE_COLOR 
-                handle_radius = HANDLE_RADIUS
-                pygame.draw.circle(surf, handle_color, self.anchor, handle_radius)
-
-        # arrowTip-redigeringspunkt: vis hvis editable og kraft er active
-        if self.editable and active and self.arrowTip:
-            # Highlight arrowTip if dragging it
-            if self.dragging == "arrowTip" or self.hovering == "arrowTip":
-                handle_color = HIGHLIGHT_FORCE_COLOR  # Orange for dragging arrowTip
-                handle_radius = HANDLE_RADIUS
-            else:
-                handle_color = ACTIVE_FORCE_HANDLE_COLOR
-                handle_radius = HANDLE_RADIUS
-            pygame.draw.circle(surf, handle_color, self.arrowTip, handle_radius)
+                pygame.draw.line(surf, arrow_color, body_start, body_end, 4)
 
         # 3) Navn ved pila – midt på linja, forskjøvet til "anchor-siden"
         if self.name and self.anchor and self.arrowTip and self.arrowBase:

@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kraftpila - Tegne Krefter</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23222'/%3E%3Cpath d='M12 52 L32 12 L52 52' stroke='%23ffffff' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='12' r='5' fill='%23ff4444'/%3E%3C/svg%3E">
+    <link rel="shortcut icon" href="favicon.ico">
     <style>
         body {
             margin: 0;
@@ -15,9 +17,46 @@
             display: block;
         }
     </style>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 </head>
 <body>
     <canvas id="pygame-canvas"></canvas>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.0/full/pyodide.js"></script>
+    <script id="pyodide-js" src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script>
+    function bootPyodide() {
+        if (typeof loadPyodide !== "function") {
+            console.error("loadPyodide ikke definert – sjekk nettverksfanen for 404.");
+            return;
+        }
+        (async () => {
+            console.log("Laster Pyodide...");
+            const pyodide = await loadPyodide({indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/"});
+            console.log("Pyodide klar.");
+            await pyodide.loadPackage(["micropip"]);
+            await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("pygame-cs")
+`);
+            console.log("pygame-cs installert.");
+            const v = Date.now();
+            const mainSrc = await fetch("../main.py?v=" + v, {cache: "no-store"}).then(r => {
+                if (!r.ok) throw new Error("Kunne ikke hente main.py");
+                return r.text();
+            });
+            pyodide.FS.writeFile("main.py", mainSrc);
+            pyodide.runPython(`
+import os
+os.environ["PYGAME_CANVAS"] = "pygame-canvas"
+import main
+`);
+            console.log("App startet.");
+        })().catch(e => console.error("Oppstartfeil:", e));
+    }
+    const s = document.getElementById("pyodide-js");
+    s.addEventListener("load", bootPyodide);
+    s.addEventListener("error", () => console.error("Kunne ikke laste pyodide.js"));
+    </script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 from .tasks import TASKS
 from .evaluate import evaluate_task
 from .render import Renderer
-from .result_wrapper import EvaluationResult
 from utils.settings import MIN_LEN
+from problem.evaluate import EvaluationResult
 
 class TaskSet:
     def __init__(self, renderer=None):

@@ -5,10 +5,15 @@ import math
 
 import utils.geometry as vec  # ditt eksisterende vektor-API
 from problem.spec import TaskSpec, AnchorType, Tolerances
-from problem.tasks import NAME_MISMATCH_PENALTY, COVERAGE_PENALTY_EXP
+
+
 from utils.settings import GRID_STEP
 from engine.forces import normalize_name
+
 Vec2 = Tuple[float, float]
+# Scoring configuration constants
+NAME_MISMATCH_PENALTY = 0.5  # Penalty multiplier if force name doesn't match expected
+COVERAGE_PENALTY_EXP = 1.5   # Exponent for coverage penalty (reduces score if forces are missing)
 
 # ------------------------------------------------------
 # Grunnleggende numerikk

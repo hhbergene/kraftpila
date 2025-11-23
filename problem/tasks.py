@@ -23,9 +23,6 @@ from .spec import (
     MagTerm,
 )
 
-# Scoring configuration constants
-NAME_MISMATCH_PENALTY = 0.5  # Penalty multiplier if force name doesn't match expected
-COVERAGE_PENALTY_EXP = 1.5   # Exponent for coverage penalty (reduces score if forces are missing)
 
 # Note: PLANE_Y, RECT_W, RECT_H importert fra settings.py
 

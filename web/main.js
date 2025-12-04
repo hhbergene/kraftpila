@@ -2241,6 +2241,13 @@
           for(let i=window.fm.forces.length-1;i>=0;i--){ if(isBlank(window.fm.forces[i])) { targetIndex=i; break; } }
         }
       }
+      
+      // Safety check: ensure targetIndex is valid
+      if(targetIndex < 0 || targetIndex >= window.fm.forces.length){
+        console.error('Invalid targetIndex:', targetIndex, 'forces.length:', window.fm.forces.length);
+        return;
+      }
+      
       window.fm.setActive(targetIndex);
       // Make sure the force name is synced from the textbox before drawing
       const rows = Array.from(inputsContainer.querySelectorAll('.force-row'));
@@ -2270,6 +2277,10 @@
     const picked = (hoveredIndex !== -1) ? hoveredIndex : window.fm.activeIndex;
     window.fm.setActive(picked);
     const f = window.fm.forces[window.fm.activeIndex];
+    if(!f){
+      console.error('No force at activeIndex:', window.fm.activeIndex);
+      return;
+    }
     let clickPos = pos;
     const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
     // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)

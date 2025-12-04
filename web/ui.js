@@ -638,3 +638,67 @@ function updateHelpButton(){
   const title = window.currentTask.title || '?';
   helpBtn.textContent = `❓ ${id}: ${title}`;
 }
+
+// ===== Help Lines Editor and Canvas Rendering =====
+
+// Save help lines from textarea to current task
+function saveHelpLines(){
+  const textarea = document.getElementById('help-lines-text');
+  if(textarea && window.currentTask){
+    // Split by newline and filter empty lines
+    const lines = textarea.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    window.currentTask.help_lines = lines;
+  }
+}
+
+// Setup help lines editor with auto-save
+function setupHelpLinesEditor(){
+  const textarea = document.getElementById('help-lines-text');
+  if(textarea){
+    // Auto-save on input
+    textarea.addEventListener('input', ()=>{
+      saveHelpLines();
+    });
+    // Focus on textarea
+    textarea.focus();
+  }
+}
+
+// Draw help lines on canvas using formatted text
+function drawHelpLinesCanvas(){
+  const canvas = document.getElementById('help-canvas');
+  if(!canvas || !window.currentTask || !window.currentTask.help_lines) return;
+  
+  // Set canvas size
+  const helpPanel = document.getElementById('help-panel');
+  canvas.width = helpPanel.offsetWidth;
+  canvas.height = helpPanel.offsetHeight - 50; // Account for header
+  
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  
+  // Clear canvas
+  ctx.fillStyle = '#f9f9f9';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw each help line
+  let y = 30;
+  const lineHeight = 40;
+  const startX = 20;
+  
+  for(const line of window.currentTask.help_lines){
+    if(window.drawFormattedText){
+      window.drawFormattedText(ctx, line, startX, y, {
+        size: 16,
+        color: '#333',
+        align: 'left'
+      });
+    } else {
+      // Fallback if drawFormattedText not available
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText(line, startX, y);
+    }
+    y += lineHeight;
+  }
+}

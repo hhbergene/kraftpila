@@ -26,11 +26,11 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 /* Panel layout - fixed positioning relative to viewport edges */
 #panel { position:fixed; top:0; left:0; right:0; height:80px; background:#fafafa; border-bottom:1px solid #ccc; z-index:100; }
 /* Force name panel (right side, below #panel) */
-#force-panel { position:fixed; top:80px; right:0; width:240px; height:calc(30%); background:#ffffff; border-left:1px solid #ccc; padding:10px 10px 14px; overflow-y:auto; z-index:150; }
+#force-panel { position:fixed; top:80px; right:0; width:240px; height:calc(30%); background:#ffffff; border-left:1px solid #ccc; padding:10px 10px 14px; overflow:hidden; display:flex; flex-direction:column; z-index:150; }
 #force-panel h2 { margin:0 0 8px; font-size:16px; }
 .panel-header { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px; }
 .panel-header h2 { margin:0; flex:1; font-size:16px; }
-#force-inputs { display:flex; flex-direction:column; gap:8px; max-height:100px; overflow-y:auto; padding:2px 0; }
+#force-inputs { display:flex; flex-direction:column; gap:8px; flex:1; overflow-y:auto; padding:2px 0; }
 #force-inputs input { flex:0; width:120px; max-width:120px; padding:4px 6px; font-size:14px; border:1px solid #888; border-radius:4px; }
 #force-inputs input:focus { outline:2px solid #4caf50; }
 

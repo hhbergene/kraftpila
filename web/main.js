@@ -2226,13 +2226,20 @@
       if(window.fm.forces[i].hovering){ hoveredIndex = i; break; }
     }
     if(inArea && hoveredIndex === -1){
-      // Prefer the LAST blank force when starting a new draw; else create one
-      let targetIndex = -1;
-      function isBlank(f){ return f && !f.anchor && !f.arrowBase && !f.arrowTip; }
-      for(let i=window.fm.forces.length-1;i>=0;i--){ if(isBlank(window.fm.forces[i])) { targetIndex=i; break; } }
-      if(targetIndex === -1){
-        window.fm.addEmptyForceIfNeeded();
+      // Prefer the active force if it has no points; otherwise use the last blank force
+      let targetIndex = window.fm.activeIndex;
+      const activeForce = window.fm.forces[targetIndex];
+      const activeHasPoints = !!(activeForce && (activeForce.anchor || activeForce.arrowBase || activeForce.arrowTip));
+      
+      // If active force has points, find a blank force instead
+      if(activeHasPoints){
+        targetIndex = -1;
+        function isBlank(f){ return f && !f.anchor && !f.arrowBase && !f.arrowTip; }
         for(let i=window.fm.forces.length-1;i>=0;i--){ if(isBlank(window.fm.forces[i])) { targetIndex=i; break; } }
+        if(targetIndex === -1){
+          window.fm.addEmptyForceIfNeeded();
+          for(let i=window.fm.forces.length-1;i>=0;i--){ if(isBlank(window.fm.forces[i])) { targetIndex=i; break; } }
+        }
       }
       window.fm.setActive(targetIndex);
       // Make sure the force name is synced from the textbox before drawing

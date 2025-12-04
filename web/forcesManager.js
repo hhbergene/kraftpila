@@ -226,7 +226,12 @@
             let activeIndex = i;
             
             if(hasPoints){
-              // Force has points: clear them but keep the force with its name
+              // Force has points: sync name from textbox, then clear the points but keep the force with its name
+              const row = container.querySelectorAll('.force-row')[i];
+              if(row){
+                const input = row.querySelector('input');
+                if(input) force.name = input.value;
+              }
               force.anchor = null;
               force.arrowBase = null;
               force.arrowTip = null;

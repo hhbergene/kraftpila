@@ -2636,19 +2636,25 @@
         taskScores: window.taskScores,
         taskComments: window.taskComments,
         timestamp: new Date().toISOString(),
-        // NEW: include current task index
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
+        localStorage: {}
       };
-      // Also save all task forces
-      const allForces = {};
-      if(window.TASKS){
-        window.TASKS.forEach(task=>{
-          const key = `tk_forces_${task.id}`;
-          const saved = localStorage.getItem(key);
-          if(saved) allForces[key] = JSON.parse(saved);
-        });
+      
+      // Save ALL localStorage keys with tk_ prefix
+      for(let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if(key && key.startsWith('tk_')){
+          try{
+            const value = localStorage.getItem(key);
+            if(value){
+              backup.localStorage[key] = value;
+            }
+          } catch(e){
+            console.warn(`Could not save localStorage key: ${key}`, e);
+          }
+        }
       }
-      backup.forces = allForces;
+      
       const dataStr = JSON.stringify(backup, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2675,16 +2681,31 @@
           if(backup.settings){ window.settings = { ...window.settings, ...backup.settings }; }
           if(backup.taskScores){ window.taskScores = backup.taskScores; }
           if(backup.taskComments){ window.taskComments = backup.taskComments; }
+          
+          // Restore all localStorage keys
+          if(backup.localStorage){
+            for(const key in backup.localStorage){
+              try{
+                localStorage.setItem(key, backup.localStorage[key]);
+              } catch(e){
+                console.warn(`Could not restore localStorage key: ${key}`, e);
+              }
+            }
+          }
+          
+          // Handle old backup format (backward compatibility)
           if(backup.forces){
             for(const key in backup.forces){
               localStorage.setItem(key, JSON.stringify(backup.forces[key]));
             }
           }
-          // NEW: restore current task index
+          
+          // Restore current task index
           if(typeof backup.currentTaskIndex === 'number'){
             window.currentTaskIndex = backup.currentTaskIndex;
             try { localStorage.setItem('tk_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
           }
+          
           // Persist settings
           try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); } catch {}
           try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}

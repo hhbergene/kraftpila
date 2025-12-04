@@ -47,35 +47,509 @@
   
   // --- Task Intro 1 ---
   TASKS.push({
-    id: 'Intro 1',
-    title: 'Tegn tyngdekraften på en fallende ball',
-    category: 'Fysikk 1',
-    origin: [DRAW_CENTER[0], DRAW_CENTER[1]-hA], // Ball center
-    help_lines: ['Det er to typer krefter: Kontaktkrefter og fjernkrefter.' ,
-      'Alle fjernkrefter angriper i massenes sentrum',
-      'Tyngdekraften er en fjernkraft, og virker rett ned mot jordas sentrum',
-      'Når vi tegner krefter må vi alltid sette navn på kraften. Tyngdekraften kalles ofte G.',
-      'En ball faller fritt (uten luftmotstand) mot bakken.',
-      'Tegn tyngdekraften som virker på ballen: ',
-      ' - Klikk i ballens sentrum og dra rett ned.', 
-      ' - Slipp knappen i passende lengde.',
-      ' - Husk å navngi kraften G.',
+    "id": "Intro 1",
+    "title": "Tegn tyngdekraften på en fallende ball",
+    "category": "Fysikk 1",
+    "origin": [
+      500,
+      240
     ],
-    scene: {
-      plane: { angleDeg: 0, through: [DRAW_CENTER[0], DRAW_CENTER[1]+hA], draw:true, snapping:false },
-      ellipses: [ { width: hA, height: hA, center: [DRAW_CENTER[0], DRAW_CENTER[1]-hA], n_vec: [0, -1], snapping:true } ],
-      texts: [
-        { txt: 'Tegn inn tyngdekraften G.', pos: [text_top_x, text_top_y], size: 14, align: 'center', color: '#222', snapping: false },
-        { txt: '- Klikk i ballens sentrum og dra rett ned.', pos: [text_top_x, text_top_y + text_spacing], size: 14, align: 'center', color: '#222', snapping: false },
-        { txt: '- Husk å navngi kraften.', pos: [text_top_x, text_top_y + 2*text_spacing], size: 14, align: 'center', color: '#222', snapping: false },
+    "help_lines": [
+      "På en ball som ligger i ro på bakken virker det to krefter:",
+      "G - Tyngdekraften",
+      "N - Normalkraften fra underlaget",
+      "Normalkraften er også en kontaktkraft.",
+      "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
+      "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+    ],
+    "scene": {
+      "plane": {
+        "angleDeg": 0,
+        "through": [
+          500,
+          480
+        ],
+        "draw": true,
+        "snapping": false,
+        "n_vec": [
+          0,
+          -1
+        ],
+        "t_vec": [
+          1,
+          0
+        ]
+      },
+      "ellipses": [
+        {
+          "width": 120,
+          "height": 120,
+          "center": [
+            500,
+            240
+          ],
+          "n_vec": [
+            0,
+            -1
+          ],
+          "snapping": true,
+          "t_vec": [
+            1,
+            0
+          ]
+        }
+      ],
+      "texts": [
+        {
+          "txt": "Trykk på Oppgave-knappen over for flere detaljer",
+          "pos": [
+            440,
+            20
+          ],
+          "size": 14,
+          "align": "right",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            440,
+            20
+          ]
+        },
+        {
+          "txt": "Tegn inn tyngdekraften G.",
+          "pos": [
+            240,
+            80
+          ],
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            240,
+            80
+          ]
+        },
+        {
+          "txt": "- Klikk i ballens sentrum og dra rett ned.",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            240,
+            99
+          ]
+        },
+        {
+          "txt": "- Husk å navngi kraften.",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            240,
+            118
+          ]
+        },
+        {
+          "txt": "Trykk på Sjekk-knappen før du går til neste oppgave",
+          "pos": [
+            480,
+            20
+          ],
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            480,
+            20
+          ],
+          "linked": false
+        },
+        {
+          "txt": "v",
+          "pos": [
+            340,
+            240
+          ],
+          "size": 14,
+          "align": "center",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            340,
+            240
+          ]
+        }
+      ],
+      "arrows": [
+        {
+          "a": [
+            360,
+            220
+          ],
+          "b": [
+            360,
+            260
+          ],
+          "snapping": false
+        }
       ]
     },
-    expectedForces: [
-      { name:'G', aliases:['g','ga','tyngde','fg','G'], dir: DOWN.slice(), anchor:{ type:'point', ref:'origin', point:'center'} },
+    "expectedForces": [
+      {
+        "name": "G",
+        "aliases": [
+          "g",
+          "ga",
+          "tyngde",
+          "fg",
+          "G"
+        ],
+        "dir": [
+          0,
+          1
+        ],
+        "anchor": {
+          "type": "point",
+          "ref": "origin",
+          "point": "center"
+        }
+      }
     ],
-    initialForces: [],
-    sumF: { },
-    relations: [ ]
+    "initialForces": [],
+    "sumF": {},
+    "relations": []
+  });
+
+  TASKS.push({
+    "id": "Intro 2.",
+    "title": "Tegn snordraget på ballen",
+    "category": "Fysikk 1",
+    "origin": [
+      500,
+      240
+    ],
+    "help_lines": [
+      "På en ball som ligger i ro på bakken virker det to krefter:",
+      "G - Tyngdekraften",
+      "N - Normalkraften fra underlaget",
+      "Normalkraften er også en kontaktkraft.",
+      "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
+      "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+    ],
+    "scene": {
+      "plane": {
+        "angleDeg": 0,
+        "through": [
+          499,
+          499.6666660308838
+        ],
+        "draw": true,
+        "snapping": false,
+        "n_vec": [
+          0,
+          -1
+        ],
+        "t_vec": [
+          1,
+          0
+        ]
+      },
+      "ellipses": [
+        {
+          "width": 120,
+          "height": 120,
+          "center": [
+            500,
+            240
+          ],
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "snapping": true
+        }
+      ],
+      "texts": [
+        {
+          "txt": "Snordraget S er en kontaktkraft",
+          "pos": [
+            200,
+            57
+          ],
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            57
+          ]
+        },
+        {
+          "txt": "G og S må være motsatt rettet og like lange for at",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            76
+          ]
+        },
+        {
+          "txt": "Newtons 1. lov \\sumF=0 skal være sann.",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            95
+          ]
+        },
+        {
+          "txt": "-Tegn snordraget",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            114
+          ]
+        }
+      ],
+      "segments": [
+        {
+          "a": [
+            500,
+            180
+          ],
+          "b": [
+            500,
+            40
+          ],
+          "snapping": false,
+          "color": "#aaa7a7",
+          "lineWidth": 3
+        }
+      ],
+      "rects": [
+        {
+          "width": 520,
+          "height": 20,
+          "bottomCenter": [
+            740,
+            40
+          ],
+          "angleDeg": 0,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "snapping": false,
+          "color": "#acadaf"
+        }
+      ]
+    },
+    "expectedForces": [
+      {
+        "name": "G",
+        "aliases": [
+          "g",
+          "ga",
+          "tyngde",
+          "fg",
+          "G"
+        ],
+        "dir": [
+          0,
+          1
+        ],
+        "anchor": {
+          "type": "point",
+          "ref": "origin",
+          "point": "center"
+        }
+      }
+    ],
+    "initialForces": [],
+    "sumF": {},
+    "relations": [
+      {
+        "lhs": [
+          {
+            "name": "G"
+          }
+        ],
+        "rhs": [
+          {
+            "name": "S"
+          }
+        ],
+        "ratio": 1,
+        "tol_rel": 0.15
+      }
+    ]
+  });
+
+  TASKS.push({
+    "id": "Intro 3",
+    "title": "Tegn normalkraften fra underlaget",
+    "category": "Fysikk 1",
+    "origin": [
+      500,
+      240
+    ],
+    "help_lines": [
+      "På en ball som ligger i ro på bakken virker det to krefter:",
+      "G - Tyngdekraften",
+      "N - Normalkraften fra underlaget",
+      "Normalkraften er også en kontaktkraft.",
+      "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
+      "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+    ],
+    "scene": {
+      "plane": {
+        "angleDeg": 0,
+        "through": [
+          500,
+          340
+        ],
+        "draw": true,
+        "snapping": false,
+        "n_vec": [
+          0,
+          -1
+        ],
+        "t_vec": [
+          1,
+          0
+        ]
+      },
+      "ellipses": [
+        {
+          "width": 120,
+          "height": 120,
+          "center": [
+            500,
+            280
+          ],
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "snapping": true
+        }
+      ],
+      "texts": [
+        {
+          "txt": "Snordraget S er en kontaktkraft",
+          "pos": [
+            200,
+            57
+          ],
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            57
+          ]
+        },
+        {
+          "txt": "G og S må være motsatt rettet og like lange for at",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            76
+          ]
+        },
+        {
+          "txt": "Newtons 1. lov \\sumF=0 skal være sann.",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            95
+          ]
+        },
+        {
+          "txt": "-Tegn snordraget",
+          "size": 14,
+          "align": "left",
+          "color": "#222",
+          "snapping": false,
+          "_renderedPos": [
+            200,
+            114
+          ]
+        }
+      ],
+      "segments": [],
+      "rects": []
+    },
+    "expectedForces": [
+      {
+        "name": "G",
+        "aliases": [
+          "g",
+          "ga",
+          "tyngde",
+          "fg",
+          "G"
+        ],
+        "dir": [
+          0,
+          1
+        ],
+        "anchor": {
+          "type": "point",
+          "ref": "origin",
+          "point": "center"
+        }
+      }
+    ],
+    "initialForces": [],
+    "sumF": {},
+    "relations": [
+      {
+        "lhs": [
+          {
+            "name": "G"
+          }
+        ],
+        "rhs": [
+          {
+            "name": "N"
+          }
+        ],
+        "ratio": 1,
+        "tol_rel": 0.15
+      }
+    ]
   });
 
   // --- Task 1 ---

@@ -223,6 +223,7 @@
           if(window.fm && i >= 0 && i < window.fm.forces.length){
             const force = window.fm.forces[i];
             const hasPoints = !!(force.anchor || force.arrowBase || force.arrowTip);
+            let activeIndex = i;
             
             if(hasPoints){
               // Force has points: clear them but keep the force with its name
@@ -236,12 +237,15 @@
             } else {
               // Force has no points: delete the entire force
               window.fm.deleteAt(i);
+              // After deletion, activeIndex might be out of bounds, adjust it
+              activeIndex = Math.max(0, Math.min(i, window.fm.forces.length - 1));
             }
             
             // Set this force as active so next drawing goes to it
-            window.fm.setActive(i);
+            window.fm.setActive(activeIndex);
             
             const containerEl = container;
+            // syncInputs must be called AFTER setActive to update the active highlighting
             window.fm.syncInputs(containerEl);
             if(window.saveTaskForces) window.saveTaskForces();
             // Only call updateAppState if we actually deleted a force (not just cleared points)

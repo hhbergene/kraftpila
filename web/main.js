@@ -1934,15 +1934,17 @@
     const snappedDy = useNewPos[1] - startPos[1];
     
     if(type === 'origin' && handleType === 'center' && scene.origin){
-      scene.origin[0] += snappedDx;
-      scene.origin[1] += snappedDy;
+      // For center moves, set absolute position rather than using delta
+      // This ensures perfect grid alignment
+      scene.origin[0] = useNewPos[0];
+      scene.origin[1] = useNewPos[1];
       window.selectedSceneElement._handleStartPos = useNewPos;
     }
     else if(type === 'plane' && scene.plane){
       if(handleType === 'through'){
-        // Move plane through point
-        scene.plane.through[0] += snappedDx;
-        scene.plane.through[1] += snappedDy;
+        // Move plane through point - set absolute position for grid alignment
+        scene.plane.through[0] = useNewPos[0];
+        scene.plane.through[1] = useNewPos[1];
         // If dirPoint exists, move it too
         if(scene.plane.dirPoint) {
           scene.plane.dirPoint[0] += snappedDx;
@@ -1968,8 +1970,9 @@
     }
     else if(type === 'ellipse' && handleType === 'center' && scene.ellipses?.[index]){
       const ellipse = scene.ellipses[index];
-      ellipse.center[0] += snappedDx;
-      ellipse.center[1] += snappedDy;
+      // For center moves, set absolute position for grid alignment
+      ellipse.center[0] = useNewPos[0];
+      ellipse.center[1] = useNewPos[1];
       window.selectedSceneElement._handleStartPos = useNewPos;
     }
     else if(type === 'ellipse' && scene.ellipses?.[index]){
@@ -2008,39 +2011,45 @@
     }
     else if(type === 'circle' && handleType === 'center' && scene.circles?.[index]){
       const circle = scene.circles[index];
-      circle.center[0] += snappedDx;
-      circle.center[1] += snappedDy;
+      // For center moves, set absolute position for grid alignment
+      circle.center[0] = useNewPos[0];
+      circle.center[1] = useNewPos[1];
       window.selectedSceneElement._handleStartPos = useNewPos;
     }
     else if(type === 'text' && handleType === 'center' && scene.texts?.[index]){
       const text = scene.texts[index];
-      text.pos[0] += snappedDx;
-      text.pos[1] += snappedDy;
+      // For text position, set absolute position for grid alignment
+      text.pos[0] = useNewPos[0];
+      text.pos[1] = useNewPos[1];
       window.selectedSceneElement._handleStartPos = useNewPos;
     }
     else if(type === 'segment' && scene.segments?.[index]){
       const segment = scene.segments[index];
       if(handleType === 'a'){
-        segment.a[0] += snappedDx;
-        segment.a[1] += snappedDy;
+        // Set absolute position for grid alignment
+        segment.a[0] = useNewPos[0];
+        segment.a[1] = useNewPos[1];
         window.selectedSceneElement._handleStartPos = useNewPos;
       }
       else if(handleType === 'b'){
-        segment.b[0] += snappedDx;
-        segment.b[1] += snappedDy;
+        // Set absolute position for grid alignment
+        segment.b[0] = useNewPos[0];
+        segment.b[1] = useNewPos[1];
         window.selectedSceneElement._handleStartPos = useNewPos;
       }
     }
     else if(type === 'arrow' && scene.arrows?.[index]){
       const arrow = scene.arrows[index];
       if(handleType === 'a'){
-        arrow.a[0] += snappedDx;
-        arrow.a[1] += snappedDy;
+        // Set absolute position for grid alignment
+        arrow.a[0] = useNewPos[0];
+        arrow.a[1] = useNewPos[1];
         window.selectedSceneElement._handleStartPos = useNewPos;
       }
       else if(handleType === 'b'){
-        arrow.b[0] += snappedDx;
-        arrow.b[1] += snappedDy;
+        // Set absolute position for grid alignment
+        arrow.b[0] = useNewPos[0];
+        arrow.b[1] = useNewPos[1];
         window.selectedSceneElement._handleStartPos = useNewPos;
       }
     }
@@ -2051,9 +2060,9 @@
       const n = rect.n_vec || [0, -1];
       
       if(handleType === 'center'){
-        // Move bottom center
-        rect.bottomCenter[0] += snappedDx;
-        rect.bottomCenter[1] += snappedDy;
+        // Move bottom center - set absolute position for grid alignment
+        rect.bottomCenter[0] = useNewPos[0];
+        rect.bottomCenter[1] = useNewPos[1];
         window.selectedSceneElement._handleStartPos = useNewPos;
       }
       else if(handleType === 'topCenter'){

@@ -1837,7 +1837,22 @@
     
     const { type, index, handleType } = handleInfo;
     const scene = window.currentTask.scene;
-    const startPos = window.selectedSceneElement._handleStartPos || newPos;
+    
+    // Snap the initial position on first call (when _handleStartPos not yet set)
+    let startPos = window.selectedSceneElement._handleStartPos;
+    if(!startPos){
+      // First time: snap the initial position to grid
+      let gridOrigin = DRAW_CENTER ? [DRAW_CENTER[0], DRAW_CENTER[1]] : [0, 0];
+      const res = snapping.snap(newPos, {
+        points: [],
+        gridStep: window.GRID_STEP,
+        origin: gridOrigin,
+        axesDir: null
+      });
+      startPos = res.pos;
+      window.selectedSceneElement._handleStartPos = startPos;
+    }
+    
     const dx = newPos[0] - startPos[0];
     const dy = newPos[1] - startPos[1];
     

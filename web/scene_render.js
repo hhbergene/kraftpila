@@ -255,10 +255,31 @@
       task.scene.ellipses.forEach((e,i)=>{
         const id='ellipse'+i;
         const snappingEnabled = (e.snapping !== false);
+        // Calculate ellipse points similar to rect
+        // For an ellipse with center [cx, cy], width w, height h, and orientation n_vec
+        const cx = e.center[0];
+        const cy = e.center[1];
+        const w = e.width || 0;
+        const h = e.height || 0;
+        const nx = (e.n_vec || [0, -1])[0];
+        const ny = (e.n_vec || [0, -1])[1];
+        const tx = -(e.n_vec || [0, -1])[1];  // tangent perpendicular to normal
+        const ty = (e.n_vec || [0, -1])[0];
+        
+        // Points on ellipse boundary (at cardinal directions relative to ellipse orientation)
+        const top_center = [cx - ny*h/2, cy + nx*h/2];      // north
+        const bottom_center = [cx + ny*h/2, cy - nx*h/2];   // south
+        const right_middle = [cx + tx*w/2, cy + ty*w/2];    // east
+        const left_middle = [cx - tx*w/2, cy - ty*w/2];     // west
+        
         lookup[id]={
           snapping: snappingEnabled,
           points: snappingEnabled ? {
-            center: e.center
+            center: [cx, cy],
+            top_center: top_center,
+            bottom_center: bottom_center,
+            right_middle: right_middle,
+            left_middle: left_middle
           } : {},
           segments: {}
         };

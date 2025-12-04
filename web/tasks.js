@@ -228,115 +228,62 @@
     "id": "Intro 2.",
     "title": "Tegn snordraget på ballen",
     "category": "Fysikk 1",
-    "origin": [
-      500,
-      240
-    ],
-    "help_lines": [
-      "På en ball som ligger i ro på bakken virker det to krefter:",
-      "G - Tyngdekraften",
-      "N - Normalkraften fra underlaget",
-      "Normalkraften er også en kontaktkraft.",
-      "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
-      "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
-    ],
+    "origin": [500,240],
+    "help_lines": ["På en ball som ligger i ro på bakken virker det to krefter:","G - Tyngdekraften","N - Normalkraften fra underlaget","Normalkraften er også en kontaktkraft.","Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften","Tegn normakraften. Prøv gjerne å forskyve den litt til siden."],
     "scene": {
       "plane": {
         "angleDeg": 0,
-        "through": [
-          499,
-          499.6666660308838
-        ],
+        "through": [500,500],
         "draw": true,
         "snapping": false,
-        "n_vec": [
-          0,
-          -1
-        ],
-        "t_vec": [
-          1,
-          0
-        ]
+        "n_vec": [0,-1],
+        "t_vec": [1,0]
       },
       "ellipses": [
         {
           "width": 120,
           "height": 120,
-          "center": [
-            500,
-            240
-          ],
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ],
+          "center": [500,240],
+          "n_vec": [0,-1],
+          "t_vec": [1,0],
           "snapping": true
         }
       ],
       "texts": [
         {
           "txt": "Snordraget S er en kontaktkraft",
-          "pos": [
-            200,
-            57
-          ],
+          "pos": [200,57],
           "size": 14,
           "align": "left",
           "color": "#222",
-          "snapping": false,
-          "_renderedPos": [
-            200,
-            57
-          ]
+          "snapping": false
         },
         {
           "txt": "G og S må være motsatt rettet og like lange for at",
           "size": 14,
           "align": "left",
           "color": "#222",
-          "snapping": false,
-          "_renderedPos": [
-            200,
-            76
-          ]
+          "snapping": false
         },
         {
           "txt": "Newtons 1. lov \\sumF=0 skal være sann.",
           "size": 14,
           "align": "left",
           "color": "#222",
-          "snapping": false,
-          "_renderedPos": [
-            200,
-            95
-          ]
+          "snapping": false
         },
         {
           "txt": "-Tegn snordraget",
           "size": 14,
           "align": "left",
           "color": "#222",
-          "snapping": false,
-          "_renderedPos": [
-            200,
-            114
-          ]
+          "snapping": false
         }
       ],
       "segments": [
         {
-          "a": [
-            500,
-            180
-          ],
-          "b": [
-            500,
-            40
-          ],
+          "a": [500,180],
+          "b": [500,40],
           "snapping": false,
           "color": "#aaa7a7",
           "lineWidth": 3
@@ -346,19 +293,10 @@
         {
           "width": 520,
           "height": 20,
-          "bottomCenter": [
-            740,
-            40
-          ],
+          "bottomCenter": [740,40],
           "angleDeg": 0,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ],
+          "n_vec": [0,-1],
+          "t_vec": [1,0],
           "snapping": false,
           "color": "#acadaf"
         }
@@ -367,17 +305,8 @@
     "expectedForces": [
       {
         "name": "G",
-        "aliases": [
-          "g",
-          "ga",
-          "tyngde",
-          "fg",
-          "G"
-        ],
-        "dir": [
-          0,
-          1
-        ],
+        "aliases": ["g","ga","tyngde","fg","G"],
+        "dir": [0,1],
         "anchor": {
           "type": "point",
           "ref": "origin",
@@ -385,7 +314,15 @@
         }
       }
     ],
-    "initialForces": [],
+    "initialForces": [
+      {
+        "anchor": [500,240],
+        "arrowBase": [500,240],
+        "arrowTip": [500,340],
+        "name": "G",
+        "moveable": true
+      }
+    ],
     "sumF": {},
     "relations": [
       {

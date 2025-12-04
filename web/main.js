@@ -2358,8 +2358,8 @@
       if(window.fm && window.fm.forces){
         const initialForcesFromUI = [];
         window.fm.forces.forEach(f => {
-          // Only include forces that are marked as initial (not expected)
-          if(!f.isExpected && f.anchor && (f.arrowBase || f.arrowTip)){
+          // Only include forces that are marked as initial (not expected) AND have actual geometry
+          if(!f.isExpected && f.anchor && (f.arrowBase || f.arrowTip) && f.name){
             initialForcesFromUI.push({
               anchor: [f.anchor[0], f.anchor[1]],
               arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
@@ -2369,9 +2369,8 @@
             });
           }
         });
-        if(initialForcesFromUI.length > 0){
-          task.initialForces = initialForcesFromUI;
-        }
+        // Replace initialForces with what was actually drawn/edited in UI
+        task.initialForces = initialForcesFromUI;
       }
       
       // Remove rendering artifacts and linked flags from texts

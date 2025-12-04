@@ -317,11 +317,19 @@
           toggleBtn.textContent = isExpected ? '🔓' : '🔒';
         }
         
-        // Delete button visible when force is not blank (independent of editor mode)
+        // Delete button visible if force has points OR has a name (so user can delete name-only forces)
         if(deleteBtn){
-          const isBlank = !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '');
-          deleteBtn.style.display = !isBlank ? 'flex' : 'none';
+          const hasPoints = !!(f.anchor || f.arrowBase || f.arrowTip);
+          const hasName = !!(f.name && f.name.trim() !== '');
+          const canDelete = hasPoints || hasName;
+          deleteBtn.style.display = canDelete ? 'flex' : 'none';
         }
+        
+        // Hide entire row if force is completely blank AND it's not the last one
+        // (Keep the last blank force visible for adding new forces)
+        const isBlank = !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '');
+        const isLastForce = (i === this.forces.length - 1);
+        row.style.display = (isBlank && !isLastForce) ? 'none' : 'flex';
         
         if(i===this.activeIndex) row.classList.add('active'); else row.classList.remove('active');
       }

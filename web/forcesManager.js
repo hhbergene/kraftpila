@@ -286,8 +286,10 @@
         if(document.activeElement !== input){
           if(f.name && f.name.trim() !== input.value){
             input.value = f.name;
+          } else if(!f.name || f.name.trim() === ''){
+            // Force has no name: clear the input
+            input.value = '';
           }
-          // Do NOT overwrite if f.name empty and input has content.
         }
         
         // In task mode (not editor mode), disable initial forces

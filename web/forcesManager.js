@@ -221,12 +221,31 @@
           e.preventDefault();
           const i = parseInt(deleteBtn.dataset.index, 10);
           if(window.fm && i >= 0 && i < window.fm.forces.length){
-            window.fm.deleteAt(i);
+            const force = window.fm.forces[i];
+            const hasPoints = !!(force.anchor || force.arrowBase || force.arrowTip);
+            
+            if(hasPoints){
+              // Force has points: clear them but keep the force with its name
+              force.anchor = null;
+              force.arrowBase = null;
+              force.arrowTip = null;
+              force.force_dir = [1, 0];
+              force.force_len = 0;
+              force.drawing = false;
+              force.dragging = null;
+            } else {
+              // Force has no points: delete the entire force
+              window.fm.deleteAt(i);
+            }
+            
+            // Set this force as active so next drawing goes to it
+            window.fm.setActive(i);
+            
             const containerEl = container;
             window.fm.syncInputs(containerEl);
             if(window.saveTaskForces) window.saveTaskForces();
-            // Trigger cleanup on next interaction (updateAppState will run cleanup logic)
-            if(window.updateAppState) window.updateAppState();
+            // Only call updateAppState if we actually deleted a force (not just cleared points)
+            if(!hasPoints && window.updateAppState) window.updateAppState();
           }
         });
         

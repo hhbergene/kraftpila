@@ -1,62 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="no">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kraftpila - Tegne Krefter</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23222'/%3E%3Cpath d='M12 52 L32 12 L52 52' stroke='%23ffffff' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='12' r='5' fill='%23ff4444'/%3E%3C/svg%3E">
-    <link rel="shortcut icon" href="favicon.ico">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #222;
-        }
-        canvas {
-            display: block;
-        }
-    </style>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
+  <meta charset="UTF-8" />
+  <title>Tegne Krefter (JS Port)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <canvas id="pygame-canvas"></canvas>
-    <script id="pyodide-js" src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
-    <script>
-    function bootPyodide() {
-        if (typeof loadPyodide !== "function") {
-            console.error("loadPyodide ikke definert – sjekk nettverksfanen for 404.");
-            return;
-        }
-        (async () => {
-            console.log("Laster Pyodide...");
-            const pyodide = await loadPyodide({indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/"});
-            console.log("Pyodide klar.");
-            await pyodide.loadPackage(["micropip"]);
-            await pyodide.runPythonAsync(`
-import micropip
-await micropip.install("pygame-cs")
-`);
-            console.log("pygame-cs installert.");
-            const v = Date.now();
-            const mainSrc = await fetch("../main.py?v=" + v, {cache: "no-store"}).then(r => {
-                if (!r.ok) throw new Error("Kunne ikke hente main.py");
-                return r.text();
-            });
-            pyodide.FS.writeFile("main.py", mainSrc);
-            pyodide.runPython(`
-import os
-os.environ["PYGAME_CANVAS"] = "pygame-canvas"
-import main
-`);
-            console.log("App startet.");
-        })().catch(e => console.error("Oppstartfeil:", e));
-    }
-    const s = document.getElementById("pyodide-js");
-    s.addEventListener("load", bootPyodide);
-    s.addEventListener("error", () => console.error("Kunne ikke laste pyodide.js"));
-    </script>
+  <main id="app">
+    <div id="panel">
+      <!-- Navigasjons- og verktøyknapper plassert etter Python-layout -->
+      <button class="btn-icon" id="btn-snap"        data-action="snap"        title="Snap"></button>
+      <button class="btn-icon" id="btn-guidelines"  data-action="guidelines"  title="Guidelines"></button>
+      <button class="btn-icon" id="btn-grid"        data-action="grid"        title="Grid"></button>
+
+      <button class="btn-icon" id="btn-prev"        data-action="prev"        title="Forrige"></button>
+      <button class="btn-wide" id="btn-help"        data-action="help"        title="Oppgave"></button>
+      <button class="btn-icon" id="btn-next"        data-action="next"        title="Neste"></button>
+      <button class="btn-wide" id="btn-check"       data-action="check"       title="Sjekk"></button>
+      <button class="btn-wide" id="btn-reset"       data-action="reset"       title="Reset"></button>
+      <button class="btn-icon" id="btn-settings"    data-action="settings"    title="Innstillinger"></button>
+      <div id="user-info">
+        <span id="user-display"></span>
+      </div>
+    </div>
+    <!-- Canvas scroll container -->
+    <div id="canvas-container">
+      <canvas id="app-canvas" width="1000" height="640"></canvas>
+    </div>
+    <!-- Editor mode buttons panel -->
+    <div id="editor-buttons" class="hidden">
+      <div class="editor-buttons-left">
+        <button id="btn-save-task" title="Dupliser oppgave">📋</button>
+        <button id="btn-new-task" title="Ny oppgave">📄</button>
+        <button id="btn-delete-task" title="Slett oppgave">🗑️</button>
+        <button id="btn-export-task" title="Eksporter som JS">📤</button>
+        <button id="btn-task-order" title="Administrer oppgaver">📋</button>
+      </div>
+      <div class="editor-buttons-right">
+        <button id="btn-add-rect" title="Legg til rektangel">▭</button>
+        <button id="btn-add-ellipse" title="Legg til ellipse">⬭</button>
+        <button id="btn-add-segment" title="Legg til segment">─</button>
+        <button id="btn-add-arrow" title="Legg til pil">→</button>
+        <button id="btn-add-text" title="Legg til tekst">T</button>
+      </div>
+    </div>
+    <!-- Conflict modal dialog -->
+    <div id="conflict-modal" class="hidden modal">
+      <div class="modal-content">
+        <h3>Konflikt detektert</h3>
+        <p id="conflict-message">En annen fane redigerer denne oppgaven. Oppgaven er låst for redigering.</p>
+        <div class="modal-buttons">
+          <button id="conflict-reload" class="btn-primary">🔄 Last inn siste versjon</button>
+          <button id="conflict-close" class="btn-secondary">Lukk</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Relations editor modal -->
+    <div id="relations-modal" class="hidden modal">
+      <div class="modal-content" style="min-width:400px;">
+        <h3>Rediger relasjoner</h3>
+        <div id="relations-list"></div>
+        <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+          <button id="relations-save" class="btn-primary">Lagre</button>
+          <button id="relations-cancel" class="btn-secondary">Avbryt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task order manager modal -->
+    <div id="task-order-modal" class="hidden modal">
+      <div class="modal-content" style="min-width:500px;">
+        <h3>Oppgaver (<span id="task-count">0</span>)</h3>
+        <div id="task-list" class="task-list-container" style="max-height:400px; overflow-y:auto; border:1px solid #ccc; border-radius:4px; background:#f9f9f9;"></div>
+        <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+          <button id="task-order-close" class="btn-secondary">Lukk</button>
+        </div>
+      </div>
+    </div>
+    <!-- Force panel (right side) -->
+    <aside id="force-panel">
+      <div class="panel-header">
+        <h2>Krefter</h2>
+      </div>
+      <div id="force-inputs"></div>
+    </aside>
+    <!-- Feedback panel (left side) -->
+    <div id="feedback-panel" class="hidden">
+      <div id="feedback-score"></div>
+      <div id="feedback-text"></div>
+      <div id="feedback-nav">
+        <button id="fb-prev" title="Forrige">◀</button>
+        <span id="fb-count"></span>
+        <button id="fb-next" title="Neste">▶</button>
+      </div>
+    </div>
+    <!-- Scene panel (below force panel on right side) -->
+    <aside id="scene-panel" style="display:none;">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <button id="btn-edit-relations" title="Rediger relasjoner" style="padding:6px 8px; font-size:14px; border:1px solid #888; border-radius:4px; cursor:pointer; background:#f0f0f0; margin-right:8px;">🔗 Relasjoner</button>
+        <h2 style="margin:0; flex:1;">Scene</h2>
+      </div>
+      <div id="scene-items" class="scene-items-list"></div>
+    </aside>
+    <!-- Help panel (lower half) -->
+    <div id="help-panel" class="hidden">
+      <div class="help-header">
+        <h3 id="help-title">Hjelp</h3>
+        <button id="help-close" title="Lukk">✖</button>
+      </div>
+      <div id="help-content"></div>
+    </div>
+    <!-- Settings panel overlay (right half) -->
+    <div id="settings-panel" class="hidden">
+      <div class="settings-header">
+        <h3>Innstillinger</h3>
+        <button id="settings-close" title="Lukk">✖</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-row">
+          <span>Debug-modus</span>
+          <input type="checkbox" id="settings-debug" />
+        </label>
+        <label class="settings-row">
+          <span>Redigering</span>
+          <input type="checkbox" id="settings-editor" />
+        </label>
+        <label class="settings-row">
+          <span>Brukernavn</span>
+          <input type="text" id="settings-username" placeholder="Skriv navn" />
+        </label>
+        <label class="settings-row">
+          <span>Snap aktiv</span>
+          <input type="checkbox" id="settings-snap" />
+        </label>
+        <label class="settings-row">
+          <span>Guidelines</span>
+          <input type="checkbox" id="settings-guidelines" />
+        </label>
+        <label class="settings-row">
+          <span>Vis kraft-koordinater</span>
+          <input type="checkbox" id="settings-show-force-coordinates" />
+        </label>
+        <label class="settings-row">
+          <span>Vis scene-koordinater</span>
+          <input type="checkbox" id="settings-show-scene-coordinates" />
+        </label>
+        <label class="settings-row">
+          <span id="settings-comment-label">Kommentar til oppgave</span>
+          <textarea id="settings-task-comment" placeholder="Skriv kommentar..." style="flex:1; padding:6px 8px; font-size:13px; border:1px solid #888; border-radius:4px; resize:vertical; min-height:60px; font-family:inherit;"></textarea>
+        </label>
+        <div class="settings-divider"></div>
+        <div class="settings-buttons">
+          <button id="settings-download" title="Download innstillinger">Last ned</button>
+          <button id="settings-restore" title="Last opp innstillinger">Gjenopprett</button>
+          <input type="file" id="settings-file-input" accept=".json" style="display:none;" />
+        </div>
+      </div>
+    </div>
+    <!-- Debug modal (centered overlay) -->
+    <div id="debug-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:2000;">
+      <div style="background:#ffffff; border-radius:8px; width:600px; height:500px; display:flex; flex-direction:column; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+        <div style="padding:12px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0;">Debug Output</h3>
+          <button id="debug-close" title="Lukk" style="background:none; border:none; font-size:18px; cursor:pointer; padding:0; width:24px; height:24px;">✖</button>
+        </div>
+        <div id="debug-content" style="flex:1; padding:12px; overflow-y:auto; font-family:'Courier New', monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; background:#f5f5f5; color:#333;"></div>
+        <div style="padding:12px; border-top:1px solid #ccc; display:flex; gap:8px;">
+          <button id="debug-clear" title="Tøm debug output" style="flex:1; padding:6px; background:#f5f5f5; border:1px solid #999; border-radius:4px; cursor:pointer;">Tøm</button>
+          <button id="debug-copy" title="Kopier debug output" style="flex:1; padding:6px; background:#f5f5f5; border:1px solid #999; border-radius:4px; cursor:pointer;">Kopier</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- Midlertidig: uten ES module for å kunne åpne via file:// -->
+  <script src="text_render.js"></script>
+  <script src="geometry.js"></script>
+  <script src="tasks.js"></script>
+  <script src="scene_render.js"></script>
+  <script src="debug_render.js"></script>
+  <script src="evaluate.js"></script>
+  <script src="forces.js"></script>
+  <script src="forcesManager.js"></script>
+  <script src="snapping.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

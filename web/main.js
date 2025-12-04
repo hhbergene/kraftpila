@@ -2354,23 +2354,34 @@
       // Build export task with aliases and relations
       const task = JSON.parse(JSON.stringify(window.currentTask));
       
-      // Sync initialForces from window.fm (forces marked as initial/expected)
+      // Sync both initialForces and expectedForces from window.fm based on isExpected flag
       if(window.fm && window.fm.forces){
         const initialForcesFromUI = [];
+        const expectedForcesFromUI = [];
+        
         window.fm.forces.forEach(f => {
-          // Only include forces that are marked as initial (not expected) AND have actual geometry
-          if(!f.isExpected && f.anchor && (f.arrowBase || f.arrowTip) && f.name){
-            initialForcesFromUI.push({
+          // Only include forces with actual geometry and a name (skip blank forces)
+          if(f.anchor && (f.arrowBase || f.arrowTip) && f.name){
+            const forceSpec = {
               anchor: [f.anchor[0], f.anchor[1]],
               arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
               arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
               name: f.name || '',
               moveable: f.moveable !== false
-            });
+            };
+            
+            // Sort by isExpected flag
+            if(f.isExpected){
+              expectedForcesFromUI.push(forceSpec);
+            } else {
+              initialForcesFromUI.push(forceSpec);
+            }
           }
         });
-        // Replace initialForces with what was actually drawn/edited in UI
+        
+        // Replace both arrays with what was actually drawn/edited in UI
         task.initialForces = initialForcesFromUI;
+        task.expectedForces = expectedForcesFromUI;
       }
       
       // Remove rendering artifacts and linked flags from texts

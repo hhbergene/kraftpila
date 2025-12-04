@@ -771,6 +771,32 @@
     //console.log('updateAppState() kjørt - oppdaterer snap points, guidelines, scene panel, etc.');
     if(!window.currentTask) return;
     
+    // Cleanup: ensure exactly one blank force at the end, remove extra blanks
+    if(window.fm && window.fm.forces){
+      // Find all blank forces (in reverse order to avoid index issues)
+      const blankIndices = [];
+      for(let i = window.fm.forces.length - 1; i >= 0; i--){
+        const f = window.fm.forces[i];
+        if(!f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '')){
+          blankIndices.push(i);
+        }
+      }
+      // If multiple blanks, remove all but the last one (which is the first in our reverse list)
+      if(blankIndices.length > 1){
+        // Remove blanks from highest index to lowest to avoid index shifting issues
+        for(let i = 1; i < blankIndices.length; i++){
+          window.fm.forces.splice(blankIndices[i], 1);
+        }
+        // Re-sync the UI to reflect removed blanks
+        window.fm.syncInputs(document.getElementById('force-inputs'));
+      }
+      // If no blanks at all, add one
+      else if(blankIndices.length === 0){
+        window.fm.ensureTrailingBlank();
+        window.fm.syncInputs(document.getElementById('force-inputs'));
+      }
+    }
+    
     // 0. Rebuild scene lookup from current scene (must be before snap points)
     window.sceneLookup = buildSceneLookup(window.currentTask);
     
@@ -2309,7 +2335,8 @@
       const wasDrawing = f.drawing;
       f.handleMouseUp(pos);
       if(wasDrawing && !f.drawing){
-        window.fm.addEmptyForceIfNeeded();
+        // Add a new blank force after finishing a draw
+        window.fm.ensureTrailingBlank();
         // Keep focus on the just-drawn force's textbox for naming
         const rows = Array.from(inputsContainer.querySelectorAll('.force-row'));
         if(rows[window.fm.activeIndex]){

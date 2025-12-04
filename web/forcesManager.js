@@ -41,8 +41,7 @@
     deleteAt(index){
       if(index<0 || index>=this.forces.length) return;
       this.forces.splice(index,1);
-      // Ensure a trailing blank exists for new entries
-      this.ensureTrailingBlank();
+      // Do NOT automatically add a blank - let updateAppState handle cleanup
       // Adjust active index
       const newActive = Math.max(0, Math.min(index, this.forces.length-1));
       this.setActive(newActive);
@@ -226,6 +225,8 @@
             const containerEl = container;
             window.fm.syncInputs(containerEl);
             if(window.saveTaskForces) window.saveTaskForces();
+            // Trigger cleanup on next interaction (updateAppState will run cleanup logic)
+            if(window.updateAppState) window.updateAppState();
           }
         });
         

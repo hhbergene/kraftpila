@@ -1644,7 +1644,17 @@
   function saveTaskForces(){
     if(!window.currentTask || !window.fm) return;
     const taskKey = `tk_forces_${window.currentTask.id}`;
-    const specs = window.fm.forces.map(f=>(
+    
+    // Filter out blank forces (only save forces with actual data)
+    const nonBlankForces = window.fm.forces.filter(f => {
+      const hasAnchor = f.anchor !== null && f.anchor !== undefined;
+      const hasArrowBase = f.arrowBase !== null && f.arrowBase !== undefined;
+      const hasArrowTip = f.arrowTip !== null && f.arrowTip !== undefined;
+      const hasName = f.name && f.name.trim() !== '';
+      return hasAnchor || hasArrowBase || hasArrowTip || hasName;
+    });
+    
+    const specs = nonBlankForces.map(f=>(
       {
         anchor: f.anchor ? [f.anchor[0], f.anchor[1]] : null,
         arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,

@@ -2350,16 +2350,44 @@
   if(btnExportTask){
     btnExportTask.addEventListener('click', ()=>{
       if(!window.currentTask) return;
+      
       // Build export task with aliases and relations
       const task = JSON.parse(JSON.stringify(window.currentTask));
       
-      // Remove pos and linked flag from linked texts
-      if(task.scene && Array.isArray(task.scene.texts)){
-        task.scene.texts.forEach(text => {
-          if(text.linked) {
-            delete text.pos;
-            delete text.linked;
+      // Sync initialForces from window.fm (forces marked as initial/expected)
+      if(window.fm && window.fm.forces){
+        const initialForcesFromUI = [];
+        window.fm.forces.forEach(f => {
+          // Only include forces that are marked as initial (not expected)
+          if(!f.isExpected && f.anchor && (f.arrowBase || f.arrowTip)){
+            initialForcesFromUI.push({
+              anchor: [f.anchor[0], f.anchor[1]],
+              arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
+              arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
+              name: f.name || '',
+              moveable: f.moveable !== false
+            });
           }
+        });
+        if(initialForcesFromUI.length > 0){
+          task.initialForces = initialForcesFromUI;
+        }
+      }
+      
+      // Remove rendering artifacts and linked flags from texts
+      if(task.scene && Array.isArray(task.scene.texts)){
+        task.scene.texts = task.scene.texts.map(text => {
+          const clean = {
+            txt: text.txt,
+            pos: text.pos,
+            size: text.size || 14,
+            align: text.align || 'center',
+            color: text.color || '#222',
+            snapping: text.snapping !== false
+          };
+          // Only include pos if text is not linked
+          if(text.linked) delete clean.pos;
+          return clean;
         });
       }
       
@@ -2369,20 +2397,23 @@
           if(FORCE_ALIASES[f.name]) f.aliases = FORCE_ALIASES[f.name].slice();
         });
       }
+      
       // Add relations from localStorage if present
       const relKey = `tk_relations_${task.id}`;
       const savedRelations = localStorage.getItem(relKey);
       if(savedRelations){
         try{ task.relations = JSON.parse(savedRelations); }catch{}
       }
+      
       // Add sumF from localStorage if present
       const sumFKey = `tk_sumF_${task.id}`;
       const savedSumF = localStorage.getItem(sumFKey);
       if(savedSumF){
         try{ task.sumF = JSON.parse(savedSumF); }catch{}
       }
-      // Generate JavaScript export code
-      const code = `TASKS.push(${JSON.stringify(task, null, 2)});`;
+      
+      // Generate compact JavaScript export code (Task 1-7 style, no indentation)
+      const code = `TASKS.push(${JSON.stringify(task)});`;
       const dataStr = code;
       const blob = new Blob([dataStr], { type: 'text/javascript' });
       const url = URL.createObjectURL(blob);

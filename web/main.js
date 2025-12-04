@@ -2412,8 +2412,37 @@
         try{ task.sumF = JSON.parse(savedSumF); }catch{}
       }
       
-      // Generate JavaScript export code with 2-space indent (Task 1-7 style)
-      const code = `TASKS.push(${JSON.stringify(task, null, 2)});`;
+      // Generate JavaScript export code with custom formatting
+      // Each scene element array item and force on its own line for readability
+      const formatForExport = (obj, indent = 0) => {
+        const spaces = ' '.repeat(indent);
+        const nextSpaces = ' '.repeat(indent + 2);
+        
+        if (Array.isArray(obj)) {
+          if (obj.length === 0) return '[]';
+          // Check if array contains objects (scene elements, forces, relations)
+          const isComplexArray = obj.some(item => typeof item === 'object' && item !== null);
+          if (isComplexArray) {
+            const items = obj.map(item => `${nextSpaces}${formatForExport(item, indent + 2)}`);
+            return `[\n${items.join(',\n')}\n${spaces}]`;
+          }
+          return JSON.stringify(obj);
+        }
+        
+        if (typeof obj === 'object' && obj !== null) {
+          const keys = Object.keys(obj);
+          if (keys.length === 0) return '{}';
+          const items = keys.map(key => {
+            const value = formatForExport(obj[key], indent + 2);
+            return `${nextSpaces}"${key}": ${value}`;
+          });
+          return `{\n${items.join(',\n')}\n${spaces}}`;
+        }
+        
+        return JSON.stringify(obj);
+      };
+      
+      const code = `TASKS.push(${formatForExport(task)});\n`;
       const dataStr = code;
       const blob = new Blob([dataStr], { type: 'text/javascript' });
       const url = URL.createObjectURL(blob);

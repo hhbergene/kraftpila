@@ -2412,8 +2412,8 @@
         try{ task.sumF = JSON.parse(savedSumF); }catch{}
       }
       
-      // Generate compact JavaScript export code (Task 1-7 style, no indentation)
-      const code = `TASKS.push(${JSON.stringify(task)});`;
+      // Generate JavaScript export code with 2-space indent (Task 1-7 style)
+      const code = `TASKS.push(${JSON.stringify(task, null, 2)});`;
       const dataStr = code;
       const blob = new Blob([dataStr], { type: 'text/javascript' });
       const url = URL.createObjectURL(blob);

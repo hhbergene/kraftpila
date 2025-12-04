@@ -76,18 +76,22 @@
     const pts = rectPoints(r);
     ctx.strokeStyle = r.color || '#4090ff';
     ctx.lineWidth = r.lineWidth || 2;
+    if(r.body === 'dashed') ctx.setLineDash([8, 6]);
     ctx.beginPath();
     ctx.moveTo(pts.bottomLeft[0] + 0.5, pts.bottomLeft[1] + 0.5);
     ctx.lineTo(pts.bottomRight[0] + 0.5, pts.bottomRight[1] + 0.5);
     ctx.lineTo(pts.topRight[0] + 0.5, pts.topRight[1] + 0.5);
     ctx.lineTo(pts.topLeft[0] + 0.5, pts.topLeft[1] + 0.5);
     ctx.closePath(); ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   function drawSegment(ctx, s){
     ctx.strokeStyle = s.color || '#222';
     ctx.lineWidth = s.lineWidth || 2;
+    if(s.body === 'dashed') ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(s.a[0] + 0.5, s.a[1] + 0.5); ctx.lineTo(s.b[0] + 0.5, s.b[1] + 0.5); ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   function drawCircle(ctx, c){
@@ -112,7 +116,9 @@
     ctx.rotate(angle);
     ctx.strokeStyle = e.color || '#4090ff';
     ctx.lineWidth = e.lineWidth || 2;
+    if(e.body === 'dashed') ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
     if(e.fill_color){ ctx.fillStyle = e.fill_color; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1.0; }
     ctx.restore();
   }
@@ -143,16 +149,45 @@
     if(t.linked && textIndex > 0 && allTexts) {
       // Find the previous text element (not filtered by _isShortLines)
       const prevText = allTexts[textIndex - 1];
-      if(prevText && prevText.pos) {
-        const prevY = prevText.pos[1];
-        const prevX = prevText.pos[0];
+      if(prevText && prevText._renderedPos) {
+        const prevY = prevText._renderedPos[1];
+        const prevX = prevText._renderedPos[0];
         const prevSize = prevText.size || 14;
         const padding = 5;
         const newY = prevY + prevSize + padding;
         pos = [prevX, newY];
       }
     }
+    // Store the actual rendered position for linked texts
+    t._renderedPos = pos;
+    
     drawFormattedText(ctx, t.txt, pos[0], pos[1], {size:t.size||14, color:t.color||'#000', align:t.align||'left'});
+    
+    // Draw bounding box if this text is selected in editor
+    if(window.selectedSceneElement && window.selectedSceneElement.type === 'text' && window.selectedSceneElement.index === textIndex) {
+      const baseSize = t.size || 14;
+      ctx.save();
+      ctx.font = `${baseSize}px Segoe UI, Arial`;
+      const metrics = ctx.measureText(t.txt);
+      const width = metrics.width;
+      const height = baseSize * 1.2;  // Slightly larger for padding
+      const align = t.align || 'left';
+      
+      // Calculate bounding box position based on text alignment
+      let boxX = pos[0];
+      if(align === 'center') {
+        boxX = pos[0] - width / 2;
+      } else if(align === 'right') {
+        boxX = pos[0] - width;
+      }
+      const boxY = pos[1] - height / 2;
+      
+      // Draw bounding box with handle color
+      ctx.strokeStyle = '#ff9800';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(boxX - 2, boxY - 2, width + 4, height + 4);
+      ctx.restore();
+    }
   }
 
   function drawScene(ctx, task){

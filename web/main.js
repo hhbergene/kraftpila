@@ -276,13 +276,11 @@
     }
     else if(type === 'text' && scene.texts && scene.texts[index]){
       const text = scene.texts[index];
-      const [x, y] = text.pos;
-      drawHandle(x, y);
-    } 
-    else if(type === 'text' && scene.texts && scene.texts[index]){
-      const text = scene.texts[index];
-      const [x, y] = text.pos;
-      drawHandle(x, y);
+      // Don't show handle for dragging text position if linked
+      if(!text.linked){
+        const [x, y] = text.pos;
+        drawHandle(x, y);
+      }
     }
   }
   
@@ -882,24 +880,7 @@
     window.sceneLookup = buildSceneLookup(window.currentTask);
     window.snapPoints = snapping.buildSnapPoints(window.sceneLookup);
       
-    // Auto-calculate pos for texts that don't have it
-    if(window.currentTask.scene && Array.isArray(window.currentTask.scene.texts)){
-      let lastValidY = window.DRAW_CENTER[1];
-      window.currentTask.scene.texts.forEach(text => {
-        if(!text.pos || !Array.isArray(text.pos) || text.pos.length !== 2) {
-          // Generate pos based on previous text and mark as linked
-          const textSize = text.size || 14;
-          const padding = 5;
-          text.pos = [window.DRAW_CENTER[0], lastValidY + textSize + padding];
-          text.linked = true;  // Mark that pos is auto-calculated
-        }
-        // Update lastValidY for next text
-        if(text.pos && Array.isArray(text.pos)) {
-          const textSize = text.size || 14;
-          lastValidY = text.pos[1];
-        }
-      });
-    }
+
     
     // Create new ForcesManager (will be populated below)
     window.fm = new ForcesManager();
@@ -1209,6 +1190,13 @@
             <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="rect" data-idx="${index}" value="${rectObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
           </div>
           <div class="scene-editor-row">
+            <label>Stil:</label>
+            <select class="scene-editor-input" data-field="body" data-type="rect" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+              <option value="solid" ${(rectObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+              <option value="dashed" ${(rectObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+            </select>
+          </div>
+          <div class="scene-editor-row">
             <label>Snap:</label>
             <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="rect" data-idx="${index}" ${(rectObj.snapping ? 'checked' : '')} />
           </div>
@@ -1222,6 +1210,13 @@
             <input type="color" class="scene-editor-input" data-field="color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
             <label style="min-width:auto; margin-left:4px;">Linje:</label>
             <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="ellipse" data-idx="${index}" value="${ellObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
+          </div>
+          <div class="scene-editor-row">
+            <label>Stil:</label>
+            <select class="scene-editor-input" data-field="body" data-type="ellipse" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+              <option value="solid" ${(ellObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+              <option value="dashed" ${(ellObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+            </select>
           </div>
           <div class="scene-editor-row">
             <label>Snap:</label>
@@ -1248,6 +1243,13 @@
             <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="segment" data-idx="${index}" value="${segObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
           </div>
           <div class="scene-editor-row">
+            <label>Stil:</label>
+            <select class="scene-editor-input" data-field="body" data-type="segment" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+              <option value="solid" ${(segObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+              <option value="dashed" ${(segObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+            </select>
+          </div>
+          <div class="scene-editor-row">
             <label>Snap:</label>
             <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="segment" data-idx="${index}" ${(segObj.snapping ? 'checked' : '')} />
           </div>
@@ -1256,6 +1258,19 @@
       } else if(type === 'arrow') {
         const arrObj = obj;
         return `
+          <div class="scene-editor-row">
+            <label>Farge:</label>
+            <input type="color" class="scene-editor-input" data-field="color" data-type="arrow" data-idx="${index}" value="${expandHexColor(arrObj.color || '#00f')}" style="width:40px; padding:2px;" />
+            <label style="min-width:auto; margin-left:4px;">Linje:</label>
+            <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="arrow" data-idx="${index}" value="${arrObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
+          </div>
+          <div class="scene-editor-row">
+            <label>Stil:</label>
+            <select class="scene-editor-input" data-field="body" data-type="arrow" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+              <option value="solid" ${(arrObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+              <option value="dashed" ${(arrObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+            </select>
+          </div>
           <div class="scene-editor-row">
             <label>Snap:</label>
             <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="arrow" data-idx="${index}" ${(arrObj.snapping ? 'checked' : '')} />
@@ -1321,6 +1336,8 @@
               scene.rects[idx][field] = input.value;
             } else if(input.type === 'number') {
               scene.rects[idx][field] = parseFloat(input.value) || 2;
+            } else if(input.tagName === 'SELECT') {
+              scene.rects[idx][field] = input.value;
             }
             saveTask();
           } else if(fieldType === 'ellipse' && scene.ellipses[idx]) {
@@ -1330,6 +1347,8 @@
               scene.ellipses[idx][field] = input.value;
             } else if(input.type === 'number') {
               scene.ellipses[idx][field] = parseFloat(input.value) || 2;
+            } else if(input.tagName === 'SELECT') {
+              scene.ellipses[idx][field] = input.value;
             }
             saveTask();
           } else if(fieldType === 'circle' && scene.circles[idx]) {
@@ -1344,11 +1363,19 @@
               scene.segments[idx][field] = input.value;
             } else if(input.type === 'number') {
               scene.segments[idx][field] = parseFloat(input.value) || 2;
+            } else if(input.tagName === 'SELECT') {
+              scene.segments[idx][field] = input.value;
             }
             saveTask();
           } else if(fieldType === 'arrow' && scene.arrows[idx]) {
             if(input.type === 'checkbox') {
               scene.arrows[idx][field] = input.checked;
+            } else if(input.type === 'color') {
+              scene.arrows[idx][field] = input.value;
+            } else if(input.type === 'number') {
+              scene.arrows[idx][field] = parseFloat(input.value) || 2;
+            } else if(input.tagName === 'SELECT') {
+              scene.arrows[idx][field] = input.value;
             }
             saveTask();
           } else if(fieldType === 'plane' && scene.plane) {
@@ -1825,8 +1852,11 @@
     }
     else if(type === 'text' && scene?.texts?.[index]){
       const text = scene.texts[index];
-      const [x, y] = text.pos;
-      if(isNear(x, y)) return {type: 'text', index, handleType: 'center'};
+      // Don't detect handle for dragging text position if linked
+      if(!text.linked){
+        const [x, y] = text.pos;
+        if(isNear(x, y)) return {type: 'text', index, handleType: 'center'};
+      }
     }
     
     return null;
@@ -2439,6 +2469,11 @@
         return;
       }
       if(action === 'next'){
+        // Save current help_lines if in editor mode
+        if(window.editorMode){
+          saveHelpLines();
+          saveTask();
+        }
         loadTask(window.currentTaskIndex+1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2456,15 +2491,33 @@
         const helpPanel = document.getElementById('help-panel');
         if(helpPanel && !helpPanel.classList.contains('hidden')){
           const helpContent = document.getElementById('help-content');
+          const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && window.currentTask.help_lines){
-            helpContent.innerHTML = window.currentTask.help_lines.map(line => `<p>${line}</p>`).join('');
+          if(helpContent && helpCanvas && window.currentTask.help_lines){
+            if(window.editorMode){
+              // Show editable version in editor mode
+              helpContent.style.display = 'block';
+              helpCanvas.style.display = 'none';
+              const text = window.currentTask.help_lines.join('\n');
+              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+              setupHelpLinesEditor();
+            } else {
+              // Show canvas rendering in task mode
+              helpContent.style.display = 'none';
+              helpCanvas.style.display = 'block';
+              drawHelpLinesCanvas();
+            }
           }
         }
         return;
       }
       if(action === 'prev'){
+        // Save current help_lines if in editor mode
+        if(window.editorMode){
+          saveHelpLines();
+          saveTask();
+        }
         loadTask(window.currentTaskIndex-1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2482,10 +2535,23 @@
         const helpPanel = document.getElementById('help-panel');
         if(helpPanel && !helpPanel.classList.contains('hidden')){
           const helpContent = document.getElementById('help-content');
+          const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && window.currentTask.help_lines){
-            helpContent.innerHTML = window.currentTask.help_lines.map(line => `<p>${line}</p>`).join('');
+          if(helpContent && helpCanvas && window.currentTask.help_lines){
+            if(window.editorMode){
+              // Show editable version in editor mode
+              helpContent.style.display = 'block';
+              helpCanvas.style.display = 'none';
+              const text = window.currentTask.help_lines.join('\n');
+              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+              setupHelpLinesEditor();
+            } else {
+              // Show canvas rendering in task mode
+              helpContent.style.display = 'none';
+              helpCanvas.style.display = 'block';
+              drawHelpLinesCanvas();
+            }
           }
         }
         return;
@@ -2550,10 +2616,23 @@
         if(!window.currentTask) return;
         // Show help lines
         const helpContent = document.getElementById('help-content');
+        const helpCanvas = document.getElementById('help-canvas');
         const helpTitle = document.getElementById('help-title');
         if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
-        if(helpContent && window.currentTask.help_lines){
-          helpContent.innerHTML = window.currentTask.help_lines.map(line => `<p>${line}</p>`).join('');
+        if(helpContent && helpCanvas && window.currentTask.help_lines){
+          if(window.editorMode){
+            // Show editable version in editor mode
+            helpContent.style.display = 'block';
+            helpCanvas.style.display = 'none';
+            const text = window.currentTask.help_lines.join('\n');
+            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+            setupHelpLinesEditor();
+          } else {
+            // Show canvas rendering in task mode
+            helpContent.style.display = 'none';
+            helpCanvas.style.display = 'block';
+            drawHelpLinesCanvas();
+          }
         }
         helpPanel.classList.remove('hidden');
         return;
@@ -2615,6 +2694,68 @@
   const helpPanel = document.getElementById('help-panel');
   const helpCloseBtn = document.getElementById('help-close');
   if(helpCloseBtn){ helpCloseBtn.addEventListener('click', ()=>{ helpPanel && helpPanel.classList.add('hidden'); }); }
+  
+  // Save help lines from textarea to task object
+  function saveHelpLines(){
+    const textarea = document.getElementById('help-lines-text');
+    if(textarea && window.currentTask){
+      // Split by newline and filter empty lines
+      const lines = textarea.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      window.currentTask.help_lines = lines;
+    }
+  }
+  
+  // Setup help lines editor with auto-save
+  function setupHelpLinesEditor(){
+    const textarea = document.getElementById('help-lines-text');
+    if(textarea){
+      // Auto-save on input
+      textarea.addEventListener('input', ()=>{
+        saveHelpLines();
+      });
+      // Focus on textarea
+      textarea.focus();
+    }
+  }
+  
+  // Draw help lines on canvas using formatted text
+  function drawHelpLinesCanvas(){
+    const canvas = document.getElementById('help-canvas');
+    if(!canvas || !window.currentTask || !window.currentTask.help_lines) return;
+    
+    // Set canvas size
+    const helpPanel = document.getElementById('help-panel');
+    canvas.width = helpPanel.offsetWidth;
+    canvas.height = helpPanel.offsetHeight - 50; // Account for header
+    
+    const ctx = canvas.getContext('2d');
+    if(!ctx) return;
+    
+    // Clear canvas
+    ctx.fillStyle = '#f9f9f9';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw each help line
+    let y = 30;
+    const lineHeight = 40;
+    const startX = 20;
+    
+    for(const line of window.currentTask.help_lines){
+      if(window.drawFormattedText){
+        window.drawFormattedText(ctx, line, startX, y, {
+          size: 16,
+          color: '#333',
+          align: 'left'
+        });
+      } else {
+        // Fallback if drawFormattedText not available
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#333';
+        ctx.fillText(line, startX, y);
+      }
+      y += lineHeight;
+    }
+  }
   
   const dbg = document.getElementById('settings-debug');
   const usr = document.getElementById('settings-username');

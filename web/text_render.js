@@ -2,35 +2,86 @@
 (function(){
   const SUBSCALE = 0.8;      // scale factor for sub/sup font size
   const DY_FACTOR = 0.50;    // fraction of base font size for vertical offset
+  
+  // LaTeX to Unicode symbol mapping
+  const LATEX_SYMBOLS = {
+    '\\sum': 'Σ',
+    '\\int': '∫',
+    '\\cdot': '·',
+    '\\pi': 'π',
+    '\\theta': 'θ',
+    '\\alpha': 'α',
+    '\\beta': 'β',
+    '\\gamma': 'γ',
+    '\\delta': 'δ',
+    '\\epsilon': 'ε',
+    '\\zeta': 'ζ',
+    '\\eta': 'η',
+    '\\iota': 'ι',
+    '\\kappa': 'κ',
+    '\\lambda': 'λ',
+    '\\mu': 'μ',
+    '\\nu': 'ν',
+    '\\xi': 'ξ',
+    '\\omicron': 'ο',
+    '\\rho': 'ρ',
+    '\\sigma': 'σ',
+    '\\tau': 'τ',
+    '\\upsilon': 'υ',
+    '\\phi': 'φ',
+    '\\chi': 'χ',
+    '\\psi': 'ψ',
+    '\\omega': 'ω',
+    '\\Delta': 'Δ',
+    '\\Sigma': 'Σ',
+    '\\Omega': 'Ω',
+    '\\infty': '∞',
+    '\\pm': '±',
+    '\\times': '×',
+    '\\div': '÷',
+    '\\neq': '≠',
+    '\\leq': '≤',
+    '\\geq': '≥',
+    '\\approx': '≈',
+    '\\sqrt': '√',
+    '\\degree': '°'
+  };
 
   function drawFormattedText(ctx, text, x, y, options={}){
     const baseSize = options.size || 16;
     const color = options.color || '#000';
     const align = options.align || 'center'; // left|center
+    
+    // Replace LaTeX codes with Unicode symbols
+    let processedText = text;
+    for(const [latex, symbol] of Object.entries(LATEX_SYMBOLS)) {
+      processedText = processedText.split(latex).join(symbol);
+    }
+    
     // Parse into glyph tokens: {mode:'normal'|'sub'|'sup', text:'...'}
     const tokens = [];
     let i = 0; let mode='normal'; let single=false; let buffer='';
 
     function flush(){ if(buffer){ tokens.push({mode, text:buffer}); buffer=''; } }
 
-    while(i < text.length){
-      const ch = text[i];
+    while(i < processedText.length){
+      const ch = processedText[i];
       if(ch === '_' || ch === '^'){
         flush();
         mode = (ch === '_') ? 'sub' : 'sup';
         i++;
-        if(i < text.length && text[i] === '{'){ // multi-char block
+        if(i < processedText.length && processedText[i] === '{'){ // multi-char block
           single = false; i++; // skip '{'
           // accumulate until closing '}'
           let block='';
-          while(i < text.length && text[i] !== '}'){ block += text[i++]; }
-          if(i < text.length && text[i] === '}') i++; // skip '}'
+          while(i < processedText.length && processedText[i] !== '}'){ block += processedText[i++]; }
+          if(i < processedText.length && processedText[i] === '}') i++; // skip '}'
           tokens.push({mode, text:block});
           mode='normal';
         } else { // single char
           single = true;
-          if(i < text.length){
-            tokens.push({mode, text:text[i]});
+          if(i < processedText.length){
+            tokens.push({mode, text:processedText[i]});
             i++;
           }
           mode='normal'; single=false;
@@ -56,6 +107,7 @@
 
     let cursorX = x;
     if(align === 'center') cursorX = x - totalWidth/2;
+    else if(align === 'right') cursorX = x - totalWidth;
 
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;

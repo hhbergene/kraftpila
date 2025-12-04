@@ -143,6 +143,15 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 #help-close:hover { background:#ffecec; }
 #help-content { flex:1; padding:12px 15px; overflow-y:auto; font-size:13px; line-height:1.5; color:#333; }
 
+/* Help canvas and editor */
+#help-canvas { display:block; width:100%; height:100%; border:none; background:#f9f9f9; }
+#help-canvas.hidden { display:none; }
+
+/* Help lines editor styles */
+.help-lines-editor { width:100%; height:100%; padding:8px; font-size:13px; border:1px solid #ddd; border-radius:4px; resize:none; font-family:inherit; background:#ffffff; }
+.help-lines-editor:focus { outline:2px solid #4caf50; border-color:#4caf50; }
+
+
 /* Task order manager modal */
 #task-order-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:2000; }
 #task-order-modal.hidden { display:none; }

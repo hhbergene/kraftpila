@@ -271,6 +271,13 @@ function updateScenePanel(){
           <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="rect" data-idx="${index}" value="${rectObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
         </div>
         <div class="scene-editor-row">
+          <label>Stil:</label>
+          <select class="scene-editor-input" data-field="body" data-type="rect" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+            <option value="solid" ${(rectObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+            <option value="dashed" ${(rectObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+          </select>
+        </div>
+        <div class="scene-editor-row">
           <label>Snap:</label>
           <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="rect" data-idx="${index}" ${(rectObj.snapping ? 'checked' : '')} />
         </div>
@@ -284,6 +291,13 @@ function updateScenePanel(){
           <input type="color" class="scene-editor-input" data-field="color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
           <label style="min-width:auto; margin-left:4px;">Linje:</label>
           <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="ellipse" data-idx="${index}" value="${ellObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
+        </div>
+        <div class="scene-editor-row">
+          <label>Stil:</label>
+          <select class="scene-editor-input" data-field="body" data-type="ellipse" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+            <option value="solid" ${(ellObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+            <option value="dashed" ${(ellObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+          </select>
         </div>
         <div class="scene-editor-row">
           <label>Snap:</label>
@@ -310,6 +324,13 @@ function updateScenePanel(){
           <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="segment" data-idx="${index}" value="${segObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
         </div>
         <div class="scene-editor-row">
+          <label>Stil:</label>
+          <select class="scene-editor-input" data-field="body" data-type="segment" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+            <option value="solid" ${(segObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+            <option value="dashed" ${(segObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+          </select>
+        </div>
+        <div class="scene-editor-row">
           <label>Snap:</label>
           <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="segment" data-idx="${index}" ${(segObj.snapping ? 'checked' : '')} />
         </div>
@@ -318,6 +339,19 @@ function updateScenePanel(){
     } else if(type === 'arrow') {
       const arrObj = obj;
       return `
+        <div class="scene-editor-row">
+          <label>Farge:</label>
+          <input type="color" class="scene-editor-input" data-field="color" data-type="arrow" data-idx="${index}" value="${expandHexColor(arrObj.color || '#00f')}" style="width:40px; padding:2px;" />
+          <label style="min-width:auto; margin-left:4px;">Linje:</label>
+          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="arrow" data-idx="${index}" value="${arrObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
+        </div>
+        <div class="scene-editor-row">
+          <label>Stil:</label>
+          <select class="scene-editor-input" data-field="body" data-type="arrow" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
+            <option value="solid" ${(arrObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
+            <option value="dashed" ${(arrObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
+          </select>
+        </div>
         <div class="scene-editor-row">
           <label>Snap:</label>
           <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="arrow" data-idx="${index}" ${(arrObj.snapping ? 'checked' : '')} />
@@ -383,6 +417,8 @@ function updateScenePanel(){
             scene.rects[idx][field] = input.value;
           } else if(input.type === 'number') {
             scene.rects[idx][field] = parseFloat(input.value) || 2;
+          } else if(input.tagName === 'SELECT') {
+            scene.rects[idx][field] = input.value;
           }
           saveTask();
         } else if(fieldType === 'ellipse' && scene.ellipses[idx]) {
@@ -392,6 +428,8 @@ function updateScenePanel(){
             scene.ellipses[idx][field] = input.value;
           } else if(input.type === 'number') {
             scene.ellipses[idx][field] = parseFloat(input.value) || 2;
+          } else if(input.tagName === 'SELECT') {
+            scene.ellipses[idx][field] = input.value;
           }
           saveTask();
         } else if(fieldType === 'circle' && scene.circles[idx]) {
@@ -406,11 +444,19 @@ function updateScenePanel(){
             scene.segments[idx][field] = input.value;
           } else if(input.type === 'number') {
             scene.segments[idx][field] = parseFloat(input.value) || 2;
+          } else if(input.tagName === 'SELECT') {
+            scene.segments[idx][field] = input.value;
           }
           saveTask();
         } else if(fieldType === 'arrow' && scene.arrows[idx]) {
           if(input.type === 'checkbox') {
             scene.arrows[idx][field] = input.checked;
+          } else if(input.type === 'color') {
+            scene.arrows[idx][field] = input.value;
+          } else if(input.type === 'number') {
+            scene.arrows[idx][field] = parseFloat(input.value) || 2;
+          } else if(input.tagName === 'SELECT') {
+            scene.arrows[idx][field] = input.value;
           }
           saveTask();
         } else if(fieldType === 'plane' && scene.plane) {

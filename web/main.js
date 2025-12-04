@@ -1641,7 +1641,7 @@
     window.fm.syncInputs(document.getElementById('force-inputs'));
   };
 
-  function saveTaskForces(){
+  window.saveTaskForces = function saveTaskForces(){
     if(!window.currentTask || !window.fm) return;
     const taskKey = `tk_forces_${window.currentTask.id}`;
     
@@ -1664,7 +1664,9 @@
         isExpected: f.isExpected !== false,
       }
     ));
-    try{ localStorage.setItem(taskKey, JSON.stringify(specs)); } catch {}
+    try{ 
+      localStorage.setItem(taskKey, JSON.stringify(specs));
+    } catch {}
   }
 
   // Load saved tasks from localStorage before loading initial task

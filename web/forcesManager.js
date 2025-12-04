@@ -223,9 +223,9 @@
           const i = parseInt(deleteBtn.dataset.index, 10);
           if(window.fm && i >= 0 && i < window.fm.forces.length){
             window.fm.deleteAt(i);
-            if(window.saveTaskForces) window.saveTaskForces();
             const containerEl = container;
             window.fm.syncInputs(containerEl);
+            if(window.saveTaskForces) window.saveTaskForces();
           }
         });
         

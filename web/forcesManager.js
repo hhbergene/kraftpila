@@ -3,7 +3,9 @@
   class ForcesManager {
     constructor(){
       this.forces = [];
+      this.solutionForces = [];  // Copy of forces for editor mode solution validation
       this.activeIndex = -1;
+      this.activeIndexChanged = false;
       this.addEmptyForceIfNeeded();
     }
     addForce(anchor, arrowBase, arrowTip, name=''){
@@ -46,7 +48,7 @@
       const newActive = Math.max(0, Math.min(index, this.forces.length-1));
       this.setActive(newActive);
     }
-    setActive(i){
+    setActive(i, forceDropdownRebuild = false){
       if(i>=0 && i<this.forces.length) this.activeIndex = i;
     }
     updateHover(pos){
@@ -112,15 +114,17 @@
       }
     }
 
-    syncInputs(container){
+    syncInputs(container, forceDropdownRebuild = false){
       if(!container) return;
       // Ensure rows match forces length
       const rows = Array.from(container.querySelectorAll('.force-row'));
+      
       // Add rows if needed
       while(rows.length < this.forces.length){
         const idx = rows.length;
         const row = document.createElement('div');
         row.className = 'force-row';
+        row.dataset.forceIndex = idx; // Add index tracking to row
         // Label
         const label = document.createElement('span');
         label.textContent = (idx+1)+'.';
@@ -141,7 +145,24 @@
         });
         input.addEventListener('focus', (e)=>{
           const i = parseInt(e.target.dataset.index,10);
-          if(window.fm) window.fm.setActive(i);
+          // Only trigger setActive if this is an actual focus change (not already active from mousedown)
+          if(window.fm && window.fm.activeIndex !== i && window.fm.setActive) {
+            window.fm.setActive(i, true); // Force dropdown rebuild on text box focus
+          }
+        });
+
+        // Also listen for mousedown to update immediately before focus event
+        input.addEventListener('mousedown', (e)=>{
+          const i = parseInt(e.target.dataset.index,10);
+          // Update activeIndex synchronously FIRST
+          if(window.fm) {
+            window.fm.activeIndex = i;
+            const container = input.closest('#force-inputs');
+            if(container) {
+              // Sync DOM immediately to apply active styling
+              window.fm.syncInputs(container, true);
+            }
+          }
         });
 
         // Wrap Tab navigation: last -> first, and Shift+Tab first -> last
@@ -163,10 +184,10 @@
           }
           const nextInput = focusables[nextIdx];
           if(nextInput){
-            nextInput.focus();
             const fi = parseInt(nextInput.dataset.index, 10);
+            nextInput.focus();
             if(window.fm && !isNaN(fi)){
-              window.fm.setActive(fi);
+              window.fm.setActive(fi, true); // Force dropdown rebuild on Tab navigation
               // refresh row highlighting
               window.fm.syncInputs(containerEl);
             }
@@ -264,19 +285,137 @@
         row.appendChild(label); row.appendChild(input); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
         container.appendChild(row);
         rows.push(row);
+        
+        // Create anchor dropdown container (will be shown only for active force in editor mode)
+        const anchorDropdownContainer = document.createElement('div');
+        anchorDropdownContainer.className = 'force-anchor-dropdown-container';
+        anchorDropdownContainer.dataset.index = idx;
+        anchorDropdownContainer.style.display = 'none'; // Hidden by default
+        anchorDropdownContainer.style.paddingLeft = '24px'; // Indent to align with input
+        anchorDropdownContainer.style.marginTop = '4px';
+        anchorDropdownContainer.style.marginBottom = '8px';
+        
+        const anchorLabel = document.createElement('label');
+        anchorLabel.textContent = 'Anchor: ';
+        anchorLabel.style.fontSize = '12px';
+        anchorLabel.style.fontWeight = 'bold';
+        anchorLabel.style.marginRight = '8px';
+        
+        const anchorSelect = document.createElement('select');
+        anchorSelect.className = 'force-anchor-select';
+        anchorSelect.dataset.index = idx;
+        anchorSelect.style.fontSize = '12px';
+        anchorSelect.style.padding = '4px';
+        anchorSelect.addEventListener('change', (e)=>{
+          const forceIdx = parseInt(e.target.dataset.index, 10);
+          if(!window.currentTask || !window.fm || forceIdx < 0 || forceIdx >= window.fm.forces.length) return;
+          
+          const force = window.fm.forces[forceIdx];
+          const selectedValue = e.target.value;
+          
+          // Parse selection: format is "point:ref:pointName" or "segment:ref:segmentName" or "custom:x,y"
+          const parts = selectedValue.split(':');
+          if(parts.length >= 2){
+            const type = parts[0];
+            
+            if(type === 'custom'){
+              // Custom position: "custom:x,y"
+              const coords = parts[1];
+              const [x, y] = coords.split(',').map(s => parseFloat(s.trim()));
+              
+              if(!isNaN(x) && !isNaN(y)){
+                const anchorPos = [x, y];
+                force.anchor = anchorPos.slice();
+                console.log(`📌 Force "${force.name}" anchor moved to custom pos:`, anchorPos);
+                
+                // Update expectedForce anchor in task
+                if(window.currentTask.expectedForces){
+                  const idx_expected = window.currentTask.expectedForces.findIndex(ef => 
+                    ef.name && ef.name.toLowerCase().trim() === force.name.toLowerCase().trim()
+                  );
+                  
+                  if(idx_expected >= 0){
+                    const exp = window.currentTask.expectedForces[idx_expected];
+                    exp.anchor = { type: 'custom', pos: anchorPos };
+                    if(window.saveTaskForces) window.saveTaskForces();
+                  }
+                }
+              }
+            } else {
+              // Scene element anchor: "point:ref:pointName" or "segment:ref:segmentName"
+              const ref = parts[1];
+              const name = parts.slice(2).join(':');
+              
+              // Find the candidate to get its position
+              const candidates = window.buildAnchorCandidates ? window.buildAnchorCandidates(window.currentTask) : [];
+              let anchorPos = null;
+              
+              if(type === 'point'){
+                const candidate = candidates.find(c => c.type === 'point' && c.ref === ref && c.point === name);
+                if(candidate) anchorPos = candidate.pos;
+              } else if(type === 'segment'){
+                const candidate = candidates.find(c => c.type === 'segment' && c.ref === ref && c.segment === name);
+                if(candidate) anchorPos = candidate.pos;
+              }
+              
+              // Update force's anchor position
+              if(anchorPos){
+                force.anchor = anchorPos.slice();
+                console.log(`📌 Force "${force.name}" anchor moved to:`, anchorPos);
+              }
+              
+              // Update force's expectedForce anchor in task
+              if(window.currentTask.expectedForces){
+                const idx_expected = window.currentTask.expectedForces.findIndex(ef => 
+                  ef.name && ef.name.toLowerCase().trim() === force.name.toLowerCase().trim()
+                );
+                
+                if(idx_expected >= 0){
+                  const exp = window.currentTask.expectedForces[idx_expected];
+                  if(type === 'point'){
+                    exp.anchor = { type: 'point', ref: ref, point: name };
+                  } else if(type === 'segment'){
+                    exp.anchor = { type: 'segment', ref: ref, segment: name };
+                  }
+                  if(window.saveTaskForces) window.saveTaskForces();
+                }
+              }
+            }
+            
+            // Re-sync inputs to reflect the change
+            const container = e.target.closest('#force-inputs');
+            if(container && window.fm){
+              window.fm.syncInputs(container);
+            }
+          }
+        });
+        
+        anchorDropdownContainer.appendChild(anchorLabel);
+        anchorDropdownContainer.appendChild(anchorSelect);
+        container.appendChild(anchorDropdownContainer);
       }
       // Remove excess rows
       while(rows.length > this.forces.length){
         const r = rows.pop();
         r.remove();
+        // Also remove corresponding dropdown container if it exists
+        const dropdownToRemove = container.querySelector(`.force-anchor-dropdown-container[data-index="${rows.length}"]`);
+        if(dropdownToRemove){
+          dropdownToRemove.remove();
+        }
       }
+      
       // Update values and active highlighting
       for(let i=0;i<this.forces.length;i++){
         const f = this.forces[i];
-        const row = rows[i];
+        const row = container.querySelector(`.force-row[data-force-index="${i}"]`);
+        if(!row) continue; // Skip if row doesn't exist yet
         const input = row.querySelector('input');
         const toggleBtn = row.querySelector('.force-type-toggle');
         const deleteBtn = row.querySelector('.force-delete-btn');
+        // Find dropdown container by data-index instead of array reference
+        const anchorDropdownContainer = container.querySelector(`.force-anchor-dropdown-container[data-index="${i}"]`);
+        
         // Keep dataset index in sync in case forces array changed
         if(input.dataset.index != i){ input.dataset.index = i; }
         if(toggleBtn && toggleBtn.dataset.index != i){ toggleBtn.dataset.index = i; }
@@ -325,13 +464,120 @@
           deleteBtn.style.display = canDelete ? 'flex' : 'none';
         }
         
+        // Anchor dropdown: show only for active expected force in editor mode
+        if(anchorDropdownContainer){
+          const isActive = (i === this.activeIndex);
+          const isExpectedForce = isExpected; // expected forces show anchor dropdown
+          const shouldShowDropdown = isEditorMode && isActive && isExpectedForce;
+          
+          // Always update visibility (show/hide)
+          if(shouldShowDropdown){
+            // Only rebuild dropdown content if forceDropdownRebuild is true (activeIndex changed)
+            if(forceDropdownRebuild){
+              // Rebuild dropdown options from buildAnchorCandidates
+              const anchorSelect = anchorDropdownContainer.querySelector('.force-anchor-select');
+              if(anchorSelect){
+                anchorSelect.innerHTML = ''; // Clear options
+                
+                // Add "None" option
+                const noneOption = document.createElement('option');
+                noneOption.value = '';
+                noneOption.textContent = '-- Velg ankerpunkt --';
+                anchorSelect.appendChild(noneOption);
+                
+                // Get current anchor from expectedForce if available
+                let currentAnchorValue = '';
+                let currentCustomPos = null;
+                if(window.currentTask && window.currentTask.expectedForces){
+                  const expForce = window.currentTask.expectedForces.find(ef => 
+                    ef.name && ef.name.toLowerCase().trim() === f.name.toLowerCase().trim()
+                  );
+                  if(expForce && expForce.anchor){
+                    const a = expForce.anchor;
+                    if(a.type === 'point'){
+                      currentAnchorValue = `point:${a.ref}:${a.point}`;
+                    } else if(a.type === 'segment'){
+                      currentAnchorValue = `segment:${a.ref}:${a.segment}`;
+                    } else if(a.type === 'custom' && a.pos){
+                      // Custom position [x, y]
+                      currentCustomPos = a.pos;
+                      currentAnchorValue = `custom:${Math.round(a.pos[0])},${Math.round(a.pos[1])}`;
+                    }
+                  }
+                }
+                
+                // Build candidates and add to dropdown
+                if(window.buildAnchorCandidates && window.currentTask){
+                  const candidates = window.buildAnchorCandidates(window.currentTask);
+                  console.log(`🎯 Dropdown for force "${f.name}" (index ${i}): building with ${candidates.length} candidates`);
+                  
+                  // Group by ref for better UI
+                  const groupedByRef = {};
+                  candidates.forEach(c => {
+                    if(!groupedByRef[c.ref]) groupedByRef[c.ref] = [];
+                    groupedByRef[c.ref].push(c);
+                  });
+                  
+                  console.log(`   Grouped into ${Object.keys(groupedByRef).length} refs:`, Object.keys(groupedByRef));
+                  
+                  // Add options, grouped by ref
+                  Object.keys(groupedByRef).sort().forEach(ref => {
+                    const group = groupedByRef[ref];
+                    
+                    // Create optgroup for this ref
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = ref;
+                    
+                    group.forEach(candidate => {
+                      const option = document.createElement('option');
+                      if(candidate.type === 'point'){
+                        option.value = `point:${candidate.ref}:${candidate.point}`;
+                        option.textContent = `point: ${candidate.point}`;
+                      } else if(candidate.type === 'segment'){
+                        option.value = `segment:${candidate.ref}:${candidate.segment}`;
+                        option.textContent = `segment: ${candidate.segment}`;
+                      }
+                      optgroup.appendChild(option);
+                    });
+                    
+                    anchorSelect.appendChild(optgroup);
+                  });
+                  
+                  // Add custom position option if force has one
+                  if(currentCustomPos){
+                    const customGroup = document.createElement('optgroup');
+                    customGroup.label = 'Egendefinert';
+                    const customOption = document.createElement('option');
+                    customOption.value = `custom:${Math.round(currentCustomPos[0])},${Math.round(currentCustomPos[1])}`;
+                    customOption.textContent = `pos[${Math.round(currentCustomPos[0])},${Math.round(currentCustomPos[1])}]`;
+                    customGroup.appendChild(customOption);
+                    anchorSelect.appendChild(customGroup);
+                  };
+                  
+                  // Set current selection
+                  anchorSelect.value = currentAnchorValue;
+                }
+              }
+            }
+            
+            anchorDropdownContainer.style.display = 'block';
+          } else {
+            anchorDropdownContainer.style.display = 'none';
+          }
+        }
+        
         // Hide entire row if force is completely blank AND it's not the last one
         // (Keep the last blank force visible for adding new forces)
         const isBlank = !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '');
         const isLastForce = (i === this.forces.length - 1);
         row.style.display = (isBlank && !isLastForce) ? 'none' : 'flex';
         
-        if(i===this.activeIndex) row.classList.add('active'); else row.classList.remove('active');
+        const shouldBeActive = (i===this.activeIndex);
+        if(shouldBeActive) {
+          row.classList.add('active');
+        } else {
+          row.classList.remove('active');
+        }
       }
     }
   }

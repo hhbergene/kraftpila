@@ -1,4 +1,13 @@
-// evaluate.js - simple force evaluation and relation checking
+/**
+ * evaluate.js - Force evaluation and relation checking
+ * 
+ * IMPORTANT CONTRACT:
+ * - Reads ONLY from task.expectedForces (forces that must be drawn by the user)
+ * - Does NOT evaluate task.initialForces (pre-drawn forces locked in place)
+ * - initialForces should NEVER be in the expectedForces array
+ * - expectedForces must have complete anchor specifications (type, ref, point/segment)
+ * - Use window.cleanupTaskForEvaluation() before calling evaluation to ensure consistency
+ */
 (function(){
   const DIR_TOL_DEG = 2.0; // direction tolerance Degrees
   const POS_TOL = 22;     // position tolerance (px)
@@ -64,7 +73,8 @@
    * @returns {number} Angle in degrees (0-180), or 999 if vectors are zero
    */
   function angleBetweenDeg(a,b){
-    const na = Math.hypot(a[0],a[1]); const nb=Math.hypot(b[0],b[1]);
+    const na = geometry.length(a);
+    const nb = geometry.length(b);
     if(na<1e-6||nb<1e-6) return 999;
     let c=(a[0]*b[0]+a[1]*b[1])/(na*nb); c=Math.max(-1,Math.min(1,c));
     return Math.abs((180/Math.PI)*Math.acos(c));
@@ -75,7 +85,7 @@
    * @param {number[]} v - Vector [x, y]
    * @returns {number[]} Unit vector or [0,0] if input is zero vector
    */
-  function unit(v){ const n=Math.hypot(v[0],v[1]); return n>1e-6? [v[0]/n,v[1]/n] : [0,0]; }
+  function unit(v){ const n = geometry.length(v); return n>1e-6? [v[0]/n,v[1]/n] : [0,0]; }
 
   /**
    * Calculate minimum distance from point to line segment
@@ -84,7 +94,7 @@
    * @param {number[]} b - Segment end [x, y]
    * @returns {number} Shortest distance from p to segment ab
    */
-  function distPointToSegment(p,a,b){ const ab=[b[0]-a[0],b[1]-a[1]]; const ab2=ab[0]*ab[0]+ab[1]*ab[1]; if(ab2===0) return Math.hypot(p[0]-a[0],p[1]-a[1]); const t=Math.max(0,Math.min(1, ((p[0]-a[0])*ab[0]+(p[1]-a[1])*ab[1])/ab2)); const proj=[a[0]+t*ab[0], a[1]+t*ab[1]]; return Math.hypot(p[0]-proj[0], p[1]-proj[1]); }
+  function distPointToSegment(p,a,b){ const ab=[b[0]-a[0],b[1]-a[1]]; const ab2=ab[0]*ab[0]+ab[1]*ab[1]; if(ab2===0) return geometry.distance(p,a); const t=Math.max(0,Math.min(1, ((p[0]-a[0])*ab[0]+(p[1]-a[1])*ab[1])/ab2)); const proj=[a[0]+t*ab[0], a[1]+t*ab[1]]; return geometry.distance(p,proj); }
 
   /**
    * Clamp value within range [lo, hi]
@@ -226,8 +236,13 @@
   }
 
   /**
-   * Evaluate each expected force against matched drawn forces
-   * Computes name, direction, and position scores for each matched force
+   * Evaluate all expected forces against drawn forces.
+   * Computes name, direction, and position scores for each matched force.
+   * 
+   * CRITICAL: Only evaluates task.expectedForces, NOT initialForces.
+   * initialForces must be excluded from expectedForces before calling this function.
+   * Call window.cleanupTaskForEvaluation() first to ensure consistency.
+   * 
    * @param {Object} task - Task with expectedForces and anchor specifications
    * @param {Object[]} forces - All drawn force objects
    * @returns {Object[]} Array of force results: {name, found, nameOk, dirErr, dirOk, posErr, posOk, index, drawnName}
@@ -268,7 +283,7 @@
         if(spec.anchor.type==='point'){
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const P = sceneObj && sceneObj.points[spec.anchor.point];
-          if(P){ posErr = Math.hypot(match.anchor[0]-P[0], match.anchor[1]-P[1]); posOk = posErr <= POS_TOL; }
+          if(P){ posErr = geometry.distance(match.anchor, P); posOk = posErr <= POS_TOL; }
         } else if(spec.anchor.type==='segment'){
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
@@ -336,7 +351,7 @@
       if(task.scene && task.scene.plane){
         const plane = task.scene.plane;
         const n_unit = unit(plane.n_vec);
-        const t_unit = unit(plane.t_vec || [-plane.n_vec[1], plane.n_vec[0]]);
+        const t_unit = unit(plane.t_vec || geometry.tangentFromNormal(plane.n_vec));
         sumN += f.vec[0]*n_unit[0] + f.vec[1]*n_unit[1];
         sumT += f.vec[0]*t_unit[0] + f.vec[1]*t_unit[1];
       }
@@ -391,12 +406,61 @@
   function evalRelations(task, forceResults){
     const forceByName = {};
     const indexByName = {};
+    
+    // Include expectedForces from forceResults
     forceResults.forEach(r=>{
       if(r.found && r.index >= 0){
         forceByName[r.name] = window.fm.forces[r.index];
         indexByName[r.name] = r.index;
       }
     });
+    
+    // Log plane vectors for reference
+    const plane = task.scene?.plane;
+    if(plane){
+      // Calculate angleDeg from n_vec if not stored
+      let angleDeg = plane.angleDeg;
+      if(plane.n_vec && (angleDeg === undefined || angleDeg === null)){
+        angleDeg = Math.atan2(plane.n_vec[1], plane.n_vec[0]) * 180 / Math.PI;
+      }
+    }
+    
+    // Expected forces are logged elsewhere if needed
+    if(task.expectedForces && Array.isArray(task.expectedForces)){
+      // Task has expected forces to evaluate
+    }
+    
+    // Log force coordinates and vectors with expected direction comparison
+    Object.keys(forceByName).forEach(forceName => {
+      const f = forceByName[forceName];
+      if(f && f.anchor && f.arrowBase && f.arrowTip){
+        const forceVec = [f.arrowTip[0] - f.arrowBase[0], f.arrowTip[1] - f.arrowBase[1]];
+        const forceMag = Math.sqrt(forceVec[0]*forceVec[0] + forceVec[1]*forceVec[1]);
+        const forceDir = forceMag > 0 ? [forceVec[0]/forceMag, forceVec[1]/forceMag] : [0, 0];
+        
+        // Find expected force spec to compare directions
+        const expSpec = task.expectedForces?.find(e => e.name === forceName);
+        const expDir = expSpec ? expectedDir(expSpec, task) : null;
+      }
+    });
+    
+    // ALSO include initialForces (pre-drawn forces)
+    // These should be available for relations even though they're not in expectedForces
+    if(task.initialForces && Array.isArray(task.initialForces)){
+      task.initialForces.forEach(initSpec => {
+        if(initSpec.name && window.fm && window.fm.forces){
+          // Find the drawn force with matching name
+          const matchingForce = window.fm.forces.find(f => f && f.name && f.name.toLowerCase().trim() === initSpec.name.toLowerCase().trim());
+          if(matchingForce){
+            const idx = window.fm.forces.indexOf(matchingForce);
+            if(idx >= 0){
+              forceByName[initSpec.name] = matchingForce;
+              indexByName[initSpec.name] = idx;
+            }
+          }
+        }
+      });
+    }
     
     const out=[];
     const rels = task.relations || [];
@@ -420,7 +484,39 @@
       const lhsNames = rel.lhs.map(t=>t.name);
       const rhsNames = rel.rhs.map(t=>t.name);
       const allNames = [...lhsNames, ...rhsNames];
-
+      
+      // Build detailed component info for logging
+      const lhsDetails = rel.lhs.map(term => {
+        const f = forceByName[term.name];
+        const comp = term.component || 'magnitude';
+        let val = 0;
+        if(f){
+          if(term.component){
+            const dir = getComponentDir(term.component, task);
+            if(dir) val = componentMagnitude(f, dir);
+            else val = magnitude(f);
+          } else {
+            val = magnitude(f);
+          }
+        }
+        return `${term.name}[${comp}]=${val.toFixed(2)}`;
+      });
+      const rhsDetails = rel.rhs.map(term => {
+        const f = forceByName[term.name];
+        const comp = term.component || 'magnitude';
+        let val = 0;
+        if(f){
+          if(term.component){
+            const dir = getComponentDir(term.component, task);
+            if(dir) val = componentMagnitude(f, dir);
+            else val = magnitude(f);
+          } else {
+            val = magnitude(f);
+          }
+        }
+        return `${term.name}[${comp}]=${val.toFixed(2)}`;
+      });
+      
       const lhsV = sum(rel.lhs); const rhsV = sum(rel.rhs);
       const measuredRatio = rhsV===0? 0 : lhsV/rhsV;
       const expected = rel.ratio || 1.0;
@@ -460,9 +556,10 @@
    * @param {Object[]} relationResults - Relation evaluation results
    * @param {Object[]} allForces - All drawn forces (for detecting extras)
    * @param {boolean} debugMode - If true, include error magnitudes in messages
+   * @param {Object} task - Task object with expectedForces and initialForces
    * @returns {Object[]} Array of feedback lines: {text, indices}
    */
-  function buildFeedbackLines(forceResults, relationResults, allForces, debugMode){
+  function buildFeedbackLines(forceResults, relationResults, allForces, debugMode, task){
     const lines=[];
     
     // Separate forces with missing names from those with wrong names
@@ -570,14 +667,25 @@
       lines.push({ text: msg, indices: rr.indices||[] });
     });
     
-    // Check for extra unmatched forces
+    // Check for extra unmatched forces (exclude initialForces)
     const matchedIndices = new Set();
     forceResults.forEach(r => {
       if(r.found && r.index >= 0) matchedIndices.add(r.index);
     });
+    
+    // Build set of initialForce names for exclusion
+    const initialForceNames = new Set();
+    if(task.initialForces && Array.isArray(task.initialForces)){
+      task.initialForces.forEach(f => {
+        if(f.name) initialForceNames.add(f.name.toLowerCase().trim());
+      });
+    }
+    
     const extraForces = (allForces||[]).filter((f, idx) => {
       const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
-      return isCompleted && !matchedIndices.has(idx);
+      // Exclude forces that are initialForces (matched by name)
+      const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
+      return isCompleted && !matchedIndices.has(idx) && !isInitialForce;
     });
     
     if(extraForces.length > 0){
@@ -628,9 +736,20 @@
     forceResults.forEach(r => {
       if(r.found && r.index >= 0) matchedIndices.add(r.index);
     });
+    
+    // Build set of initialForce names for exclusion from extras count
+    const initialForceNames = new Set();
+    if(task.initialForces && Array.isArray(task.initialForces)){
+      task.initialForces.forEach(f => {
+        if(f.name) initialForceNames.add(f.name.toLowerCase().trim());
+      });
+    }
+    
     const extrasCount = (allForces||[]).reduce((count, f, idx) => {
       const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
-      return count + (isCompleted && !matchedIndices.has(idx) ? 1 : 0);
+      // Exclude initialForces from extras count
+      const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
+      return count + (isCompleted && !matchedIndices.has(idx) && !isInitialForce ? 1 : 0);
     }, 0);
 
     // Per-force scoring (name: 1.0 if OK, 0 if missing/wrong, dir, pos)
@@ -794,7 +913,7 @@
     }
     
     // Detailed feedback lines (force and relation errors)
-    lines.push(...buildFeedbackLines(forceResults, relationResults, window.fm.forces, window.settings && window.settings.debug));
+    lines.push(...buildFeedbackLines(forceResults, relationResults, window.fm.forces, window.settings && window.settings.debug, window.currentTask));
 
     
     window.lastEvaluation = { lines, summary };

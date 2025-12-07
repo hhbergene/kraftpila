@@ -31,7 +31,7 @@
     ctx.setLineDash([]);
   }
 
-  function drawPlane(ctx, plane){
+  function drawPlane(ctx, plane, isDim){
     if(!plane) return;
     const through = plane.through;
     const tx = plane.t_vec ? plane.t_vec[0] : Math.cos((plane.angleDeg||0)*Math.PI/180);
@@ -41,9 +41,13 @@
     const ay = through[1] - ty*span/2;
     const bx = through[0] + tx*span/2;
     const by = through[1] + ty*span/2;
+    
+    // Apply dim opacity if isDim flag is set
+    if(isDim) ctx.globalAlpha = 0.5;
     ctx.strokeStyle = plane.color || '#777';
     ctx.lineWidth = plane.lineWidth || 4;
     ctx.beginPath(); ctx.moveTo(ax + 0.5, ay + 0.5); ctx.lineTo(bx + 0.5, by + 0.5); ctx.stroke();
+    if(isDim) ctx.globalAlpha = 1.0;
   }
 
   function rectPoints(r){
@@ -190,10 +194,18 @@
     }
   }
 
-  function drawScene(ctx, task){
+  function drawScene(ctx, task, editorMode){
     if(!task) return;
     const planeDef = task.scene.plane;
-    if(planeDef && planeDef.draw === true){ drawPlane(ctx, planeDef); }
+    if(planeDef){
+      if(planeDef.draw === true){
+        // Draw plane normally (fully opaque)
+        drawPlane(ctx, planeDef, false);
+      } else if(editorMode){
+        // In editor mode, draw disabled plane in dim color (50% opacity)
+        drawPlane(ctx, planeDef, true);
+      }
+    }
     if(task.scene.rects){ task.scene.rects.forEach(r=>drawRect(ctx,r)); }
     if(task.scene.segments){ task.scene.segments.forEach(s=>drawSegment(ctx,s)); }
     if(task.scene.circles){ task.scene.circles.forEach(c=>drawCircle(ctx,c)); }
@@ -211,6 +223,20 @@
         snapping: true,
         points: { center: task.origin },
         segments: {}
+      };
+    }
+    // Add plane if defined (use endpoints as 'a' and 'b')
+    if(task.scene && task.scene.plane && task.scene.plane.draw){
+      const plane = task.scene.plane;
+      const through = plane.through;
+      const t_vec = plane.t_vec || [Math.cos((plane.angleDeg||0)*Math.PI/180), -Math.sin((plane.angleDeg||0)*Math.PI/180)];
+      const span = 1400;
+      const a = [through[0] - t_vec[0]*span/2, through[1] - t_vec[1]*span/2];
+      const b = [through[0] + t_vec[0]*span/2, through[1] + t_vec[1]*span/2];
+      lookup['plane'] = {
+        snapping: false,
+        points: { a: a, b: b },
+        segments: { plane: [a, b] }
       };
     }
     if(task.scene.rects){
@@ -288,8 +314,127 @@
     return lookup;
   }
 
+  /**
+   * Build all scene element points for clicking/selection (including elements without snap points).
+   * This is used for scene element hover detection in editor mode.
+   * Returns same structure as buildSceneLookup but includes points for ALL elements.
+   */
+  function buildAllScenePoints(task){
+    const lookup = {};
+    if(!task || !task.scene) return lookup;
+    
+    const scene = task.scene;
+    
+    // Origin (check both task.origin and scene.origin for compatibility)
+    const origin = task.origin || (scene && scene.origin);
+    if(origin && Array.isArray(origin) && origin.length >= 2){
+      lookup['origin'] = {
+        points: { center: [origin[0], origin[1]] },
+        segments: {}
+      };
+    }
+    
+    // Plane (use endpoints a and b, plus segment) - hoverable regardless of draw state
+    if(scene.plane && scene.plane.through && Array.isArray(scene.plane.through)){
+      const plane = scene.plane;
+      const through = plane.through;
+      const t_vec = plane.t_vec || [Math.cos((plane.angleDeg||0)*Math.PI/180), -Math.sin((plane.angleDeg||0)*Math.PI/180)];
+      const span = 1400;
+      const a = [through[0] - t_vec[0]*span/2, through[1] - t_vec[1]*span/2];
+      const b = [through[0] + t_vec[0]*span/2, through[1] + t_vec[1]*span/2];
+      lookup['plane'] = {
+        points: { a: a, b: b },
+        segments: { plane: [a, b] }
+      };
+    }
+    
+    // Rects (same as buildSceneLookup)
+    if(Array.isArray(scene.rects)){
+      scene.rects.forEach((r, i)=>{
+        if(!r) return;
+        const pts = rectPoints(r);
+        lookup[`rect${i}`] = {
+          points: { center: pts.center, top_center: pts.top_center, bottom_center: pts.bottom_center, left_middle: pts.left_middle, right_middle: pts.right_middle },
+          segments: { top: [pts.topLeft, pts.topRight], bottom: [pts.bottomLeft, pts.bottomRight], left: [pts.bottomLeft, pts.topLeft], right: [pts.bottomRight, pts.topRight] }
+        };
+      });
+    }
+    
+    // Circles (same as buildSceneLookup)
+    if(Array.isArray(scene.circles)){
+      scene.circles.forEach((c, i)=>{
+        if(!c || !c.center) return;
+        lookup[`circle${i}`] = {
+          points: { center: [c.center[0], c.center[1]] },
+          segments: {}
+        };
+      });
+    }
+    
+    // Ellipses (same as buildSceneLookup)
+    if(Array.isArray(scene.ellipses)){
+      scene.ellipses.forEach((e, i)=>{
+        if(!e || !e.center) return;
+        const t = e.t_vec || [1, 0];
+        const n = e.n_vec || [0, -1];
+        const cx = e.center[0];
+        const cy = e.center[1];
+        const rx = (e.width || 0) / 2;
+        const ry = (e.height || 0) / 2;
+        
+        const center = [cx, cy];
+        const top_center = [cx + n[0]*ry, cy + n[1]*ry];
+        const bottom_center = [cx - n[0]*ry, cy - n[1]*ry];
+        const right_middle = [cx + t[0]*rx, cy + t[1]*rx];
+        const left_middle = [cx - t[0]*rx, cy - t[1]*rx];
+        
+        lookup[`ellipse${i}`] = {
+          points: { center: center, top_center: top_center, bottom_center: bottom_center, left_middle: left_middle, right_middle: right_middle },
+          segments: {}
+        };
+      });
+    }
+    
+    // Segments - add both endpoints as 'start' and 'end'
+    if(Array.isArray(scene.segments)){
+      scene.segments.forEach((s, i)=>{
+        if(!s || !s.a || !s.b) return;
+        lookup[`segment${i}`] = {
+          points: { start: [s.a[0], s.a[1]], end: [s.b[0], s.b[1]] },
+          segments: { segment: [[s.a[0], s.a[1]], [s.b[0], s.b[1]]] }
+        };
+      });
+    }
+    
+    // Arrows - add both endpoints as 'start' and 'end'
+    if(Array.isArray(scene.arrows)){
+      scene.arrows.forEach((a, i)=>{
+        if(!a || !a.a || !a.b) return;
+        lookup[`arrow${i}`] = {
+          points: { start: [a.a[0], a.a[1]], end: [a.b[0], a.b[1]] },
+          segments: { arrow: [[a.a[0], a.a[1]], [a.b[0], a.b[1]]] }
+        };
+      });
+    }
+    
+    // Texts - add position point
+    if(Array.isArray(scene.texts)){
+      scene.texts.forEach((txt, i)=>{
+        if(!txt || !txt.pos) return;
+        lookup[`text${i}`] = {
+          points: { pos: [txt.pos[0], txt.pos[1]] },
+          segments: {}
+        };
+      });
+    }
+    
+    return lookup;
+  }
+
   window.drawScene = drawScene;
   window.buildSceneLookup = buildSceneLookup;
+  window.buildAllScenePoints = buildAllScenePoints;
   window.drawGrid = drawGrid;
   window.drawGuidelines = drawGuidelines;
+  window.rectPoints = rectPoints;
 })();

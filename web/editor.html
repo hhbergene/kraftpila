@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kraft Editor – Lærer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app">
+    <div id="panel">
+      <!-- Navigasjons- og verktøyknapper -->
+      <button class="btn-icon" id="btn-snap"        data-action="snap"        title="Snap"></button>
+      <button class="btn-icon" id="btn-guidelines"  data-action="guidelines"  title="Guidelines"></button>
+      <button class="btn-icon" id="btn-grid"        data-action="grid"        title="Grid"></button>
+
+      <button class="btn-icon" id="btn-prev"        data-action="prev"        title="Forrige"></button>
+      <button class="btn-wide" id="btn-help"        data-action="help"        title="Oppgave"></button>
+      <button class="btn-icon" id="btn-next"        data-action="next"        title="Neste"></button>
+      <button class="btn-icon" id="btn-settings"    data-action="settings"    title="Innstillinger"></button>
+      <div id="user-info">
+        <span id="user-display"></span>
+      </div>
+    </div>
+    <!-- Canvas scroll container -->
+    <div id="canvas-container">
+      <canvas id="app-canvas" width="1000" height="640"></canvas>
+    </div>
+    <!-- Editor mode buttons panel (always visible in editor) -->
+    <div id="editor-buttons">
+      <div class="editor-buttons-left">
+        <button id="btn-save-task" title="Dupliser oppgave">📋</button>
+        <button id="btn-new-task" title="Ny oppgave">📄</button>
+        <button id="btn-delete-task" title="Slett oppgave">🗑️</button>
+        <button id="btn-export-task" title="Eksporter som JS">📤</button>
+        <button id="btn-task-order" title="Administrer oppgaver">📋</button>
+      </div>
+      <div class="editor-buttons-right">
+        <button id="btn-add-rect" title="Legg til rektangel">▭</button>
+        <button id="btn-add-ellipse" title="Legg til ellipse">⬭</button>
+        <button id="btn-add-segment" title="Legg til segment">─</button>
+        <button id="btn-add-arrow" title="Legg til pil">→</button>
+        <button id="btn-add-text" title="Legg til tekst">T</button>
+      </div>
+    </div>
+
+    <!-- Two-panel layout: force panel (left), scene panel (right) -->
+    <div id="force-scene-wrapper">
+      <!-- Force panel -->
+      <div id="force-panel" class="panel">
+        <div id="force-header" class="panel-header">
+          <h3>Krefter</h3>
+        </div>
+        <div id="force-inputs" class="force-inputs"></div>
+      </div>
+      <!-- Scene panel -->
+      <div id="scene-panel" class="panel">
+        <div id="scene-header" class="panel-header">
+          <h3>Scene</h3>
+        </div>
+        <div id="scene-items" class="scene-items"></div>
+      </div>
+    </div>
+
+    <!-- Task order modal -->
+    <div id="task-order-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2>Oppgaverekkefølge</h2>
+        <div id="task-order-list"></div>
+        <button id="task-order-save">Lagre</button>
+        <button id="task-order-cancel">Avbryt</button>
+      </div>
+    </div>
+
+    <!-- Relations editor modal -->
+    <div id="relations-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2>Kraftforhold</h2>
+        <div id="relations-list"></div>
+        <button id="relations-save">Lagre</button>
+        <button id="relations-cancel">Avbryt</button>
+      </div>
+    </div>
+
+    <!-- Settings modal -->
+    <div id="settings-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2>Innstillinger</h2>
+        <label>
+          <input type="checkbox" id="settings-debug" /> Debug-modus
+        </label>
+        <label>
+          Brukernavn:
+          <input type="text" id="settings-username" />
+        </label>
+        <label>
+          <input type="checkbox" id="settings-force-coords" /> Vis kraft-koordinater
+        </label>
+        <label>
+          <input type="checkbox" id="settings-scene-coords" /> Vis scene-koordinater
+        </label>
+        <button id="settings-save">Lagre</button>
+        <button id="settings-cancel">Avbryt</button>
+      </div>
+    </div>
+
+    <!-- Debug modal -->
+    <div id="debug-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2>Debug Log</h2>
+        <div id="debug-content" style="max-height: 400px; overflow-y: auto; background: #f0f0f0; padding: 10px; font-family: monospace; font-size: 12px;"></div>
+        <button id="debug-clear">Slett</button>
+        <button id="debug-copy">Kopier</button>
+        <button id="debug-close">Lukk</button>
+      </div>
+    </div>
+
+    <!-- Help/Task info modal -->
+    <div id="help-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2 id="help-title">Oppgave</h2>
+        <div id="help-content"></div>
+        <button id="help-close">Lukk</button>
+      </div>
+    </div>
+
+    <!-- Feedback panel -->
+    <div id="feedback-panel" class="hidden">
+      <div id="feedback-score"></div>
+      <div id="feedback-text"></div>
+      <div id="feedback-nav" style="display: none;">
+        <button id="fb-prev">← Forrige</button>
+        <span id="fb-count"></span>
+        <button id="fb-next">Neste →</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Shared utility modules -->
+  <script src="text_render.js"></script>
+  <script src="geometry.js"></script>
+  <script src="scene_render.js"></script>
+  <script src="debug_render.js"></script>
+  <script src="evaluate.js"></script>
+  <script src="forces.js"></script>
+  <script src="forcesManager.js"></script>
+  <script src="snapping.js"></script>
+  <script src="ui.js"></script>
+  <!-- Tasks and task management -->
+  <script src="tasks.js"></script>
+  <!-- Editor entry point -->
+  <script src="editor.js"></script>
+</body>
+</html>

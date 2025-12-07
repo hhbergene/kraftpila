@@ -12,7 +12,7 @@
   const LEFT  = [-1,0];
   const RIGHT = [1,0];
 
-  function norm(v){ return Math.hypot(v[0],v[1]); }
+  function norm(v){ return geometry.length(v); }
   function unit(v){ const n=norm(v); return n>1e-6? [v[0]/n,v[1]/n]:[0,0]; }
   function planeNormalFromAngle(angleDeg){
     const a = angleDeg * Math.PI/180;
@@ -225,7 +225,7 @@
   });
 
   TASKS.push({
-    "id": "Intro 2.",
+    "id": "Test export",
     "title": "Tegn snordraget på ballen",
     "category": "Fysikk 1",
     "origin": [500,240],
@@ -233,7 +233,7 @@
     "scene": {
       "plane": {
         "angleDeg": 0,
-        "through": [500,500],
+        "through": [499,499.6666660308838],
         "draw": true,
         "snapping": false,
         "n_vec": [0,-1],
@@ -260,6 +260,7 @@
         },
         {
           "txt": "G og S må være motsatt rettet og like lange for at",
+          "pos": [200,76],
           "size": 14,
           "align": "left",
           "color": "#222",
@@ -267,6 +268,7 @@
         },
         {
           "txt": "Newtons 1. lov \\sumF=0 skal være sann.",
+          "pos": [200,95],
           "size": 14,
           "align": "left",
           "color": "#222",
@@ -274,6 +276,7 @@
         },
         {
           "txt": "-Tegn snordraget",
+          "pos": [200,114],
           "size": 14,
           "align": "left",
           "color": "#222",
@@ -302,27 +305,8 @@
         }
       ]
     },
-    "expectedForces": [
-      {
-        "name": "G",
-        "aliases": ["g","ga","tyngde","fg","G"],
-        "dir": [0,1],
-        "anchor": {
-          "type": "point",
-          "ref": "origin",
-          "point": "center"
-        }
-      }
-    ],
-    "initialForces": [
-      {
-        "anchor": [500,240],
-        "arrowBase": [500,240],
-        "arrowTip": [500,340],
-        "name": "G",
-        "moveable": true
-      }
-    ],
+    "expectedForces": [],
+    "initialForces": [],
     "sumF": {},
     "relations": [
       {
@@ -464,7 +448,7 @@
         ],
         "anchor": {
           "type": "point",
-          "ref": "origin",
+          "ref": "ellipse0",
           "point": "center"
         }
       }

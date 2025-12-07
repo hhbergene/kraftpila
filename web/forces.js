@@ -42,7 +42,7 @@
       return [ this.arrowTip[0]-this.arrowBase[0], this.arrowTip[1]-this.arrowBase[1] ];
     }
     get length(){
-      const v=this.vec; if(!v) return 0; return Math.hypot(v[0], v[1]);
+      const v=this.vec; if(!v) return 0; return geometry.length(v);
     }
     isCompleted(minLen){
       // Consider a force completed if geometry exists and length >= threshold (lower threshold)
@@ -251,7 +251,7 @@
       // name label and/or coordinates: only show after drawing (or when not drawing)
       if((this.name || window.settings?.show_force_coordinates) && this.anchor && this.arrowTip && !this.drawing){
         const v = [this.arrowTip[0]-this.arrowBase[0], this.arrowTip[1]-this.arrowBase[1]];
-        const L = Math.hypot(v[0], v[1]);
+        const L = geometry.length(v);
         if(L > 1e-6){
           const mid = [(this.arrowBase[0]+this.arrowTip[0])/2, (this.arrowBase[1]+this.arrowTip[1])/2];
           // perpendicular (screen coords, y down)

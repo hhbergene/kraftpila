@@ -1,3 +1,135 @@
+/**
+ * editor.js - Editor mode entry point (full copy of main.js with editor features)
+ * 
+ * Separates localStorage namespace from player mode using 'editor_' prefix
+ * Fallback: on first run, migrates tk_* keys to editor_* for existing data
+ */
+
+// ===== localStorage interception layer =====
+(function() {
+  'use strict';
+  
+  const STORAGE_PREFIX = 'editor_';
+  
+  function getStorageKey(baseName) {
+    return STORAGE_PREFIX + baseName;
+  }
+
+  function migrateFromLegacy(legacyKey, newKey) {
+    try {
+      const legacyData = localStorage.getItem(legacyKey);
+      if (legacyData && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, legacyData);
+      }
+    } catch {}
+  }
+
+  // Initialize editor storage (migrate from tk_* to editor_* on first run)
+  function initializeEditorStorage() {
+    const initialized = localStorage.getItem(getStorageKey('initialized'));
+    if (initialized) {
+      return;
+    }
+
+    const keysToMigrate = [
+      'settings',
+      'currentTaskIndex',
+      'savedTasks',
+      'taskOrder'
+    ];
+
+    keysToMigrate.forEach(key => {
+      const legacyKey = 'tk_' + key;
+      const newKey = getStorageKey(key);
+      const legacyData = localStorage.getItem(legacyKey);
+      migrateFromLegacy(legacyKey, newKey);
+    });
+
+    try {
+      localStorage.setItem(getStorageKey('initialized'), 'true');
+    } catch {}
+  }
+
+  // Store original localStorage methods
+  const originalGetItem = localStorage.getItem.bind(localStorage);
+  const originalSetItem = localStorage.setItem.bind(localStorage);
+  const originalRemoveItem = localStorage.removeItem.bind(localStorage);
+
+  // Intercept localStorage to use editor_ prefix
+  localStorage.getItem = function(key) {
+    if (key === 'tk_settings' || 
+        key === 'tk_currentTaskIndex' ||
+        key === 'tk_savedTasks' ||
+        key === 'tk_taskOrder' ||
+        key === 'tk_editorMode') {
+      const newKey = getStorageKey(key.replace('tk_', ''));
+      return originalGetItem(newKey);
+    }
+    
+    // Per-task keys: try editor_forces_* first, then fallback to tk_forces_* (legacy)
+    if (key.startsWith('tk_forces_')) {
+      const taskId = key.replace('tk_forces_', '');
+      const editorKey = getStorageKey('forces_' + taskId);
+      let result = originalGetItem(editorKey);
+      
+      if (result) {
+        return result;
+      }
+      
+      // Fallback to legacy tk_forces_* key
+      return originalGetItem(key);
+    }
+
+    return originalGetItem(key);
+  };
+
+  localStorage.setItem = function(key, value) {
+    if (key === 'tk_settings' || 
+        key === 'tk_currentTaskIndex' ||
+        key === 'tk_savedTasks' ||
+        key === 'tk_taskOrder' ||
+        key === 'tk_editorMode') {
+      const newKey = getStorageKey(key.replace('tk_', ''));
+      return originalSetItem(newKey, value);
+    }
+
+    if (key.startsWith('tk_forces_')) {
+      const taskId = key.replace('tk_forces_', '');
+      const editorKey = getStorageKey('forces_' + taskId);
+      return originalSetItem(editorKey, value);
+    }
+
+    return originalSetItem(key, value);
+  };
+
+  localStorage.removeItem = function(key) {
+    if (key === 'tk_settings' || 
+        key === 'tk_currentTaskIndex' ||
+        key === 'tk_savedTasks' ||
+        key === 'tk_taskOrder' ||
+        key === 'tk_editorMode') {
+      const newKey = getStorageKey(key.replace('tk_', ''));
+      return originalRemoveItem(newKey);
+    }
+
+    if (key.startsWith('tk_forces_')) {
+      const taskId = key.replace('tk_forces_', '');
+      const editorKey = getStorageKey('forces_' + taskId);
+      return originalRemoveItem(editorKey);
+    }
+
+    return originalRemoveItem(key);
+  };
+
+  // Initialize on page load
+  window.addEventListener('DOMContentLoaded', initializeEditorStorage);
+  initializeEditorStorage();
+})();
+
+// ===== EDITOR MODE FLAG =====
+window.editorMode = true;
+
+// ===== Main application code (from main.js) =====
 // Tegne Krefter JS Port 
 // Fallback uten ES-moduler slik at fil kan åpnes direkte via file://.
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
@@ -559,13 +691,9 @@
     const raw = localStorage.getItem('tk_settings');
     if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
   } catch {}
-  // Editor mode state (persisted, default OFF)
-  window.editorMode = false;
-  try {
-    const raw = localStorage.getItem('tk_editorMode');
-    if(raw !== null){ window.editorMode = JSON.parse(raw); }
-  } catch {}
-  // Show editor panels if edit mode was loaded as enabled
+  // Editor mode: always ON in editor.js
+  window.editorMode = true;
+  // Show editor panels
   updateEditorMode();
   window.taskScores = {};
   try {
@@ -884,7 +1012,9 @@
 
   // ===== Load initial task (Task 1) =====
   function seedInitialForces(task){
-    if(!task || !task.initialForces) return;
+    if(!task || !task.initialForces) {
+      return;
+    }
     const hadInitialBlank = (window.fm.forces.length===1 && !window.fm.forces[0].anchor && !window.fm.forces[0].arrowBase && !window.fm.forces[0].arrowTip);
     task.initialForces.forEach(spec => {
       // Build geometry from anchorFrom rect point + direction & length
@@ -1505,7 +1635,9 @@
   };
 
   function loadTask(index){
-    if(!window.TASKS || !window.TASKS.length) return;
+    if(!window.TASKS || !window.TASKS.length) {
+      return;
+    }
     window.currentTaskIndex = (index + window.TASKS.length) % window.TASKS.length;
     // NEW: persist current task index
     try { localStorage.setItem('tk_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
@@ -1541,8 +1673,17 @@
     // Rebuild inputs for new manager to avoid stale listeners
     inputsContainer.innerHTML = '';
     // Load persisted forces for this task (if any)
-    const taskKey = `tk_forces_${window.currentTask.id}`;
-    const savedForces = localStorage.getItem(taskKey);
+    // Try both editor_forces_* and tk_forces_* (legacy from player mode)
+    const editorTaskKey = `editor_forces_${window.currentTask.id}`;
+    const legacyTaskKey = `tk_forces_${window.currentTask.id}`;
+    
+    let savedForces = localStorage.getItem(editorTaskKey);
+    
+    // Fallback to legacy key if not found in editor namespace
+    if (!savedForces) {
+      savedForces = localStorage.getItem(legacyTaskKey);
+    }
+    
     if(savedForces){
       try{
         const parsed = JSON.parse(savedForces);
@@ -1574,7 +1715,7 @@
         } else {
           seedInitialForces(window.currentTask);
         }
-      } catch {
+      } catch(err) {
         seedInitialForces(window.currentTask);
       }
     } else {
@@ -3262,10 +3403,8 @@
       if(nextIdx >= 0){
         loadTask(nextIdx);
       } else {
-        // No tasks left
+        // No tasks left - in editor, we still keep the UI visible
         window.currentTask = null;
-        window.editorMode = false;
-        document.getElementById('editor-buttons').classList.add('hidden');
       }
     });
   }

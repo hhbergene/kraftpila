@@ -126,7 +126,7 @@ function updateScenePanel(){
     const item = document.createElement('div');
     item.className = 'scene-item';
     item.dataset.type = type;
-    item.dataset.index = index !== undefined ? index : -1;
+    item.dataset.index = index !== undefined ? index : 0;
     
     // Count items of this type to determine if up/down arrows should be enabled
     let typeCount = 0;
@@ -169,7 +169,7 @@ function updateScenePanel(){
       
       scenePanel.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
       item.classList.add('selected');
-      window.selectedSceneElement = { type, index: index !== undefined ? index : -1, obj };
+      window.selectedSceneElement = { type, index: index !== undefined ? index : 0, obj };
       
       // Show arrange buttons when selected
       header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
@@ -183,7 +183,9 @@ function updateScenePanel(){
         e.stopPropagation();
         const direction = btn.dataset.arrange;
         const arrayKey = type === 'text' ? 'texts' : (type + 's');
-        const array = scene[arrayKey];
+        // Use window.currentTask.scene directly instead of closure to avoid stale references
+        const currentScene = window.currentTask?.scene;
+        const array = currentScene?.[arrayKey];
         
         if(!array) return;
         
@@ -362,7 +364,9 @@ function updateScenePanel(){
       const planeObj = obj;
       return `
         <div class="scene-editor-row">
-          <label>Farge:</label>
+          <label>Synlig:</label>
+          <input type="checkbox" class="scene-editor-input" data-field="draw" data-type="plane" data-idx="${index}" ${planeObj.draw ? 'checked' : ''} />
+          <label style="min-width:auto; margin-left:8px;">Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="plane" data-idx="${index}" value="${expandHexColor(planeObj.color || '#777777')}" style="width:40px; padding:2px;" />
           <label style="min-width:auto; margin-left:4px;">Linje:</label>
           <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="plane" data-idx="${index}" value="${planeObj.lineWidth || 4}" style="width:40px;" min="0.5" max="10" step="0.5" />
@@ -381,12 +385,14 @@ function updateScenePanel(){
         const field = input.dataset.field;
         const fieldType = input.dataset.type;
         const idx = parseInt(input.dataset.idx);
+        // Use window.currentTask.scene directly instead of closure to avoid stale references
+        const currentScene = window.currentTask?.scene;
         
-        if(fieldType === 'text' && scene.texts[idx]) {
+        if(fieldType === 'text' && currentScene?.texts?.[idx]) {
           if(input.type === 'number') {
-            scene.texts[idx][field] = parseInt(input.value) || 14;
+            currentScene.texts[idx][field] = parseInt(input.value) || 14;
           } else if(input.type !== 'checkbox') {
-            scene.texts[idx][field] = input.value;
+            currentScene.texts[idx][field] = input.value;
           }
           saveTask();
         }
@@ -397,73 +403,77 @@ function updateScenePanel(){
         const field = input.dataset.field;
         const fieldType = input.dataset.type;
         const idx = parseInt(input.dataset.idx);
+        // Use window.currentTask.scene directly instead of closure to avoid stale references
+        const currentScene = window.currentTask?.scene;
         
-        if(fieldType === 'text' && scene.texts[idx]) {
+        if(fieldType === 'text' && currentScene?.texts?.[idx]) {
           if(input.type === 'checkbox') {
             // Simply toggle the linked flag - no position calculation
-            scene.texts[idx][field] = input.checked;
+            currentScene.texts[idx][field] = input.checked;
           } else if(input.type === 'color') {
-            scene.texts[idx][field] = input.value;
+            currentScene.texts[idx][field] = input.value;
           } else if(input.type === 'number') {
-            scene.texts[idx][field] = parseInt(input.value) || 14;
+            currentScene.texts[idx][field] = parseInt(input.value) || 14;
           } else {
-            scene.texts[idx][field] = input.value;
+            currentScene.texts[idx][field] = input.value;
           }
           saveTask();
-        } else if(fieldType === 'rect' && scene.rects[idx]) {
+        } else if(fieldType === 'rect' && currentScene?.rects?.[idx]) {
           if(input.type === 'checkbox') {
-            scene.rects[idx][field] = input.checked;
+            currentScene.rects[idx][field] = input.checked;
           } else if(input.type === 'color') {
-            scene.rects[idx][field] = input.value;
+            currentScene.rects[idx][field] = input.value;
           } else if(input.type === 'number') {
-            scene.rects[idx][field] = parseFloat(input.value) || 2;
+            currentScene.rects[idx][field] = parseFloat(input.value) || 2;
           } else if(input.tagName === 'SELECT') {
-            scene.rects[idx][field] = input.value;
+            currentScene.rects[idx][field] = input.value;
           }
           saveTask();
-        } else if(fieldType === 'ellipse' && scene.ellipses[idx]) {
+        } else if(fieldType === 'ellipse' && currentScene?.ellipses?.[idx]) {
           if(input.type === 'checkbox') {
-            scene.ellipses[idx][field] = input.checked;
+            currentScene.ellipses[idx][field] = input.checked;
           } else if(input.type === 'color') {
-            scene.ellipses[idx][field] = input.value;
+            currentScene.ellipses[idx][field] = input.value;
           } else if(input.type === 'number') {
-            scene.ellipses[idx][field] = parseFloat(input.value) || 2;
+            currentScene.ellipses[idx][field] = parseFloat(input.value) || 2;
           } else if(input.tagName === 'SELECT') {
-            scene.ellipses[idx][field] = input.value;
+            currentScene.ellipses[idx][field] = input.value;
           }
           saveTask();
-        } else if(fieldType === 'circle' && scene.circles[idx]) {
+        } else if(fieldType === 'circle' && currentScene?.circles?.[idx]) {
           if(input.type === 'checkbox') {
-            scene.circles[idx][field] = input.checked;
+            currentScene.circles[idx][field] = input.checked;
           }
           saveTask();
-        } else if(fieldType === 'segment' && scene.segments[idx]) {
+        } else if(fieldType === 'segment' && currentScene?.segments?.[idx]) {
           if(input.type === 'checkbox') {
-            scene.segments[idx][field] = input.checked;
+            currentScene.segments[idx][field] = input.checked;
           } else if(input.type === 'color') {
-            scene.segments[idx][field] = input.value;
+            currentScene.segments[idx][field] = input.value;
           } else if(input.type === 'number') {
-            scene.segments[idx][field] = parseFloat(input.value) || 2;
+            currentScene.segments[idx][field] = parseFloat(input.value) || 2;
           } else if(input.tagName === 'SELECT') {
-            scene.segments[idx][field] = input.value;
+            currentScene.segments[idx][field] = input.value;
           }
           saveTask();
-        } else if(fieldType === 'arrow' && scene.arrows[idx]) {
+        } else if(fieldType === 'arrow' && currentScene?.arrows?.[idx]) {
           if(input.type === 'checkbox') {
-            scene.arrows[idx][field] = input.checked;
+            currentScene.arrows[idx][field] = input.checked;
           } else if(input.type === 'color') {
-            scene.arrows[idx][field] = input.value;
+            currentScene.arrows[idx][field] = input.value;
           } else if(input.type === 'number') {
-            scene.arrows[idx][field] = parseFloat(input.value) || 2;
+            currentScene.arrows[idx][field] = parseFloat(input.value) || 2;
           } else if(input.tagName === 'SELECT') {
-            scene.arrows[idx][field] = input.value;
+            currentScene.arrows[idx][field] = input.value;
           }
           saveTask();
-        } else if(fieldType === 'plane' && scene.plane) {
-          if(input.type === 'color') {
-            scene.plane[field] = input.value;
+        } else if(fieldType === 'plane' && currentScene?.plane) {
+          if(input.type === 'checkbox') {
+            currentScene.plane[field] = input.checked;
+          } else if(input.type === 'color') {
+            currentScene.plane[field] = input.value;
           } else if(input.type === 'number') {
-            scene.plane[field] = parseFloat(input.value) || 4;
+            currentScene.plane[field] = parseFloat(input.value) || 4;
           }
           saveTask();
         }
@@ -476,19 +486,21 @@ function updateScenePanel(){
       btn.addEventListener('click', () => {
         const btnType = btn.dataset.type;
         const btnIdx = parseInt(btn.dataset.idx);
+        // Use window.currentTask.scene directly instead of closure to avoid stale references
+        const currentScene = window.currentTask?.scene;
         
-        if(btnType === 'text' && scene.texts[btnIdx]) {
-          scene.texts.splice(btnIdx, 1);
-        } else if(btnType === 'rect' && scene.rects[btnIdx]) {
-          scene.rects.splice(btnIdx, 1);
-        } else if(btnType === 'ellipse' && scene.ellipses[btnIdx]) {
-          scene.ellipses.splice(btnIdx, 1);
-        } else if(btnType === 'circle' && scene.circles[btnIdx]) {
-          scene.circles.splice(btnIdx, 1);
-        } else if(btnType === 'segment' && scene.segments[btnIdx]) {
-          scene.segments.splice(btnIdx, 1);
-        } else if(btnType === 'arrow' && scene.arrows[btnIdx]) {
-          scene.arrows.splice(btnIdx, 1);
+        if(btnType === 'text' && currentScene?.texts?.[btnIdx]) {
+          currentScene.texts.splice(btnIdx, 1);
+        } else if(btnType === 'rect' && currentScene?.rects?.[btnIdx]) {
+          currentScene.rects.splice(btnIdx, 1);
+        } else if(btnType === 'ellipse' && currentScene?.ellipses?.[btnIdx]) {
+          currentScene.ellipses.splice(btnIdx, 1);
+        } else if(btnType === 'circle' && currentScene?.circles?.[btnIdx]) {
+          currentScene.circles.splice(btnIdx, 1);
+        } else if(btnType === 'segment' && currentScene?.segments?.[btnIdx]) {
+          currentScene.segments.splice(btnIdx, 1);
+        } else if(btnType === 'arrow' && currentScene?.arrows?.[btnIdx]) {
+          currentScene.arrows.splice(btnIdx, 1);
         }
         
         saveTask();
@@ -530,7 +542,7 @@ function updateScenePanel(){
         const newId = idInput.value.trim();
         if(newId && newId !== oldId) {
           // Migrate localStorage entries from old ID to new ID
-          const keys = ['tk_task_', 'tk_forces_', 'tk_relations_', 'tk_sumF_'];
+          const keys = ['tk_task_', 'tk_forces_', 'tk_solutionForces_', 'tk_relations_', 'tk_sumF_'];
           keys.forEach(prefix => {
             const oldKey = `${prefix}${oldId}`;
             const newKey = `${prefix}${newId}`;
@@ -624,6 +636,26 @@ function updateScenePanel(){
         addItem('txt', 'text', idx, text);
       }
     });
+  }
+  
+  // Step 5: Restore selected element after DOM rebuild
+  if(window.selectedSceneElement && scenePanel){
+    const items = scenePanel.querySelectorAll('.scene-item');
+    for(const item of items){
+      const itemType = item.dataset.type;
+      const itemIndex = parseInt(item.dataset.index);
+      if(itemType === window.selectedSceneElement.type && itemIndex === window.selectedSceneElement.index){
+        item.classList.add('selected');
+        // Show arrange buttons when selected
+        const header = item.querySelector('.scene-item-header');
+        if(header){
+          header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+          });
+        }
+        break;
+      }
+    }
   }
 }
 

@@ -1,130 +1,8 @@
-/**
+﻿/**
  * editor.js - Editor mode entry point (full copy of main.js with editor features)
  * 
  * Separates localStorage namespace from player mode using 'editor_' prefix
- * Fallback: on first run, migrates tk_* keys to editor_* for existing data
  */
-
-// ===== localStorage interception layer =====
-(function() {
-  'use strict';
-  
-  const STORAGE_PREFIX = 'editor_';
-  
-  function getStorageKey(baseName) {
-    return STORAGE_PREFIX + baseName;
-  }
-
-  function migrateFromLegacy(legacyKey, newKey) {
-    try {
-      const legacyData = localStorage.getItem(legacyKey);
-      if (legacyData && !localStorage.getItem(newKey)) {
-        localStorage.setItem(newKey, legacyData);
-      }
-    } catch {}
-  }
-
-  // Initialize editor storage (migrate from tk_* to editor_* on first run)
-  function initializeEditorStorage() {
-    const initialized = localStorage.getItem(getStorageKey('initialized'));
-    if (initialized) {
-      return;
-    }
-
-    const keysToMigrate = [
-      'settings',
-      'currentTaskIndex',
-      'savedTasks',
-      'taskOrder'
-    ];
-
-    keysToMigrate.forEach(key => {
-      const legacyKey = 'tk_' + key;
-      const newKey = getStorageKey(key);
-      const legacyData = localStorage.getItem(legacyKey);
-      migrateFromLegacy(legacyKey, newKey);
-    });
-
-    try {
-      localStorage.setItem(getStorageKey('initialized'), 'true');
-    } catch {}
-  }
-
-  // Store original localStorage methods
-  const originalGetItem = localStorage.getItem.bind(localStorage);
-  const originalSetItem = localStorage.setItem.bind(localStorage);
-  const originalRemoveItem = localStorage.removeItem.bind(localStorage);
-
-  // Intercept localStorage to use editor_ prefix
-  localStorage.getItem = function(key) {
-    if (key === 'tk_settings' || 
-        key === 'tk_currentTaskIndex' ||
-        key === 'tk_savedTasks' ||
-        key === 'tk_taskOrder' ||
-        key === 'tk_editorMode') {
-      const newKey = getStorageKey(key.replace('tk_', ''));
-      return originalGetItem(newKey);
-    }
-    
-    // Per-task keys: try editor_forces_* first, then fallback to tk_forces_* (legacy)
-    if (key.startsWith('tk_forces_')) {
-      const taskId = key.replace('tk_forces_', '');
-      const editorKey = getStorageKey('forces_' + taskId);
-      let result = originalGetItem(editorKey);
-      
-      if (result) {
-        return result;
-      }
-      
-      // Fallback to legacy tk_forces_* key
-      return originalGetItem(key);
-    }
-
-    return originalGetItem(key);
-  };
-
-  localStorage.setItem = function(key, value) {
-    if (key === 'tk_settings' || 
-        key === 'tk_currentTaskIndex' ||
-        key === 'tk_savedTasks' ||
-        key === 'tk_taskOrder' ||
-        key === 'tk_editorMode') {
-      const newKey = getStorageKey(key.replace('tk_', ''));
-      return originalSetItem(newKey, value);
-    }
-
-    if (key.startsWith('tk_forces_')) {
-      const taskId = key.replace('tk_forces_', '');
-      const editorKey = getStorageKey('forces_' + taskId);
-      return originalSetItem(editorKey, value);
-    }
-
-    return originalSetItem(key, value);
-  };
-
-  localStorage.removeItem = function(key) {
-    if (key === 'tk_settings' || 
-        key === 'tk_currentTaskIndex' ||
-        key === 'tk_savedTasks' ||
-        key === 'tk_taskOrder' ||
-        key === 'tk_editorMode') {
-      const newKey = getStorageKey(key.replace('tk_', ''));
-      return originalRemoveItem(newKey);
-    }
-
-    if (key.startsWith('tk_forces_')) {
-      const taskId = key.replace('tk_forces_', '');
-      const editorKey = getStorageKey('forces_' + taskId);
-      return originalRemoveItem(editorKey);
-    }
-
-    return originalRemoveItem(key);
-  };
-
-  // Initialize on page load
-  window.addEventListener('DOMContentLoaded', initializeEditorStorage);
-  initializeEditorStorage();
-})();
 
 // ===== EDITOR MODE FLAG =====
 window.editorMode = true;
@@ -135,47 +13,7 @@ window.editorMode = true;
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
 
 (function(){
-    // Predefined force aliases (extend as needed)
-    const FORCE_ALIASES = {
-      G: ['g','ga','tyngde','fg','G'],
-      N: ['n','na','normalkraft','r','fn','N'],
-      F: ['f','fa','kraft','applied','F'],
-      R: ['r','ra','friksjon','fr','R'],
-      N_B: ['nb*','n*','nb\'','n\'','b','nba','nab','N_B']
-      // Add more as needed
-    };
-
-    // ===== Constants for UI =====
-  window.WIDTH = 1000;
-  window.HEIGHT = 640;
-  window.GRID_STEP = 20;
-  window.DRAW_CENTER = [500, 320 + 20];  // [WIDTH/2, HEIGHT/2 + GRID_STEP]
-  window.BG_COLOR = '#f0f0f0'; // (240,240,240)
-  window.GRID_COLOR = '#dcdcdc'; // (220,220,220)
-
-  // ===== Constants for Scene Element Highlighting =====
-  window.HIGHLIGHT_SCENE_POINT_DIM_COLOR = '#aaaaaa';      // Dim color for selected element points
-  window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS = 6;
-  window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR = '#ffff00';   // Bright yellow for hovered element points
-  window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS = 8;
-  window.HIGHLIGHT_SCENE_LINE_DIM_COLOR = '#4488ff';       // Blue for segment lines (selected, dim)
-  window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH = 4;
-  window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR = '#66bbff';    // Bright cyan for segment lines (hovered)
-  window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH = 6;
-
-  // ===== Constants for Scene Element Handles =====
-  window.SCENE_HANDLE_RADIUS = 5;
-  window.SCENE_HANDLE_COLOR = '#ff9800';     // Orange
-  window.SCENE_HANDLE_STROKE_COLOR = '#ffffff';
-  window.SCENE_HANDLE_STROKE_WIDTH = 1;
-  window.SCENE_HANDLE_TEXT_COLOR = '#000';
-  window.SCENE_HANDLE_TEXT_SIZE = 12;
-
-  // ===== Constants for Scene Element Hover Detection =====
-  window.HOVER_THRESHOLD = 20;               // pixels, same as SNAP_THRESHOLD
-  window.PREFER_SELECTED_DIST = 20;          // Prefer selected element within this distance (GRID_STEP)
-
-  // ===== Canvas init =====
+    // Canvas init =====
   const canvas = document.getElementById('app-canvas');
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
@@ -621,22 +459,17 @@ window.editorMode = true;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const yOffset = isGridSym ? 0 : 1; // finjuster vertikal
-    g.fillText(symbol, w/2, h/2 + yOffset);
+      g.fillText(symbol, w/2, h/2 + yOffset);
     return c.toDataURL('image/png');
   }
 
-  const ICONS = {
-    snap: '🧲', guidelines: '📐', grid_off: '⊞', grid_on: '◻', prev: '⬅', next: '➡', help: '❓', check: '✅', reset: '🔄', settings: '⚙'
-  };
-  let gridOn = true; // starter som på
-
-  // Ikon: viser fylte ruter ◻ når grid er PÅ, tomt ⊞ når grid er AV
+  let gridOn = true; // starter som på  // Ikon: viser fylte ruter ◻ når grid er PÅ, tomt ⊞ når grid er AV
   function updateGridIcon() {
     const el = document.getElementById('btn-grid');
     if (!el) return;
     const oldImg = el.querySelector('img');
     if (oldImg) oldImg.remove();
-    const sym = gridOn ? ICONS.grid_off : ICONS.grid_on;
+    const sym = gridOn ? window.ICONS.grid_off : window.ICONS.grid_on;
     const url = makeIconPNG(sym);
     const img = document.createElement('img');
     img.src = url;
@@ -656,7 +489,7 @@ window.editorMode = true;
       if (!el) continue;
       // Skip icon for btn-help, only add text
       if(id !== 'btn-help'){
-        const url = makeIconPNG(ICONS[key]);
+        const url = makeIconPNG(window.ICONS[key]);
         const img = document.createElement('img');
         img.src = url;
         el.appendChild(img);
@@ -686,9 +519,9 @@ window.editorMode = true;
     show_force_coordinates: false,
     show_scene_coordinates: false,
   };
-  // Load persisted settings
+  // Load persisted settings from editor_ namespace
   try {
-    const raw = localStorage.getItem('tk_settings');
+    const raw = localStorage.getItem('editor_settings');
     if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
   } catch {}
   // Editor mode: always ON in editor.js
@@ -697,13 +530,13 @@ window.editorMode = true;
   updateEditorMode();
   window.taskScores = {};
   try {
-    const raw = localStorage.getItem('tk_taskScores');
+    const raw = localStorage.getItem('editor_taskScores');
     if(raw){ window.taskScores = JSON.parse(raw); }
   } catch {}
   // Task comments: taskId -> { comment: string }
   window.taskComments = {};
   try {
-    const raw = localStorage.getItem('tk_taskComments');
+    const raw = localStorage.getItem('editor_taskComments');
     if(raw){ window.taskComments = JSON.parse(raw); }
   } catch {}
   function updateUserDisplay(){
@@ -894,8 +727,6 @@ window.editorMode = true;
 
   // Update delete force button visibility
   // ===== Feedback panel helpers =====
-  function clearHighlights(){ if(window.fm){ window.fm.forces.forEach(f=> f.checkHighlight=false); } }
-  function applyHighlightsFor(indices){ clearHighlights(); if(!indices) return; indices.forEach(idx=>{ const f=window.fm.forces[idx]; if(f) f.checkHighlight=true; }); }
   function updateFeedbackUI(){
     const panel = document.getElementById('feedback-panel');
     const scoreEl = document.getElementById('feedback-score');
@@ -915,6 +746,9 @@ window.editorMode = true;
     if(!feedback_lines || !feedback_lines.length){
       if(textEl) textEl.textContent = '';
       if(navEl) navEl.style.display = 'none';
+      // Reset to default size when no lines
+      panel.style.width = '240px';
+      panel.style.height = 'auto';
       return;
     }
     
@@ -923,7 +757,12 @@ window.editorMode = true;
     const line = feedback_lines[index];
     if(textEl) textEl.textContent = line.text;
     if(countEl) countEl.textContent = `${index+1} / ${feedback_lines.length}`;
-    applyHighlightsFor(line.indices || []);
+    window.applyHighlightsFor(line.indices || []);
+    
+    // Calculate and apply dynamic size
+    const size = window.calculateFeedbackPanelSize(feedback_lines);
+    panel.style.width = size.width + 'px';
+    panel.style.height = size.height + 'px';
   }
   window.showFeedback = function(lines, score){
     const arr = Array.isArray(lines) ? lines : [];
@@ -941,7 +780,7 @@ window.editorMode = true;
     const panel = document.getElementById('feedback-panel');
     if(panel) panel.classList.add('hidden');
     window.feedbackState = null; window.lastEvaluation = null;
-    clearHighlights();
+    window.clearHighlights();
   }
   // Nav buttons
   document.addEventListener('click', (e)=>{
@@ -964,50 +803,6 @@ window.editorMode = true;
     if(panel && !panel.contains(tgt) && !inCheckButton){
       clearFeedback();
     }
-  });
-
-  // ===== Debug Modal =====
-  window.debugLog = [];
-  window.addDebugLog = function(msg){
-    if(!window.debugLog) window.debugLog = [];
-    const timestamp = new Date().toLocaleTimeString();
-    const fullMsg = `[${timestamp}] ${msg}`;
-    window.debugLog.push(fullMsg);
-    
-    const debugContent = document.getElementById('debug-content');
-    if(debugContent){
-      debugContent.textContent = window.debugLog.join('\n');
-      debugContent.scrollTop = debugContent.scrollHeight; // auto-scroll to bottom
-    }
-    
-    // Show debug modal if debug mode is on
-    if(window.settings && window.settings.debug){
-      const debugModal = document.getElementById('debug-modal');
-      if(debugModal) debugModal.classList.remove('hidden');
-    }
-  };
-  
-  // Debug modal close button
-  document.getElementById('debug-close').addEventListener('click', ()=>{
-    const debugModal = document.getElementById('debug-modal');
-    if(debugModal) debugModal.classList.add('hidden');
-  });
-  
-  // Clear debug log
-  document.getElementById('debug-clear').addEventListener('click', ()=>{
-    window.debugLog = [];
-    const debugContent = document.getElementById('debug-content');
-    if(debugContent) debugContent.textContent = '';
-  });
-  
-  // Copy debug log
-  document.getElementById('debug-copy').addEventListener('click', ()=>{
-    const text = window.debugLog.join('\n');
-    navigator.clipboard.writeText(text).then(()=>{
-      alert('Debug output kopiert til clipboard');
-    }).catch(err=>{
-      console.error('Kunne ikke kopiere:', err);
-    });
   });
 
   // ===== Load initial task (Task 1) =====
@@ -1640,11 +1435,11 @@ window.editorMode = true;
     }
     window.currentTaskIndex = (index + window.TASKS.length) % window.TASKS.length;
     // NEW: persist current task index
-    try { localStorage.setItem('tk_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
+    try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
     
     // Check if task already exists in localStorage - if so, load ONLY from localStorage
     const taskId = window.TASKS[window.currentTaskIndex].id;
-    const taskStorageKey = `tk_task_${taskId}`;
+    const taskStorageKey = `editor_task_${taskId}`;
     const savedTaskData = localStorage.getItem(taskStorageKey);
     
     if(savedTaskData){
@@ -1673,9 +1468,9 @@ window.editorMode = true;
     // Rebuild inputs for new manager to avoid stale listeners
     inputsContainer.innerHTML = '';
     // Load persisted forces for this task (if any)
-    // Try both editor_forces_* and tk_forces_* (legacy from player mode)
+    // Try both editor_forces_* and editor_forces_* (legacy from player mode)
     const editorTaskKey = `editor_forces_${window.currentTask.id}`;
-    const legacyTaskKey = `tk_forces_${window.currentTask.id}`;
+    const legacyTaskKey = `editor_forces_${window.currentTask.id}`;
     
     let savedForces = localStorage.getItem(editorTaskKey);
     
@@ -1736,10 +1531,10 @@ window.editorMode = true;
     // Save the entire task (scene, forces stored separately)
     const taskToSave = JSON.parse(JSON.stringify(window.currentTask));
     try {
-      localStorage.setItem(`tk_task_${taskId}`, JSON.stringify(taskToSave));
+      localStorage.setItem(`editor_task_${taskId}`, JSON.stringify(taskToSave));
       
       // Also save to tasks list so we know it exists
-      const savedTasksKey = 'tk_savedTasks';
+      const savedTasksKey = 'editor_savedTasks';
       let savedTasks = [];
       try {
         const stored = localStorage.getItem(savedTasksKey);
@@ -1755,14 +1550,14 @@ window.editorMode = true;
   
   // Load all saved tasks from localStorage and merge with default TASKS
   function loadSavedTasks(){
-    const savedTasksKey = 'tk_savedTasks';
+    const savedTasksKey = 'editor_savedTasks';
     try {
       const stored = localStorage.getItem(savedTasksKey);
       if(!stored) return;
       
       const savedTaskIds = JSON.parse(stored);
       for(const taskId of savedTaskIds){
-        const taskKey = `tk_task_${taskId}`;
+        const taskKey = `editor_task_${taskId}`;
         const taskData = localStorage.getItem(taskKey);
         if(!taskData) continue;
         
@@ -1784,14 +1579,14 @@ window.editorMode = true;
   function saveTaskOrder(){
     try {
       const taskOrder = window.TASKS.map(t => t.id);
-      localStorage.setItem('tk_taskOrder', JSON.stringify(taskOrder));
+      localStorage.setItem('editor_taskOrder', JSON.stringify(taskOrder));
     } catch {}
   }
 
   // Load and apply task order from localStorage, append new tasks from tasks.js
   function loadTaskOrder(){
     try {
-      const saved = localStorage.getItem('tk_taskOrder');
+      const saved = localStorage.getItem('editor_taskOrder');
       if(!saved) return;
 
       const savedOrder = JSON.parse(saved);
@@ -2002,7 +1797,7 @@ window.editorMode = true;
 
   window.saveTaskForces = function saveTaskForces(){
     if(!window.currentTask || !window.fm) return;
-    const taskKey = `tk_forces_${window.currentTask.id}`;
+    const taskKey = `editor_forces_${window.currentTask.id}`;
     
     // Filter out blank forces (only save forces with actual data)
     const nonBlankForces = window.fm.forces.filter(f => {
@@ -2040,7 +1835,7 @@ window.editorMode = true;
   (function(){
     let startIdx = 0;
     try {
-      const s = localStorage.getItem('tk_currentTaskIndex');
+      const s = localStorage.getItem('editor_currentTaskIndex');
       if(s !== null){
         const n = parseInt(s, 10);
         if(!Number.isNaN(n)) startIdx = n;
@@ -3101,7 +2896,7 @@ window.editorMode = true;
           const taskId = window.currentTask.id;
           const score = window.lastEvaluation.summary.finalScore;
           window.taskScores[taskId] = { score, feedback: window.lastEvaluation.lines.map(l=>l.text).join(' | ') };
-          try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
+          try{ localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
           updateUserDisplay();
           updateHelpButton();
         }
@@ -3117,7 +2912,7 @@ window.editorMode = true;
         window.currentGuidelines = null;
         clearFeedback();
         // Remove only expected forces, keep initial forces
-        const taskKey = `tk_forces_${window.currentTask.id}`;
+        const taskKey = `editor_forces_${window.currentTask.id}`;
         try{
           const savedForces = localStorage.getItem(taskKey);
           if(savedForces){
@@ -3140,7 +2935,7 @@ window.editorMode = true;
         // Clear score for this task
         if(window.currentTask && window.taskScores){
           delete window.taskScores[window.currentTask.id];
-          try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
+          try{ localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
         }
         // Now reload, which will use defaults for expected forces and keep initial forces
         loadTask(window.currentTaskIndex || 0);
@@ -3243,9 +3038,10 @@ window.editorMode = true;
   const sShowForceCoords = document.getElementById('settings-show-force-coordinates');
   const sShowSceneCoords = document.getElementById('settings-show-scene-coordinates');
   const sEditor = document.getElementById('settings-editor');
-  function persist(){ try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); }catch{} }
+  function persist(){ try{ localStorage.setItem('editor_settings', JSON.stringify(window.settings)); }catch{} }
   
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
+  if(usr){ usr.addEventListener('change', ()=>{ window.settings.username = usr.value || 'Isaac Newton'; persist(); updateUserDisplay(); }); }
   if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
   if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
   if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }
@@ -3253,7 +3049,7 @@ window.editorMode = true;
   if(sEditor){ 
     sEditor.addEventListener('change', ()=>{ 
       window.editorMode = !!sEditor.checked;
-      try{ localStorage.setItem('tk_editorMode', JSON.stringify(window.editorMode)); } catch {}
+      try{ localStorage.setItem('editor_editorMode', JSON.stringify(window.editorMode)); } catch {}
       updateEditorMode();
       window.selectedSceneElement = null;
       window.updateAppState();
@@ -3283,13 +3079,13 @@ window.editorMode = true;
       window.TASKS.splice(currentIdx + 1, 0, newTask);
       
       // Save the new task to localStorage
-      const taskKey = `tk_task_${newTask.id}`;
+      const taskKey = `editor_task_${newTask.id}`;
       try{
         localStorage.setItem(taskKey, JSON.stringify(newTask));
       } catch {}
       
       // Update savedTasks list in localStorage
-      const savedTasksKey = 'tk_savedTasks';
+      const savedTasksKey = 'editor_savedTasks';
       let savedTasks = [];
       try{
         const stored = localStorage.getItem(savedTasksKey);
@@ -3370,13 +3166,13 @@ window.editorMode = true;
       
       // Remove from localStorage
       try {
-        localStorage.removeItem(`tk_task_${taskId}`);
-        localStorage.removeItem(`tk_forces_${taskId}`);
-        localStorage.removeItem(`tk_relations_${taskId}`);
-        localStorage.removeItem(`tk_sumF_${taskId}`);
+        localStorage.removeItem(`editor_task_${taskId}`);
+        localStorage.removeItem(`editor_forces_${taskId}`);
+        localStorage.removeItem(`editor_relations_${taskId}`);
+        localStorage.removeItem(`editor_sumF_${taskId}`);
         
         // Update saved tasks list
-        const savedTasksKey = 'tk_savedTasks';
+        const savedTasksKey = 'editor_savedTasks';
         let savedTasks = [];
         try {
           const stored = localStorage.getItem(savedTasksKey);
@@ -3387,7 +3183,7 @@ window.editorMode = true;
         
         // Update task order - remove deleted task ID
         try {
-          const taskOrderKey = 'tk_taskOrder';
+          const taskOrderKey = 'editor_taskOrder';
           let taskOrder = [];
           const stored = localStorage.getItem(taskOrderKey);
           if(stored) taskOrder = JSON.parse(stored);
@@ -3483,14 +3279,14 @@ window.editorMode = true;
       }
       
       // Add relations from localStorage if present
-      const relKey = `tk_relations_${task.id}`;
+      const relKey = `editor_relations_${task.id}`;
       const savedRelations = localStorage.getItem(relKey);
       if(savedRelations){
         try{ task.relations = JSON.parse(savedRelations); }catch{}
       }
       
       // Add sumF from localStorage if present
-      const sumFKey = `tk_sumF_${task.id}`;
+      const sumFKey = `editor_sumF_${task.id}`;
       const savedSumF = localStorage.getItem(sumFKey);
       if(savedSumF){
         try{ task.sumF = JSON.parse(savedSumF); }catch{}
@@ -3556,7 +3352,7 @@ window.editorMode = true;
     if(!window.currentTask || !window.fm) return;
     relationsModal.classList.remove('hidden');
     // Load relations from localStorage or task
-    const relKey = `tk_relations_${window.currentTask.id}`;
+    const relKey = `editor_relations_${window.currentTask.id}`;
     let relations = relationsList._relations || [];
     if(relationsList._relations === undefined){
       const savedRelations = localStorage.getItem(relKey);
@@ -3726,7 +3522,7 @@ window.editorMode = true;
     // Use the cached relations array that's been updated by event listeners
     const relations = relationsList._relations;
     // Save to localStorage
-    const relKey = `tk_relations_${window.currentTask.id}`;
+    const relKey = `editor_relations_${window.currentTask.id}`;
     try{ localStorage.setItem(relKey, JSON.stringify(relations)); }catch{}
   }
 
@@ -3746,24 +3542,41 @@ window.editorMode = true;
 
   // Task order manager modal logic
   const taskOrderModal = document.getElementById('task-order-modal');
-  const taskList = document.getElementById('task-list');
-  const taskCount = document.getElementById('task-count');
-  const taskOrderClose = document.getElementById('task-order-close');
+  const taskList = document.getElementById('task-order-list');
+  const taskOrderSave = document.getElementById('task-order-save');
+  const taskOrderCancel = document.getElementById('task-order-cancel');
+  
+  // Track newly imported tasks (for highlighting)
+  let newlyImportedTaskIds = new Set();
 
   function updateTaskOrderList(){
     if(!taskList) return;
     taskList.innerHTML = '';
     if(!window.TASKS || window.TASKS.length === 0) return;
-
-    taskCount.textContent = window.TASKS.length;
+    
+    // Load saved checkbox state from localStorage
+    let savedCheckState = {};
+    try {
+      const saved = localStorage.getItem('taskset_checkbox_state');
+      if (saved) savedCheckState = JSON.parse(saved);
+    } catch {}
 
     window.TASKS.forEach((task, idx) => {
       const item = document.createElement('div');
       item.className = 'task-order-item';
+      // Highlight newly imported tasks
+      if (newlyImportedTaskIds.has(task.id)) {
+        item.style.backgroundColor = '#c8e6c9';
+      }
       item.draggable = true;
       item.dataset.index = idx;
       item.dataset.taskId = task.id;
+      
+      // Check if this task should be checked (saved state or newly imported)
+      const isChecked = newlyImportedTaskIds.has(task.id) || (savedCheckState[task.id] !== false);
+      
       item.innerHTML = `
+        <input type="checkbox" class="task-order-checkbox" ${isChecked ? 'checked' : ''} data-task-id="${task.id}" />
         <span class="task-order-handle">⋮⋮</span>
         <span class="task-order-id">${task.id}</span>
         <span class="task-order-title">${task.title || '(Ingen tittel)'}</span>
@@ -3782,6 +3595,8 @@ window.editorMode = true;
         taskList.querySelectorAll('.task-order-item').forEach(el => {
           el.classList.remove('drag-over');
         });
+        // Auto-save after drag-drop
+        saveTaskOrder();
       });
 
       item.addEventListener('dragover', (e) => {
@@ -3836,20 +3651,436 @@ window.editorMode = true;
     });
   }
 
-  if(taskOrderClose){
-    taskOrderClose.addEventListener('click', ()=>{
-      // Apply current order from DOM
-      const items = taskList.querySelectorAll('.task-order-item');
-      const newOrder = [];
-      items.forEach(item => {
-        const taskId = item.dataset.taskId;
-        const task = window.TASKS.find(t => t.id === taskId);
-        if(task) newOrder.push(task);
-      });
-      window.TASKS = newOrder;
-      saveTaskOrder();
+  // ===== Task Set Management (Save/Export/Open/Import) - integrated in task-order-modal =====
+  const tasksetNameInput = document.getElementById('taskset-name');
+  const tasksetErrorDiv = document.getElementById('taskset-error');
+  const tasksetSaveBtn = document.getElementById('taskset-save-btn');
+  const tasksetExportBtn = document.getElementById('taskset-export-btn');
+  const tasksetOpenBtn = document.getElementById('taskset-open-btn');
+  const tasksetImportBtn = document.getElementById('taskset-import-btn');
+  const tasksetFileInput = document.getElementById('taskset-file-input');
+  const tasksetResultDiv = document.getElementById('taskset-result');
+  const tasksetReportDiv = document.getElementById('taskset-report');
+  const tasksetOpenModal = document.getElementById('taskset-open-modal');
+  const tasksetList = document.getElementById('taskset-list');
+  const tasksetOpenConfirm = document.getElementById('taskset-open-confirm');
+  const tasksetOpenCancel = document.getElementById('taskset-open-cancel');
+
+  // Validate taskset name
+  function validateTasksetName(name) {
+    if (!name || name.trim().length === 0) {
+      return { valid: false, error: 'Navn kan ikke være tomt' };
+    }
+    if (name.length > 50) {
+      return { valid: false, error: 'Navn kan maks være 50 tegn' };
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+      return { valid: false, error: 'Kun bokstaver, tall og underscore tillatt' };
+    }
+    return { valid: true, error: '' };
+  }
+
+  // Get selected task IDs from checkboxes in task order list
+  function getSelectedTaskIds() {
+    const checkboxes = (taskOrderModal ? taskOrderModal.querySelectorAll('.task-order-checkbox:checked') : []);
+    const selectedIds = [];
+    checkboxes.forEach(cb => {
+      const taskId = cb.dataset.taskId;
+      if (taskId) selectedIds.push(taskId);
+    });
+    return selectedIds;
+  }
+
+  // Get task order from task order list
+  function getTaskOrderFromList() {
+    if (!taskOrderModal) return [];
+    const items = taskOrderModal.querySelectorAll('.task-order-item');
+    const order = [];
+    items.forEach(item => {
+      const taskId = item.dataset.taskId;
+      if (taskId) order.push(taskId);
+    });
+    return order;
+  }
+
+  // ===== LAGRE: Save task set with minimal data (localStorage) =====
+  if (tasksetSaveBtn) {
+    tasksetSaveBtn.addEventListener('click', () => {
+      const name = tasksetNameInput.value.trim();
+      const validation = validateTasksetName(name);
+
+      // Show error if invalid
+      if (!validation.valid) {
+        tasksetErrorDiv.textContent = validation.error;
+        tasksetErrorDiv.style.display = 'block';
+        return;
+      }
+
+      // Clear error
+      tasksetErrorDiv.style.display = 'none';
+
+      // Get selected task IDs and order
+      const selectedIds = getSelectedTaskIds();
+      const taskOrder = getTaskOrderFromList();
+
+      // Save to localStorage with minimal data
+      const tasksetKey = `taskset_${name}`;
+      const tasksetData = {
+        taskIds: selectedIds,
+        order: taskOrder,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem(tasksetKey, JSON.stringify(tasksetData));
+        
+        // Show success message
+        tasksetResultDiv.style.display = 'block';
+        tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${name}" lagret (${selectedIds.length} oppgaver)</div>`;
+        
+        // Clear input
+        tasksetNameInput.value = '';
+      } catch (err) {
+        tasksetErrorDiv.textContent = 'Feil ved lagring til localStorage: ' + err.message;
+        tasksetErrorDiv.style.display = 'block';
+      }
+    });
+  }
+
+  // ===== ÅPNE: Load task set from localStorage =====
+  if (tasksetOpenBtn) {
+    tasksetOpenBtn.addEventListener('click', () => {
+      // List all taskset_* from localStorage
+      const tasksets = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('taskset_')) {
+          const name = key.replace('taskset_', '');
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            tasksets.push({
+              key: key,
+              name: name,
+              timestamp: data.timestamp || 'Ukjent',
+              taskCount: (data.taskIds || []).length
+            });
+          } catch (e) {
+            console.error('Error parsing taskset:', key, e);
+          }
+        }
+      }
+
+      if (tasksets.length === 0) {
+        tasksetResultDiv.style.display = 'block';
+        tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ Ingen lagrede oppgavesett</div>';
+        return;
+      }
+
+      // Show list in modal
+      tasksetList.innerHTML = '';
+      let selectedKey = null;
       
-      if(taskOrderModal) taskOrderModal.classList.add('hidden');
+      tasksets.forEach((ts, idx) => {
+        const date = new Date(ts.timestamp);
+        const dateStr = isNaN(date.getTime()) ? ts.timestamp : date.toLocaleString('no-NO');
+        
+        const label = document.createElement('label');
+        label.style.cssText = 'display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;';
+        label.innerHTML = `
+          <input type="radio" name="taskset-select" value="${ts.key}" ${idx === 0 ? 'checked' : ''} style="margin-right:8px;">
+          <strong>${ts.name}</strong><br>
+          <span style="font-size:11px; color:#666;">Lagret: ${dateStr} (${ts.taskCount} oppgaver)</span>
+        `;
+        
+        label.addEventListener('change', (e) => {
+          if (e.target.checked) selectedKey = ts.key;
+        });
+        
+        tasksetList.appendChild(label);
+        if (idx === 0) selectedKey = ts.key;
+      });
+
+      // Show modal
+      tasksetOpenModal.classList.remove('hidden');
+    });
+  }
+
+  // ===== ÅPNE CONFIRM: Load selected task set =====
+  if (tasksetOpenConfirm) {
+    tasksetOpenConfirm.addEventListener('click', () => {
+      const selected = tasksetList.querySelector('input[name="taskset-select"]:checked');
+      if (!selected) return;
+
+      try {
+        const data = JSON.parse(localStorage.getItem(selected.value));
+        const selectedIds = data.taskIds || [];
+
+        // Check all corresponding checkboxes in task order list
+        if (taskOrderModal) {
+          const allCheckboxes = taskOrderModal.querySelectorAll('.task-order-checkbox');
+          allCheckboxes.forEach(cb => {
+            cb.checked = selectedIds.includes(cb.dataset.taskId);
+          });
+        }
+
+        // Navigate to first task in set
+        if (selectedIds.length > 0) {
+          const firstTaskIdx = window.TASKS.findIndex(t => t.id === selectedIds[0]);
+          if (firstTaskIdx >= 0) {
+            loadTask(firstTaskIdx);
+          }
+        }
+
+        // Hide modal and show success
+        tasksetOpenModal.classList.add('hidden');
+        tasksetResultDiv.style.display = 'block';
+        const setName = selected.value.replace('taskset_', '');
+        tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${setName}" åpnet (${selectedIds.length} oppgaver valgt)</div>`;
+        
+        // Auto-save new selection
+        saveTaskOrder();
+      } catch (err) {
+        console.error('Error opening taskset:', err);
+        tasksetErrorDiv.textContent = 'Feil ved åpning av sett: ' + err.message;
+        tasksetErrorDiv.style.display = 'block';
+      }
+    });
+  }
+
+  // ===== ÅPNE CANCEL: Close open modal =====
+  if (tasksetOpenCancel) {
+    tasksetOpenCancel.addEventListener('click', () => {
+      tasksetOpenModal.classList.add('hidden');
+    });
+  }
+
+  // ===== EKSPORTER: Export full task objects to JSON file =====
+  if (tasksetExportBtn) {
+    tasksetExportBtn.addEventListener('click', () => {
+      const selectedIds = getSelectedTaskIds();
+      if (selectedIds.length === 0) {
+        tasksetResultDiv.style.display = 'block';
+        tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ Ingen oppgaver valgt for eksport</div>';
+        return;
+      }
+
+      // Build full task objects WITHOUT forces (only task structure and initialForces)
+      const tasksToExport = [];
+      selectedIds.forEach(taskId => {
+        const task = window.TASKS.find(t => t.id === taskId);
+        if (task) {
+          // Deep clone task - do NOT include any drawn forces
+          const taskClone = JSON.parse(JSON.stringify(task));
+          // Forces are intentionally NOT included in export
+          // Players start with only initialForces, no pre-drawn user forces
+          tasksToExport.push(taskClone);
+        }
+      });
+
+      // Build export data
+      const exportData = {
+        tasks: tasksToExport,
+        metadata: {
+          name: tasksetNameInput.value.trim() || 'taskset',
+          exported: new Date().toISOString(),
+          count: tasksToExport.length
+        }
+      };
+
+      // Download as JSON file
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      const filename = `taskset_${exportData.metadata.name}_${timestamp}.json`;
+      const jsonStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Show success
+      tasksetResultDiv.style.display = 'block';
+      tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Eksportert ${tasksToExport.length} oppgaver til "${filename}"</div>`;
+    });
+  }
+
+  // ===== IMPORTER: Import task objects from file with merge logic =====
+  if (tasksetImportBtn) {
+    tasksetImportBtn.addEventListener('click', () => {
+      tasksetFileInput.click();
+    });
+  }
+
+  if (tasksetFileInput) {
+    tasksetFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        console.log('Import: Ingen fil valgt');
+        return;
+      }
+
+      console.log('Import: Starter lesing av fil:', file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const importData = JSON.parse(event.target.result);
+          const tasksToImport = importData.tasks || [];
+          console.log('Import: Parsert JSON, antall tasks:', tasksToImport.length);
+
+          const reportItems = [];
+          const imported = [];
+          const skipped = [];
+
+          tasksToImport.forEach((task, idx) => {
+            const taskId = task.id;
+            const forcesKey = `editor_forces_${taskId}`;
+            const existingTask = localStorage.getItem(`editor_task_${taskId}`);
+
+            console.log(`Import task ${idx + 1}/${tasksToImport.length}: "${taskId}" - Finnes allerede: ${!!existingTask}`);
+
+            // Check if task already exists in editor namespace
+            if (existingTask) {
+              skipped.push({ id: taskId, title: task.title || taskId, reason: 'Oppgaven finnes allerede' });
+              const itemHtml = `<div style="padding:8px 10px; border-bottom:1px solid #eee; color:#d32f2f; background:#fde8e8;">⏭️ <strong>${task.title || taskId}</strong> – eksisterer allerede</div>`;
+              reportItems.push(itemHtml);
+              console.log(`  → Hoppet over (finnes allerede), HTML: ${itemHtml.substring(0, 50)}...`);
+            } else {
+              // Add new task
+              imported.push({ id: taskId, title: task.title || taskId });
+              
+              // Save full task to localStorage
+              const taskKey = `editor_task_${taskId}`;
+              localStorage.setItem(taskKey, JSON.stringify(task));
+              console.log(`  → Lagret task: ${taskKey}`);
+              
+              // Save forces if available
+              if (task._forces) {
+                localStorage.setItem(forcesKey, JSON.stringify(task._forces));
+                console.log(`  → Lagret forces: ${forcesKey}`);
+              }
+              
+              // Add to TASKS array
+              window.TASKS.push(task);
+              console.log(`  → Lagt til i TASKS array`);
+              
+              const itemHtml = `<div style="padding:8px 10px; border-bottom:1px solid #eee; color:#2e7d32; background:#f1f8f4;">✅ <strong>${task.title || taskId}</strong> – importert</div>`;
+              reportItems.push(itemHtml);
+            }
+          });
+
+          // Show detailed report
+          
+          if (!tasksetResultDiv || !tasksetReportDiv) {
+            console.error('FEIL: tasksetResultDiv eller tasksetReportDiv finnes ikke!');
+            alert('FEIL: Kan ikke vise import-rapport - elementer finnes ikke i DOM');
+            return;
+          }
+
+
+
+          // Mark newly imported tasks for highlighting
+          imported.forEach(imp => {
+            newlyImportedTaskIds.add(imp.id);
+          });
+          
+          // Simplified report - just summary and instructions
+          const totalInFile = imported.length + skipped.length;
+          const reportHtml = `
+<div style="background: #fff3cd; padding: 12px; border: 2px solid #ffc107; border-radius: 4px; margin-bottom: 12px;">
+  <div style="font-size: 13px; color: #333; line-height: 1.6;">
+    <strong>✅ Importert og valgt ${totalInFile} oppgaver.</strong> Grønne er nye.<br>
+    <span style="font-size: 12px; color: #666;">Slett oppgave før import hvis du vil importere allerede eksisterende oppgave</span>
+  </div>
+</div>
+          `;
+          
+          tasksetReportDiv.innerHTML = reportHtml;
+          
+          // Show the result div - use !important to override
+          tasksetResultDiv.style.cssText = 'display: block !important; visibility: visible !important;';
+          
+          // Oppdater task-order-listen med nye oppgaver
+          updateTaskOrderList();
+          
+          // Auto-save new order immediately
+          saveTaskOrder();
+          
+          // Scroll to result so user sees it
+          setTimeout(() => {
+            tasksetResultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 100);
+
+
+          // Reset file input
+          tasksetFileInput.value = '';
+        } catch (err) {
+          console.error('Import feil:', err);
+          tasksetResultDiv.style.display = 'block';
+          tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ <strong>Feil ved lesing av fil:</strong> ' + err.message + '</div>';
+          tasksetFileInput.value = '';
+        }
+      };
+      
+      reader.onerror = (err) => {
+        console.error('FileReader feil:', err);
+      };
+
+      reader.readAsText(file);
+    });
+  }
+
+  const taskOrderSelectAll = document.getElementById('task-order-select-all');
+  if(taskOrderSelectAll){
+    taskOrderSelectAll.addEventListener('click', ()=>{
+      const checkboxes = taskList.querySelectorAll('.task-order-checkbox');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      
+      // Toggle all checkboxes
+      checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+      });
+      
+      // Update button icon based on new state
+      const newAllChecked = Array.from(checkboxes).every(cb => cb.checked);
+      taskOrderSelectAll.textContent = newAllChecked ? '✅' : '❌';
+    });
+  }
+
+  // Removed taskOrderSave and taskOrderCancel - only close button remains
+  // Auto-save happens after: import, open operations, and drag-drop
+  
+  // Helper function to close task order modal
+  function closeTaskOrderModal() {
+    // Hide import results
+    if (tasksetResultDiv) tasksetResultDiv.style.display = 'none';
+    // Clear newly imported highlight
+    newlyImportedTaskIds.clear();
+    // Close modal
+    if (taskOrderModal) taskOrderModal.classList.add('hidden');
+  }
+  
+  // Close button
+  const taskOrderClose = document.getElementById('task-order-close');
+  if (taskOrderClose) {
+    taskOrderClose.addEventListener('click', closeTaskOrderModal);
+  }
+  
+  // Close on Esc key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && taskOrderModal && !taskOrderModal.classList.contains('hidden')) {
+      closeTaskOrderModal();
+    }
+  });
+  
+  // Close on click outside modal
+  if (taskOrderModal) {
+    taskOrderModal.addEventListener('click', (e) => {
+      if (e.target === taskOrderModal) {
+        closeTaskOrderModal();
+      }
     });
   }
 
@@ -3864,7 +4095,7 @@ window.editorMode = true;
       // Clear lock and reload task
       const taskId = window.currentTask && window.currentTask.id;
       if(taskId){
-        try{ localStorage.removeItem(`tk_task_lock_${taskId}`); } catch {}
+        try{ localStorage.removeItem(`editor_task_lock_${taskId}`); } catch {}
       }
       loadTask(window.currentTaskIndex);
     });
@@ -3891,10 +4122,10 @@ window.editorMode = true;
         localStorage: {}
       };
       
-      // Save ALL localStorage keys with tk_ prefix
+      // Save ALL localStorage keys with editor_ prefix
       for(let i = 0; i < localStorage.length; i++){
         const key = localStorage.key(i);
-        if(key && key.startsWith('tk_')){
+        if(key && key.startsWith('editor_')){
           try{
             const value = localStorage.getItem(key);
             if(value){
@@ -3911,7 +4142,7 @@ window.editorMode = true;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `tk_backup_${Date.now()}.json`;
+      a.download = `editor_backup_${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -3954,13 +4185,13 @@ window.editorMode = true;
           // Restore current task index
           if(typeof backup.currentTaskIndex === 'number'){
             window.currentTaskIndex = backup.currentTaskIndex;
-            try { localStorage.setItem('tk_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
+            try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
           }
           
           // Persist settings
-          try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); } catch {}
-          try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
-          try{ localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments)); } catch {}
+          try{ localStorage.setItem('editor_settings', JSON.stringify(window.settings)); } catch {}
+          try{ localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
+          try{ localStorage.setItem('editor_taskComments', JSON.stringify(window.taskComments)); } catch {}
           // Update UI
           updateUserDisplay();
           if(usr) usr.value = window.settings.username || '';
@@ -4007,11 +4238,11 @@ window.editorMode = true;
   function performFullReset(){
     if(!window.TASKS) return;
     if(!confirm('Slette alle lokale data og starte på nytt?')) return;
-    // Remove ALL tk_* localStorage keys (comprehensive cleanup)
+    // Remove ALL editor_* localStorage keys (comprehensive cleanup)
     const keysToRemove = [];
     for(let i = 0; i < localStorage.length; i++){
       const key = localStorage.key(i);
-      if(key && key.startsWith('tk_')){
+      if(key && key.startsWith('editor_')){
         keysToRemove.push(key);
       }
     }
@@ -4056,3 +4287,4 @@ window.editorMode = true;
     window.updateAppState();
   }
 })();
+

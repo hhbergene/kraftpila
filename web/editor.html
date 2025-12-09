@@ -17,6 +17,7 @@
       <button class="btn-icon" id="btn-prev"        data-action="prev"        title="Forrige"></button>
       <button class="btn-wide" id="btn-help"        data-action="help"        title="Oppgave"></button>
       <button class="btn-icon" id="btn-next"        data-action="next"        title="Neste"></button>
+      <button class="btn-wide" id="btn-check"       data-action="check"       title="Sjekk"></button>
       <button class="btn-icon" id="btn-settings"    data-action="settings"    title="Innstillinger"></button>
       <div id="user-info">
         <span id="user-display"></span>
@@ -64,11 +65,38 @@
 
     <!-- Task order modal -->
     <div id="task-order-modal" class="hidden modal">
-      <div class="modal-content">
-        <h2>Oppgaverekkefølge</h2>
+      <div class="modal-content" style="position:relative;">
+        <button id="task-order-close" style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:20px; cursor:pointer; padding:4px 8px;">✕</button>
+        <h2 style="font-size:16px; margin:0 0 12px 0;">Velg og sorter oppgaver</h2>
+        <div id="task-order-header" class="task-order-header">
+          <button id="task-order-select-all" class="task-order-select-all" title="Velg alle">✅</button>
+          <span class="task-order-col-id">Id</span>
+          <span class="task-order-col-title">Tittel</span>
+          <span class="task-order-col-category">Nivå</span>
+        </div>
         <div id="task-order-list"></div>
-        <button id="task-order-save">Lagre</button>
-        <button id="task-order-cancel">Avbryt</button>
+        <div id="taskset-controls" style="display:flex; gap:8px; margin-top:20px; margin-bottom:8px; align-items:center; padding-top:16px; border-top:1px solid #eee;">
+          <input type="text" id="taskset-name" placeholder="Navn på oppgavesett" maxlength="50" style="flex:1; padding:6px 8px; border:1px solid #888; border-radius:4px; font-size:13px;">
+          <button id="taskset-save-btn" style="padding:6px 12px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Lagre</button>
+          <button id="taskset-open-btn" style="padding:6px 12px; background:#FF9800; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Åpne</button>
+          <button id="taskset-export-btn" style="padding:6px 12px; background:#2196F3; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Eksporter</button>
+          <button id="taskset-import-btn" style="padding:6px 12px; background:#9C27B0; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Importer</button>
+          <input type="file" id="taskset-file-input" accept=".json" style="display:none;">
+        </div>
+        <div id="taskset-error" style="color:#d32f2f; font-size:11px; margin-bottom:12px; display:none;"></div>
+        <div id="taskset-result" style="display:none; padding:12px; background:#f5f5f5; border:2px solid #2196F3; border-radius:4px; max-height:500px; overflow-y:auto; font-size:13px; margin-bottom:12px; order:-1;">
+          <div id="taskset-report"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task set open modal -->
+    <div id="taskset-open-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2>Åpne oppgavesett</h2>
+        <div id="taskset-list" style="max-height:300px; overflow-y:auto; margin-bottom:12px;"></div>
+        <button id="taskset-open-confirm" style="padding:8px 16px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer; margin-right:8px;">Åpne</button>
+        <button id="taskset-open-cancel" style="padding:8px 16px; background:#888; color:white; border:none; border-radius:4px; cursor:pointer;">Avbryt</button>
       </div>
     </div>
 
@@ -94,48 +122,66 @@
           <input type="text" id="settings-username" />
         </label>
         <label>
-          <input type="checkbox" id="settings-force-coords" /> Vis kraft-koordinater
+          <input type="checkbox" id="settings-force-coordinates" /> Vis kraft-koordinater
         </label>
         <label>
-          <input type="checkbox" id="settings-scene-coords" /> Vis scene-koordinater
+          <input type="checkbox" id="settings-show-scene-coordinates" /> Vis scene-koordinater
         </label>
         <button id="settings-save">Lagre</button>
         <button id="settings-cancel">Avbryt</button>
       </div>
     </div>
 
+    <!-- Settings panel overlay (right side) for editor -->
+    <div id="settings-panel" class="hidden">
+      <div class="settings-header">
+        <h3>Innstillinger</h3>
+        <button id="settings-close" title="Lukk">✖</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-row">
+          <span>Debug-modus</span>
+          <input type="checkbox" id="settings-debug" />
+        </label>
+        <label class="settings-row">
+          <span>Brukernavn</span>
+          <input type="text" id="settings-username" placeholder="Skriv navn" />
+        </label>
+        <label class="settings-row">
+          <span>Snap aktiv</span>
+          <input type="checkbox" id="settings-snap" />
+        </label>
+        <label class="settings-row">
+          <span>Guidelines</span>
+          <input type="checkbox" id="settings-guidelines" />
+        </label>
+        <label class="settings-row">
+          <span>Vis kraft-koordinater</span>
+          <input type="checkbox" id="settings-show-force-coordinates" />
+        </label>
+        <label class="settings-row">
+          <span>Vis scene-koordinater</span>
+          <input type="checkbox" id="settings-show-scene-coordinates" />
+        </label>
+        <label class="settings-row">
+          <span id="settings-comment-label">Kommentar til oppgave</span>
+          <textarea id="settings-task-comment" placeholder="Skriv kommentar..." style="flex:1; padding:6px 8px; font-size:13px; border:1px solid #888; border-radius:4px; resize:vertical; min-height:60px; font-family:inherit;"></textarea>
+        </label>
+        <div class="settings-divider"></div>
+        <div class="settings-buttons">
+          <button id="settings-download" title="Download innstillinger">Last ned</button>
+          <button id="settings-restore" title="Last opp innstillinger">Gjenopprett</button>
+          <input type="file" id="settings-file-input" accept=".json" style="display:none;" />
+        </div>
+      </div>
+    </div>
+
     <!-- Debug modal -->
     <div id="debug-modal" class="hidden modal">
-      <div class="modal-content">
-        <h2>Debug Log</h2>
-        <div id="debug-content" style="max-height: 400px; overflow-y: auto; background: #f0f0f0; padding: 10px; font-family: monospace; font-size: 12px;"></div>
-        <button id="debug-clear">Slett</button>
-        <button id="debug-copy">Kopier</button>
-        <button id="debug-close">Lukk</button>
-      </div>
-    </div>
-
-    <!-- Help/Task info modal -->
-    <div id="help-modal" class="hidden modal">
-      <div class="modal-content">
-        <h2 id="help-title">Oppgave</h2>
-        <div id="help-content"></div>
-        <button id="help-close">Lukk</button>
-      </div>
-    </div>
-
-    <!-- Feedback panel -->
-    <div id="feedback-panel" class="hidden">
-      <div id="feedback-score"></div>
-      <div id="feedback-text"></div>
-      <div id="feedback-nav" style="display: none;">
-        <button id="fb-prev">← Forrige</button>
-        <span id="fb-count"></span>
-        <button id="fb-next">Neste →</button>
-      </div>
-    </div>
   </main>
 
+  <!-- Shared configuration and utilities -->
+  <script src="shared.js"></script>
   <!-- Shared utility modules -->
   <script src="text_render.js"></script>
   <script src="geometry.js"></script>

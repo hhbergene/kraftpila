@@ -3,47 +3,7 @@
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
 
 (function(){
-    // Predefined force aliases (extend as needed)
-    const FORCE_ALIASES = {
-      G: ['g','ga','tyngde','fg','G'],
-      N: ['n','na','normalkraft','r','fn','N'],
-      F: ['f','fa','kraft','applied','F'],
-      R: ['r','ra','friksjon','fr','R'],
-      N_B: ['nb*','n*','nb\'','n\'','b','nba','nab','N_B']
-      // Add more as needed
-    };
-
-    // ===== Constants for UI =====
-  window.WIDTH = 1000;
-  window.HEIGHT = 640;
-  window.GRID_STEP = 20;
-  window.DRAW_CENTER = [500, 320 + 20];  // [WIDTH/2, HEIGHT/2 + GRID_STEP]
-  window.BG_COLOR = '#f0f0f0'; // (240,240,240)
-  window.GRID_COLOR = '#dcdcdc'; // (220,220,220)
-
-  // ===== Constants for Scene Element Highlighting =====
-  window.HIGHLIGHT_SCENE_POINT_DIM_COLOR = '#aaaaaa';      // Dim color for selected element points
-  window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS = 6;
-  window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR = '#ffff00';   // Bright yellow for hovered element points
-  window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS = 8;
-  window.HIGHLIGHT_SCENE_LINE_DIM_COLOR = '#4488ff';       // Blue for segment lines (selected, dim)
-  window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH = 4;
-  window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR = '#66bbff';    // Bright cyan for segment lines (hovered)
-  window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH = 6;
-
-  // ===== Constants for Scene Element Handles =====
-  window.SCENE_HANDLE_RADIUS = 5;
-  window.SCENE_HANDLE_COLOR = '#ff9800';     // Orange
-  window.SCENE_HANDLE_STROKE_COLOR = '#ffffff';
-  window.SCENE_HANDLE_STROKE_WIDTH = 1;
-  window.SCENE_HANDLE_TEXT_COLOR = '#000';
-  window.SCENE_HANDLE_TEXT_SIZE = 12;
-
-  // ===== Constants for Scene Element Hover Detection =====
-  window.HOVER_THRESHOLD = 20;               // pixels, same as SNAP_THRESHOLD
-  window.PREFER_SELECTED_DIST = 20;          // Prefer selected element within this distance (GRID_STEP)
-
-  // ===== Canvas init =====
+    // Canvas init =====
   const canvas = document.getElementById('app-canvas');
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
@@ -306,20 +266,6 @@
       ctx.strokeStyle = window.SCENE_HANDLE_STROKE_COLOR;
       ctx.lineWidth = window.SCENE_HANDLE_STROKE_WIDTH;
       ctx.stroke();
-      
-      // Draw coordinates if show_scene_coordinates is on
-      if(window.settings?.show_scene_coordinates){
-        // Cartesian coordinates (negated y)
-        const cartX = Math.round(x);
-        const cartY = -Math.round(y);
-        const coordStr = `(${cartX},${cartY})`;
-        
-        ctx.fillStyle = window.SCENE_HANDLE_TEXT_COLOR;
-        ctx.font = `${window.SCENE_HANDLE_TEXT_SIZE}px Segoe UI, Arial`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(coordStr, x + window.SCENE_HANDLE_RADIUS + 6, y - 8);
-      }
     }
     
     // Helper to draw a simple arrow between two points
@@ -493,9 +439,6 @@
     return c.toDataURL('image/png');
   }
 
-  const ICONS = {
-    snap: '🧲', guidelines: '📐', grid_off: '⊞', grid_on: '◻', prev: '⬅', next: '➡', help: '❓', check: '✅', reset: '🔄', settings: '⚙'
-  };
   let gridOn = true; // starter som på
 
   // Ikon: viser fylte ruter ◻ når grid er PÅ, tomt ⊞ når grid er AV
@@ -504,7 +447,7 @@
     if (!el) return;
     const oldImg = el.querySelector('img');
     if (oldImg) oldImg.remove();
-    const sym = gridOn ? ICONS.grid_off : ICONS.grid_on;
+    const sym = gridOn ? window.ICONS.grid_off : window.ICONS.grid_on;
     const url = makeIconPNG(sym);
     const img = document.createElement('img');
     img.src = url;
@@ -524,7 +467,7 @@
       if (!el) continue;
       // Skip icon for btn-help, only add text
       if(id !== 'btn-help'){
-        const url = makeIconPNG(ICONS[key]);
+        const url = makeIconPNG(window.ICONS[key]);
         const img = document.createElement('img');
         img.src = url;
         el.appendChild(img);
@@ -541,8 +484,6 @@
     updateGridIcon();
   }
   applyIcons();
-  // Initialize editor mode UI based on saved state
-  updateEditorMode();
   // snap/guidelines state
   window.enableSnap = true; // default on to make snapping obvious
   window.enableGuidelines = true;
@@ -552,21 +493,14 @@
     debug: false,
     username: 'Isaac Newton',
     show_force_coordinates: false,
-    show_scene_coordinates: false,
   };
   // Load persisted settings
   try {
     const raw = localStorage.getItem('tk_settings');
-    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
+    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; }
   } catch {}
-  // Editor mode state (persisted, default OFF)
+  // Player mode only - editor mode functionality is in editor.js
   window.editorMode = false;
-  try {
-    const raw = localStorage.getItem('tk_editorMode');
-    if(raw !== null){ window.editorMode = JSON.parse(raw); }
-  } catch {}
-  // Show editor panels if edit mode was loaded as enabled
-  updateEditorMode();
   window.taskScores = {};
   try {
     const raw = localStorage.getItem('tk_taskScores');
@@ -766,8 +700,6 @@
 
   // Update delete force button visibility
   // ===== Feedback panel helpers =====
-  function clearHighlights(){ if(window.fm){ window.fm.forces.forEach(f=> f.checkHighlight=false); } }
-  function applyHighlightsFor(indices){ clearHighlights(); if(!indices) return; indices.forEach(idx=>{ const f=window.fm.forces[idx]; if(f) f.checkHighlight=true; }); }
   function updateFeedbackUI(){
     const panel = document.getElementById('feedback-panel');
     const scoreEl = document.getElementById('feedback-score');
@@ -787,6 +719,9 @@
     if(!feedback_lines || !feedback_lines.length){
       if(textEl) textEl.textContent = '';
       if(navEl) navEl.style.display = 'none';
+      // Reset to default size when no lines
+      panel.style.width = '240px';
+      panel.style.height = 'auto';
       return;
     }
     
@@ -795,7 +730,12 @@
     const line = feedback_lines[index];
     if(textEl) textEl.textContent = line.text;
     if(countEl) countEl.textContent = `${index+1} / ${feedback_lines.length}`;
-    applyHighlightsFor(line.indices || []);
+    window.applyHighlightsFor(line.indices || []);
+    
+    // Calculate and apply dynamic size
+    const size = window.calculateFeedbackPanelSize(feedback_lines);
+    panel.style.width = size.width + 'px';
+    panel.style.height = size.height + 'px';
   }
   window.showFeedback = function(lines, score){
     const arr = Array.isArray(lines) ? lines : [];
@@ -813,7 +753,7 @@
     const panel = document.getElementById('feedback-panel');
     if(panel) panel.classList.add('hidden');
     window.feedbackState = null; window.lastEvaluation = null;
-    clearHighlights();
+    window.clearHighlights();
   }
   // Nav buttons
   document.addEventListener('click', (e)=>{
@@ -836,50 +776,6 @@
     if(panel && !panel.contains(tgt) && !inCheckButton){
       clearFeedback();
     }
-  });
-
-  // ===== Debug Modal =====
-  window.debugLog = [];
-  window.addDebugLog = function(msg){
-    if(!window.debugLog) window.debugLog = [];
-    const timestamp = new Date().toLocaleTimeString();
-    const fullMsg = `[${timestamp}] ${msg}`;
-    window.debugLog.push(fullMsg);
-    
-    const debugContent = document.getElementById('debug-content');
-    if(debugContent){
-      debugContent.textContent = window.debugLog.join('\n');
-      debugContent.scrollTop = debugContent.scrollHeight; // auto-scroll to bottom
-    }
-    
-    // Show debug modal if debug mode is on
-    if(window.settings && window.settings.debug){
-      const debugModal = document.getElementById('debug-modal');
-      if(debugModal) debugModal.classList.remove('hidden');
-    }
-  };
-  
-  // Debug modal close button
-  document.getElementById('debug-close').addEventListener('click', ()=>{
-    const debugModal = document.getElementById('debug-modal');
-    if(debugModal) debugModal.classList.add('hidden');
-  });
-  
-  // Clear debug log
-  document.getElementById('debug-clear').addEventListener('click', ()=>{
-    window.debugLog = [];
-    const debugContent = document.getElementById('debug-content');
-    if(debugContent) debugContent.textContent = '';
-  });
-  
-  // Copy debug log
-  document.getElementById('debug-copy').addEventListener('click', ()=>{
-    const text = window.debugLog.join('\n');
-    navigator.clipboard.writeText(text).then(()=>{
-      alert('Debug output kopiert til clipboard');
-    }).catch(err=>{
-      console.error('Kunne ikke kopiere:', err);
-    });
   });
 
   // ===== Load initial task (Task 1) =====
@@ -1007,103 +903,7 @@
     }
   }
 
-  // Editor mode state management
-  function updateEditorMode(){
-    const isEditor = !!window.editorMode;
-    const scenePanel = document.getElementById('scene-panel');
-    const editorButtons = document.getElementById('editor-buttons');
-    
-    if(isEditor){
-      // Show editor UI elements
-      if(scenePanel) scenePanel.style.display = 'block';
-      if(editorButtons) editorButtons.classList.remove('hidden');
-    } else {
-      // Hide editor UI elements
-      if(scenePanel) scenePanel.style.display = 'none';
-      if(editorButtons) editorButtons.classList.add('hidden');
-    }
-    
-    // Update panel heights after showing/hiding editor panel
-    updatePanelHeights();
-  }
-
-  /**
-   * Dynamically resize force and scene panels based on content.
-   * Calculates size needed for each panel and distributes space proportionally,
-   * with a minimum of 1/3 of total height for each panel when both are visible.
-   */
-  function updatePanelHeights(){
-    const forcePanel = document.getElementById('force-panel');
-    const scenePanel = document.getElementById('scene-panel');
-    
-    if(!forcePanel) return;
-    
-    const totalHeight = window.innerHeight - 100; // Subtract top bar and padding
-    const minHeight = totalHeight / 3; // Minimum 1/3 of total height
-    
-    // Count forces and scene elements
-    let forceCount = 0;
-    let sceneElementCount = 0;
-    
-    if(window.fm && window.fm.forces){
-      forceCount = window.fm.forces.length;
-    }
-    
-    if(window.currentTask && window.currentTask.scene){
-      const scene = window.currentTask.scene;
-      sceneElementCount = (scene.rects?.length || 0) + 
-                          (scene.ellipses?.length || 0) +
-                          (scene.circles?.length || 0) +
-                          (scene.segments?.length || 0) +
-                          (scene.arrows?.length || 0) +
-                          (scene.texts?.length || 0);
-    }
-    
-    // Estimate height needed: base height + height per item (estimate ~25px per item)
-    const itemHeightEstimate = 25;
-    const forceHeightNeeded = Math.max(80, forceCount * itemHeightEstimate);
-    const sceneHeightNeeded = Math.max(80, sceneElementCount * itemHeightEstimate);
-    
-    // Determine if scene panel is visible
-    const sceneVisible = window.editorMode && !scenePanel.classList.contains('hidden');
-    
-    let forceHeight, sceneHeight;
-    
-    if(sceneVisible && window.fm){
-      // Both panels visible - distribute space proportionally with constraints
-      const totalNeeded = forceHeightNeeded + sceneHeightNeeded;
-      const forceProportion = forceHeightNeeded / totalNeeded;
-      const sceneProportion = sceneHeightNeeded / totalNeeded;
-      
-      forceHeight = Math.max(minHeight, Math.min(totalHeight - minHeight, totalHeight * forceProportion));
-      sceneHeight = totalHeight - forceHeight;
-    } else if(sceneVisible){
-      // Only scene panel visible
-      forceHeight = 0;
-      sceneHeight = totalHeight;
-    } else {
-      // Only force panel visible
-      forceHeight = totalHeight;
-      sceneHeight = 0;
-    }
-    
-    // Apply heights
-    if(forceHeight > 0){
-      forcePanel.style.height = forceHeight + 'px';
-      forcePanel.style.display = 'block';
-    } else {
-      forcePanel.style.display = 'none';
-    }
-    
-    if(scenePanel){
-      if(sceneHeight > 0){
-        scenePanel.style.height = sceneHeight + 'px';
-        scenePanel.style.display = 'block';
-      } else {
-        scenePanel.style.display = 'none';
-      }
-    }
-  }
+  // Editor mode functions removed - editor.js handles editor mode functionality
 
   /**
    * Updates application state after task loads or when forces/scene elements change.
@@ -3042,7 +2842,6 @@
         const sGuides = document.getElementById('settings-guidelines');
         const sShowForceCoords = document.getElementById('settings-show-force-coordinates');
         const sShowSceneCoords = document.getElementById('settings-show-scene-coordinates');
-        const sEditor = document.getElementById('settings-editor');
         const taskComment = document.getElementById('settings-task-comment');
         const commentLabel = document.getElementById('settings-comment-label');
         if(dbg) dbg.checked = !!window.settings.debug;
@@ -3050,8 +2849,6 @@
         if(sSnap) sSnap.checked = !!window.enableSnap;
         if(sGuides) sGuides.checked = !!window.enableGuidelines;
         if(sShowForceCoords) sShowForceCoords.checked = !!window.settings.show_force_coordinates;
-        if(sShowSceneCoords) sShowSceneCoords.checked = !!window.settings.show_scene_coordinates;
-        if(sEditor) sEditor.checked = !!window.editorMode;
         // Load current task comment
         if(window.currentTask && taskComment){
           const taskId = window.currentTask.id;
@@ -3100,24 +2897,12 @@
   const sSnap = document.getElementById('settings-snap');
   const sGuides = document.getElementById('settings-guidelines');
   const sShowForceCoords = document.getElementById('settings-show-force-coordinates');
-  const sShowSceneCoords = document.getElementById('settings-show-scene-coordinates');
-  const sEditor = document.getElementById('settings-editor');
   function persist(){ try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); }catch{} }
   
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
   if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
   if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
   if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }
-  if(sShowSceneCoords){ sShowSceneCoords.addEventListener('change', ()=>{ window.settings.show_scene_coordinates = !!sShowSceneCoords.checked; persist(); }); }
-  if(sEditor){ 
-    sEditor.addEventListener('change', ()=>{ 
-      window.editorMode = !!sEditor.checked;
-      try{ localStorage.setItem('tk_editorMode', JSON.stringify(window.editorMode)); } catch {}
-      updateEditorMode();
-      window.selectedSceneElement = null;
-      window.updateAppState();
-    }); 
-  }
   const btnSaveTask = document.getElementById('btn-save-task');
   const btnNewTask = document.getElementById('btn-new-task');
   const btnDeleteForce = document.getElementById('btn-delete-force');
@@ -3833,6 +3618,133 @@
           }
         } catch (err) {
           alert('Feil ved lesing av backup: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      // Reset file input
+      e.target.value = '';
+    });
+  }
+
+  // Taskset upload for player mode
+  const tasksetUploadBtn = document.getElementById('settings-upload-taskset');
+  const tasksetUploadModal = document.getElementById('taskset-upload-modal');
+  const tasksetUploadInput = document.getElementById('taskset-upload-file-input');
+  const tasksetUploadConfirm = document.getElementById('taskset-upload-confirm');
+  const tasksetUploadCancel = document.getElementById('taskset-upload-cancel');
+  const tasksetUploadClose = document.getElementById('taskset-upload-close');
+  const tasksetUploadError = document.getElementById('taskset-upload-error');
+
+  if(tasksetUploadBtn){
+    tasksetUploadBtn.addEventListener('click', ()=>{
+      tasksetUploadError.style.display = 'none';
+      tasksetUploadError.textContent = '';
+      if(tasksetUploadModal) tasksetUploadModal.classList.remove('hidden');
+    });
+  }
+
+  if(tasksetUploadConfirm){
+    tasksetUploadConfirm.addEventListener('click', ()=>{
+      tasksetUploadInput.click();
+    });
+  }
+
+  if(tasksetUploadCancel){
+    tasksetUploadCancel.addEventListener('click', ()=>{
+      if(tasksetUploadModal) tasksetUploadModal.classList.add('hidden');
+    });
+  }
+
+  if(tasksetUploadClose){
+    tasksetUploadClose.addEventListener('click', ()=>{
+      if(tasksetUploadModal) tasksetUploadModal.classList.add('hidden');
+    });
+  }
+
+  // Close on Esc key
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && tasksetUploadModal && !tasksetUploadModal.classList.contains('hidden')){
+      tasksetUploadModal.classList.add('hidden');
+    }
+  });
+
+  // Close on click outside modal
+  if(tasksetUploadModal){
+    tasksetUploadModal.addEventListener('click', (e)=>{
+      if(e.target === tasksetUploadModal){
+        tasksetUploadModal.classList.add('hidden');
+      }
+    });
+  }
+
+  if(tasksetUploadInput){
+    tasksetUploadInput.addEventListener('change', (e)=>{
+      const file = e.target.files?.[0];
+      if(!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try{
+          const importData = JSON.parse(evt.target?.result || '{}');
+          const tasksToImport = importData.tasks || [];
+
+          // Validate that it looks like a proper taskset export
+          if(!Array.isArray(tasksToImport) || tasksToImport.length === 0){
+            throw new Error('Ugyldig fil: ingen oppgaver funnet');
+          }
+
+          // Check that tasks have required structure
+          const firstTask = tasksToImport[0];
+          if(!firstTask.id || typeof firstTask.id !== 'string'){
+            throw new Error('Ugyldig fil: oppgaver mangler id');
+          }
+
+          // Clear current tasks and scores
+          window.TASKS = [];
+          window.taskScores = {};
+          window.taskComments = {};
+          window.currentTaskIndex = 0;
+
+          // Add imported tasks
+          tasksToImport.forEach(task => {
+            window.TASKS.push(task);
+            // Save to localStorage (scene/task data only, no forces)
+            try{
+              localStorage.setItem(`tk_task_${task.id}`, JSON.stringify(task));
+            } catch(err){
+              console.warn(`Could not save task ${task.id}:`, err);
+            }
+            
+            // Clear any existing forces for this task from localStorage
+            try{
+              localStorage.removeItem(`tk_forces_${task.id}`);
+            } catch(err){
+              console.warn(`Could not clear forces for ${task.id}:`, err);
+            }
+          });
+
+          // Save state
+          try{
+            localStorage.setItem('tk_savedTasks', JSON.stringify(window.TASKS));
+            localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores));
+            localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments));
+            localStorage.setItem('tk_currentTaskIndex', '0');
+          } catch(err){
+            console.warn('Could not save to localStorage:', err);
+          }
+
+          // Update UI
+          updateUserDisplay();
+
+          // Close modal and load first task
+          tasksetUploadModal.classList.add('hidden');
+          loadTask(0);
+
+          alert(`✅ Oppgavesett lastet opp!\n\n${tasksToImport.length} oppgaver importert.\nProgresjon nullstilt.`);
+        } catch(err){
+          tasksetUploadError.textContent = 'Feil: ' + err.message;
+          tasksetUploadError.style.display = 'block';
+          console.error('Taskset import error:', err);
         }
       };
       reader.readAsText(file);

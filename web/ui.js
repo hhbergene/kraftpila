@@ -408,7 +408,7 @@ function updateScenePanel(){
         
         if(fieldType === 'text' && currentScene?.texts?.[idx]) {
           if(input.type === 'checkbox') {
-            // Simply toggle the linked flag - no position calculation
+            // Simply toggle the linked flag - do not modify pos (avoid accidental changes)
             currentScene.texts[idx][field] = input.checked;
           } else if(input.type === 'color') {
             currentScene.texts[idx][field] = input.value;
@@ -503,9 +503,15 @@ function updateScenePanel(){
           currentScene.arrows.splice(btnIdx, 1);
         }
         
+        // Clear selection since element is deleted
+        window.selectedSceneElement = null;
+        
         saveTask();
         updateScenePanel();
         window.updateAppState();
+        
+        // Force immediate canvas redraw
+        window.requestAnimationFrame(() => {});
       });
     });
   }
@@ -671,17 +677,7 @@ function updateHelpButton(){
   helpBtn.textContent = `❓ ${id}: ${title}`;
 }
 
-// ===== Help Lines Editor and Canvas Rendering =====
-
-// Save help lines from textarea to current task
-function saveHelpLines(){
-  const textarea = document.getElementById('help-lines-text');
-  if(textarea && window.currentTask){
-    // Split by newline and filter empty lines
-    const lines = textarea.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    window.currentTask.help_lines = lines;
-  }
-}
+// ===== Help Lines Canvas Rendering =====
 
 // Setup help lines editor with auto-save
 function setupHelpLinesEditor(){

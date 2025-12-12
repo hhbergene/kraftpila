@@ -7,9 +7,22 @@
 window.WIDTH = 1000;
 window.HEIGHT = 640;
 window.GRID_STEP = 20;
+window.TOP_BAR_HEIGHT = 80;  // Height of the top navigation panel
+window.FORCE_HEADER_HEIGHT = 16;  // Height of "Krefter" title: 12px font + 2px padding top + 2px padding bottom with line-height:1
 window.DRAW_CENTER = [500, 320 + 20];  // [WIDTH/2, HEIGHT/2 + GRID_STEP]
 window.BG_COLOR = '#f0f0f0'; // (240,240,240)
 window.GRID_COLOR = '#dcdcdc'; // (220,220,220)
+
+// ===== Canvas Dimensions =====
+// Grid area is 1000x640, with 200px margin on each side (offsets)
+// Canvas extends from -200,-200 to 1000,640 = total 1400x1040
+window.CANVAS_WIDTH = window.WIDTH + 2 * 200;     // 1000 + 400 = 1400px
+window.CANVAS_HEIGHT = window.HEIGHT + 2 * 200;   // 640 + 400 = 1040px
+
+// ===== Canvas Offset (for rendering translation) =====
+// Grid area (0,0 to WIDTH,HEIGHT) is translated by these offsets
+window.offsetX = 200;         // Left/right margin (canvas extends from -200 to 1000)
+window.offsetY = 200;         // Top/bottom margin (canvas extends from -200 to 640)
 
 // ===== Scene Element Highlighting Constants =====
 window.HIGHLIGHT_SCENE_POINT_DIM_COLOR = '#aaaaaa';      // Dim color for selected element points
@@ -129,4 +142,82 @@ window.clearHighlights = function() {
   if (window.fm) {
     window.fm.forces.forEach(f => f.checkHighlight = false);
   }
+};
+
+/**
+ * Get mouse position relative to canvas, accounting for scroll offset and rendering translation.
+ * Canvas dimensions are CANVAS_WIDTH x CANVAS_HEIGHT with rendering translated by (offsetX, offsetY).
+ * @param {MouseEvent} evt - The mouse event
+ * @returns {Array<number>} [x, y] position in canvas coordinates
+ */
+window.getMousePos = function(evt) {
+  const canvas = document.getElementById('app-canvas');
+  const container = document.getElementById('canvas-container');
+  if (!canvas || !container) return [0, 0];
+  
+  // Get container viewport bounds
+  const containerRect = container.getBoundingClientRect();
+  
+  // Calculate mouse position relative to container viewport
+  const mouseX = evt.clientX - containerRect.left;
+  const mouseY = evt.clientY - containerRect.top;
+  
+  // Add scroll offset to get position relative to canvas element
+  // Subtract the translation offset applied in frame() rendering
+  const x = mouseX + container.scrollLeft - window.offsetX;
+  const y = mouseY + container.scrollTop - window.offsetY;
+  return [x, y];
+};
+
+/**
+ * Clear canvas: fill entire canvas with grey background, then fill grid area with white.
+ * This function requires a canvas context to be passed.
+ * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context
+ */
+window.clearCanvas = function(ctx) {
+  if (!ctx) return;
+  
+  // Fill entire canvas with grey (background outside grid area)
+  ctx.fillStyle = window.BG_COLOR;  // '#f0f0f0' - light grey
+  ctx.fillRect(0, 0, window.CANVAS_WIDTH, window.CANVAS_HEIGHT);
+  
+  // Fill grid area with white, offset by (offsetX, offsetY)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(window.offsetX, window.offsetY, window.WIDTH, window.HEIGHT);
+};
+
+/**
+ * Initialize scroll position to show grid area at top-left of viewport.
+ * Scrolls container so (offsetX, offsetY) appears at the top-left of the viewport.
+ */
+window.initializeScroll = function() {
+  const container = document.getElementById('canvas-container');
+  if (container) {
+    container.scrollLeft = window.offsetX;
+    container.scrollTop = window.offsetY;
+  }
+};
+
+/**
+ * Clamp a position to stay within canvas bounds (including grey margins).
+ * Canvas coordinate system is 0 to CANVAS_WIDTH horizontally, 0 to CANVAS_HEIGHT vertically.
+ * Allows positions anywhere in the full canvas including grey areas.
+ * @param {Array<number>} pos - Position [x, y] to clamp
+ * @returns {Array<number>} Clamped position [x, y]
+ */
+window.clampToCanvas = function(pos) {
+  if (!pos || pos.length < 2) return [0, 0];
+  
+  // Full canvas extends from -offsetX to (WIDTH - offsetX) when in grid coords
+  // But positions are stored in canvas coords: 0 to CANVAS_WIDTH, 0 to CANVAS_HEIGHT
+  // Clamp to negative values (left/top margins) and positive (right/bottom margins)
+  const minX = -window.offsetX;
+  const maxX = window.WIDTH + window.offsetX;
+  const minY = -window.offsetY;
+  const maxY = window.HEIGHT + window.offsetY;
+  
+  const x = Math.max(minX, Math.min(pos[0], maxX));
+  const y = Math.max(minY, Math.min(pos[1], maxY));
+  
+  return [x, y];
 };

@@ -150,10 +150,11 @@
   function drawText(ctx, t, textIndex, allTexts){
     // Calculate position: if linked and not first text, position below previous text
     let pos = t.pos;
-    if(t.linked && textIndex > 0 && allTexts) {
-      // Find the previous text element (not filtered by _isShortLines)
+    
+    // If pos is missing, assume text is linked and position it below previous text
+    if(!pos && textIndex > 0 && allTexts) {
       const prevText = allTexts[textIndex - 1];
-      if(prevText && prevText._renderedPos) {
+      if(prevText && prevText._renderedPos && Array.isArray(prevText._renderedPos) && prevText._renderedPos.length >= 2) {
         const prevY = prevText._renderedPos[1];
         const prevX = prevText._renderedPos[0];
         const prevSize = prevText.size || 14;
@@ -162,10 +163,33 @@
         pos = [prevX, newY];
       }
     }
+    
+    // If linked=true and pos is defined, use pos as-is (explicit positioning)
+    if(t.linked && textIndex > 0 && allTexts && t.pos) {
+      pos = t.pos;
+    } else if(t.linked && textIndex > 0 && allTexts && !t.pos) {
+      // linked=true but no pos: position below previous text
+      const prevText = allTexts[textIndex - 1];
+      if(prevText && prevText._renderedPos && Array.isArray(prevText._renderedPos) && prevText._renderedPos.length >= 2) {
+        const prevY = prevText._renderedPos[1];
+        const prevX = prevText._renderedPos[0];
+        const prevSize = prevText.size || 14;
+        const padding = 5;
+        const newY = prevY + prevSize + padding;
+        pos = [prevX, newY];
+      }
+    }
+    
+    // Ensure pos is defined before using it
+    if(!pos || !Array.isArray(pos) || pos.length < 2) {
+      console.warn('drawText: invalid position for text', t, '(index:', textIndex, ')');
+      return;
+    }
+    
     // Store the actual rendered position for linked texts
     t._renderedPos = pos;
     
-    drawFormattedText(ctx, t.txt, pos[0], pos[1], {size:t.size||14, color:t.color||'#000', align:t.align||'left'});
+    window.drawFormattedText(ctx, t.txt, pos[0], pos[1], {size:t.size||14, color:t.color||'#000', align:t.align||'left'});
     
     // Draw bounding box if this text is selected in editor
     if(window.selectedSceneElement && window.selectedSceneElement.type === 'text' && window.selectedSceneElement.index === textIndex) {

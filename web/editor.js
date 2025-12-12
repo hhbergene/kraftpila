@@ -4,23 +4,28 @@
  * Separates localStorage namespace from player mode using 'editor_' prefix
  */
 
-// ===== EDITOR MODE FLAG =====
-window.editorMode = true;
-
-// ===== Main application code (from main.js) =====
-// Tegne Krefter JS Port 
+// ===== Editor application code=====
+// Editor for Kraftpila 
 // Fallback uten ES-moduler slik at fil kan åpnes direkte via file://.
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
+
+// Enable editor mode for this file
+window.editorMode = true;
 
 (function(){
     // Canvas init =====
   const canvas = document.getElementById('app-canvas');
+  // Set canvas dimensions from shared constants (CANVAS_WIDTH, CANVAS_HEIGHT, defined in shared.js)
+  canvas.width = window.CANVAS_WIDTH;
+  canvas.height = window.CANVAS_HEIGHT;
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
+  
+  // Initialize scroll position to show grid area at top-left
+  window.initializeScroll();
 
   function clear() {
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    window.clearCanvas(ctx);
   }
 
   // Helper: draw a text rotated by angle (angle_deg) or oriented by a normal (n_vec => tangent)
@@ -53,6 +58,12 @@ window.editorMode = true;
 
   function frame() {
     clear();
+    
+    // Save context and translate so grid area (0,0 to 1000,640) starts at top-left
+    // Canvas extends from -200,-200 to 1000,640 (1200x800 total)
+    ctx.save();
+    ctx.translate(window.offsetX, window.offsetY);
+    
     if (gridOn) {
       drawGrid(ctx);
     }
@@ -69,7 +80,7 @@ window.editorMode = true;
 
     // Draw current task scene (before user forces)
     if(window.currentTask){
-      drawScene(ctx, window.currentTask, window.editorMode);
+      drawScene(ctx, window.currentTask, true);
     }
 
     // Debug: Draw snap points if debug mode is on
@@ -89,7 +100,7 @@ window.editorMode = true;
     }
     
     // Step 5: Draw scene element hover/selection highlights
-    if(window.editorMode && !window.currentTask?.scene?.snapping_off){
+    if(!window.currentTask?.scene?.snapping_off){
       // Don't show highlights while actively drawing a force
       const activeForce = window.fm?.forces[window.fm?.activeIndex];
       const isDrawingForce = activeForce?.drawing;
@@ -100,7 +111,7 @@ window.editorMode = true;
     }
     
     // Draw anchor candidates when dragging force anchor in editor mode
-    if(window.anchorCandidates && window.anchorCandidates.length > 0 && window.editorMode){
+    if(window.anchorCandidates && window.anchorCandidates.length > 0){
       window.anchorCandidates.forEach((candidate, idx) => {
         if(!candidate.pos) return;
         
@@ -125,14 +136,16 @@ window.editorMode = true;
     }
     
     // Draw expected direction guides in editor mode
-    if(window.editorMode && window.currentTask && window.fm){
+    if(window.currentTask && window.fm){
       drawExpectedDirectionGuides(ctx, window.currentTask, window.fm.forces);
     }
     
     // Draw selection handles for selected scene element
-    if(window.selectedSceneElement && window.editorMode){
+    if(window.selectedSceneElement){
       drawSceneElementHandles(ctx, window.selectedSceneElement);
     }
+    
+    ctx.restore();
     requestAnimationFrame(frame);
   }
   
@@ -380,13 +393,15 @@ window.editorMode = true;
       // Bottom center handle
       drawHandle(bc[0], bc[1]);
       
-      // Top center handle (for n-direction)
+      // Top center handle (for n-direction) - clamp for display
       const topCenter = [bc[0] + n[0]*h, bc[1] + n[1]*h];
-      drawHandle(topCenter[0], topCenter[1]);
+      const clampedTopCenter = window.clampToCanvas(topCenter);
+      drawHandle(clampedTopCenter[0], clampedTopCenter[1]);
       
-      // Bottom right handle (for t-direction)
+      // Bottom right handle (for t-direction) - clamp for display
       const bottomRight = [bc[0] + t[0]*w/2, bc[1] + t[1]*w/2];
-      drawHandle(bottomRight[0], bottomRight[1]);
+      const clampedBottomRight = window.clampToCanvas(bottomRight);
+      drawHandle(clampedBottomRight[0], clampedBottomRight[1]);
     } 
     else if(type === 'ellipse' && scene.ellipses && scene.ellipses[index]){
       const ellipse = scene.ellipses[index];
@@ -399,35 +414,47 @@ window.editorMode = true;
       // Center handle
       drawHandle(cx, cy);
       
-      // Width direction handle (along t_vec direction)
+      // Width direction handle (along t_vec direction) - clamp for display
       const widthHandle = [cx + t[0]*w/2, cy + t[1]*w/2];
-      drawHandle(widthHandle[0], widthHandle[1]);
+      const clampedWidthHandle = window.clampToCanvas(widthHandle);
+      drawHandle(clampedWidthHandle[0], clampedWidthHandle[1]);
       
-      // Height direction handle (along n_vec direction)
+      // Height direction handle (along n_vec direction) - clamp for display
       const heightHandle = [cx + n[0]*h/2, cy + n[1]*h/2];
-      drawHandle(heightHandle[0], heightHandle[1]);
+      const clampedHeightHandle = window.clampToCanvas(heightHandle);
+      drawHandle(clampedHeightHandle[0], clampedHeightHandle[1]);
     } 
     else if(type === 'circle' && scene.circles && scene.circles[index]){
       const circle = scene.circles[index];
       const [cx, cy] = circle.center;
       const r = circle.radius;
       
-      // Center and 4 cardinal points
+      // Center and 4 cardinal points - clamp for display
       drawHandle(cx, cy);
-      drawHandle(cx + r, cy);
-      drawHandle(cx - r, cy);
-      drawHandle(cx, cy + r);
-      drawHandle(cx, cy - r);
+      const clampedRight = window.clampToCanvas([cx + r, cy]);
+      const clampedLeft = window.clampToCanvas([cx - r, cy]);
+      const clampedDown = window.clampToCanvas([cx, cy + r]);
+      const clampedUp = window.clampToCanvas([cx, cy - r]);
+      drawHandle(clampedRight[0], clampedRight[1]);
+      drawHandle(clampedLeft[0], clampedLeft[1]);
+      drawHandle(clampedDown[0], clampedDown[1]);
+      drawHandle(clampedUp[0], clampedUp[1]);
     } 
     else if(type === 'segment' && scene.segments && scene.segments[index]){
       const seg = scene.segments[index];
-      drawHandle(seg.a[0], seg.a[1]);
-      drawHandle(seg.b[0], seg.b[1]);
+      // Clamp handle positions for display while keeping actual coordinates unclamped
+      const clampedA = window.clampToCanvas(seg.a);
+      const clampedB = window.clampToCanvas(seg.b);
+      drawHandle(clampedA[0], clampedA[1]);
+      drawHandle(clampedB[0], clampedB[1]);
     } 
     else if(type === 'arrow' && scene.arrows && scene.arrows[index]){
       const arrow = scene.arrows[index];
-      drawHandle(arrow.a[0], arrow.a[1]);
-      drawHandle(arrow.b[0], arrow.b[1]);
+      // Clamp handle positions for display while keeping actual coordinates unclamped
+      const clampedA = window.clampToCanvas(arrow.a);
+      const clampedB = window.clampToCanvas(arrow.b);
+      drawHandle(clampedA[0], clampedA[1]);
+      drawHandle(clampedB[0], clampedB[1]);
     }
     else if(type === 'text' && scene.texts && scene.texts[index]){
       const text = scene.texts[index];
@@ -506,8 +533,6 @@ window.editorMode = true;
     updateGridIcon();
   }
   applyIcons();
-  // Initialize editor mode UI based on saved state
-  updateEditorMode();
   // snap/guidelines state
   window.enableSnap = true; // default on to make snapping obvious
   window.enableGuidelines = true;
@@ -524,8 +549,6 @@ window.editorMode = true;
     const raw = localStorage.getItem('editor_settings');
     if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
   } catch {}
-  // Editor mode: always ON in editor.js
-  window.editorMode = true;
   // Show editor panels
   updateEditorMode();
   window.taskScores = {};
@@ -768,12 +791,11 @@ window.editorMode = true;
     const arr = Array.isArray(lines) ? lines : [];
     window.feedbackState = { lines: arr, index: 0, score: score || '' };
     updateFeedbackUI();
-    // Fallback: if panel still hidden but we have lines, force display
-    if(arr.length){
-      const panel = document.getElementById('feedback-panel');
-      if(panel && panel.classList.contains('hidden')){
-        panel.classList.remove('hidden');
-      }
+    // Show feedback panel if we have a score (even if no error lines)
+    const panel = document.getElementById('feedback-panel');
+    if(panel && score){
+      panel.classList.remove('hidden');
+      console.log('📊 Feedback panel shown with score:', score);
     }
   };
   function clearFeedback(){
@@ -934,19 +956,12 @@ window.editorMode = true;
 
   // Editor mode state management
   function updateEditorMode(){
-    const isEditor = !!window.editorMode;
     const scenePanel = document.getElementById('scene-panel');
     const editorButtons = document.getElementById('editor-buttons');
     
-    if(isEditor){
-      // Show editor UI elements
-      if(scenePanel) scenePanel.style.display = 'block';
-      if(editorButtons) editorButtons.classList.remove('hidden');
-    } else {
-      // Hide editor UI elements
-      if(scenePanel) scenePanel.style.display = 'none';
-      if(editorButtons) editorButtons.classList.add('hidden');
-    }
+    // Always show editor UI elements (we're always in editor mode)
+    if(scenePanel) scenePanel.style.display = 'block';
+    if(editorButtons) editorButtons.classList.remove('hidden');
     
     // Update panel heights after showing/hiding editor panel
     updatePanelHeights();
@@ -954,8 +969,9 @@ window.editorMode = true;
 
   /**
    * Dynamically resize force and scene panels based on content.
-   * Calculates size needed for each panel and distributes space proportionally,
-   * with a minimum of 1/3 of total height for each panel when both are visible.
+   * Force panel is positioned after top bar (80px) and sized based on content.
+   * Scene panel starts directly after force panel and extends to bottom of window.
+   * Editor buttons panel is positioned on canvas area only (left side, above the buttons area).
    */
   function updatePanelHeights(){
     const forcePanel = document.getElementById('force-panel');
@@ -963,10 +979,11 @@ window.editorMode = true;
     
     if(!forcePanel) return;
     
-    const totalHeight = window.innerHeight - 100; // Subtract top bar and padding
-    const minHeight = totalHeight / 3; // Minimum 1/3 of total height
+    // Layout: top bar (80px) + force panel + scene panel (extends to window bottom)
+    const topBarHeight = window.TOP_BAR_HEIGHT;
+    const availableHeight = window.innerHeight - topBarHeight;
     
-    // Count forces and scene elements
+    // Count forces and scene elements to estimate needed space
     let forceCount = 0;
     let sceneElementCount = 0;
     
@@ -984,49 +1001,30 @@ window.editorMode = true;
                           (scene.texts?.length || 0);
     }
     
-    // Estimate height needed: base height + height per item (estimate ~25px per item)
-    const itemHeightEstimate = 25;
-    const forceHeightNeeded = Math.max(80, forceCount * itemHeightEstimate);
-    const sceneHeightNeeded = Math.max(80, sceneElementCount * itemHeightEstimate);
+    // Calculate space needed for each panel
+    // Force panel: header (60px with padding + title) + per-force height (32px each)
+    const forceHeaderHeight = window.FORCE_HEADER_HEIGHT;
+    const forceItemHeight = 32; // input + gap + margin
+    const forceMinHeight = 120; // Minimum space for at least 1-2 items
+    const forceHeightNeeded = forceHeaderHeight + (forceCount * forceItemHeight);
+    const forcePanelHeight = Math.max(forceMinHeight, Math.min(availableHeight * 0.4, forceHeightNeeded + 10));
     
-    // Determine if scene panel is visible
-    const sceneVisible = window.editorMode && !scenePanel.classList.contains('hidden');
+    // Scene panel: takes remaining space, extends to bottom
+    const sceneMinHeight = 120;
+    const scenePanelHeight = Math.max(sceneMinHeight, availableHeight - forcePanelHeight);
     
-    let forceHeight, sceneHeight;
-    
-    if(sceneVisible && window.fm){
-      // Both panels visible - distribute space proportionally with constraints
-      const totalNeeded = forceHeightNeeded + sceneHeightNeeded;
-      const forceProportion = forceHeightNeeded / totalNeeded;
-      const sceneProportion = sceneHeightNeeded / totalNeeded;
-      
-      forceHeight = Math.max(minHeight, Math.min(totalHeight - minHeight, totalHeight * forceProportion));
-      sceneHeight = totalHeight - forceHeight;
-    } else if(sceneVisible){
-      // Only scene panel visible
-      forceHeight = 0;
-      sceneHeight = totalHeight;
-    } else {
-      // Only force panel visible
-      forceHeight = totalHeight;
-      sceneHeight = 0;
-    }
-    
-    // Apply heights
-    if(forceHeight > 0){
-      forcePanel.style.height = forceHeight + 'px';
+    // Set force panel height and top position
+    if(forcePanel){
+      forcePanel.style.top = topBarHeight + 'px';
+      forcePanel.style.height = forcePanelHeight + 'px';
       forcePanel.style.display = 'block';
-    } else {
-      forcePanel.style.display = 'none';
     }
     
+    // Set scene panel position (directly after force panel) and extend to bottom
     if(scenePanel){
-      if(sceneHeight > 0){
-        scenePanel.style.height = sceneHeight + 'px';
-        scenePanel.style.display = 'block';
-      } else {
-        scenePanel.style.display = 'none';
-      }
+      scenePanel.style.top = (topBarHeight + forcePanelHeight) + 'px';
+      scenePanel.style.bottom = '0px'; // Extend to bottom of window
+      scenePanel.style.display = 'block';
     }
   }
 
@@ -1208,7 +1206,7 @@ window.editorMode = true;
    * Returns {valid: boolean, message: string}
    */
   window.cleanupTaskForEvaluation = function(){
-    if(!window.currentTask || !window.editorMode){
+    if(!window.currentTask){
       return { valid: true, message: '' };
     }
     
@@ -1404,16 +1402,8 @@ window.editorMode = true;
       window.currentGuidelines = null;
     }
     
-    // 3. Update scene panel (if editor mode)
-    if(window.editorMode){
-      updateScenePanel();
-    } else {
-      // In task mode, ensure scene panel is cleared to avoid stale references
-      const scenePanel = document.getElementById('scene-items');
-      if(scenePanel){
-        scenePanel.innerHTML = '';
-      }
-    }
+    // 3. Update scene panel (always in editor mode)
+    updateScenePanel();
     
     // 4. Update help button text (shows task id and score)
     updateHelpButton();
@@ -1823,6 +1813,46 @@ window.editorMode = true;
     } catch {}
   }
 
+  // Setup editor for help_lines text
+  window.setupHelpLinesEditor = function setupHelpLinesEditor(){
+    const textarea = document.getElementById('help-lines-text');
+    if(!textarea) return;
+    
+    // Auto-save on input
+    textarea.addEventListener('input', () => {
+      saveHelpLines();
+    });
+    
+    // Auto-save on blur
+    textarea.addEventListener('blur', () => {
+      saveHelpLines();
+    });
+    
+    // Focus on textarea
+    textarea.focus();
+  };
+
+  // Save help_lines from editor textarea
+  window.saveHelpLines = function saveHelpLines(){
+    if(!window.currentTask) return;
+    
+    const textarea = document.getElementById('help-lines-text');
+    if(!textarea) return;
+    
+    // Split by newlines and filter out empty lines
+    const lines = textarea.value.split('\n').filter(line => line.trim() !== '');
+    window.currentTask.help_lines = lines;
+    
+    // Save task to localStorage
+    const taskKey = `editor_task_${window.currentTask.id}`;
+    try {
+      localStorage.setItem(taskKey, JSON.stringify(window.currentTask));
+      console.log(`✓ Saved help_lines to localStorage (${taskKey}):`, lines);
+    } catch (err) {
+      console.warn(`Could not save help_lines for task ${window.currentTask.id}:`, err);
+    }
+  };
+
   // Solution forces removed - use editor.js for editor mode
 
   // Load saved tasks from localStorage before loading initial task
@@ -1851,8 +1881,8 @@ window.editorMode = true;
   }
 
   function getMousePos(evt){
-    const rect = canvas.getBoundingClientRect();
-    return [evt.clientX - rect.left, evt.clientY - rect.top];
+    // Use shared getMousePos from shared.js
+    return window.getMousePos(evt);
   }
 
   // Editor state - track dragging scene element handles
@@ -1868,7 +1898,7 @@ window.editorMode = true;
    *   or null if no handle is near or not in editor mode
    */
   function getSceneHandleAtPos(pos){
-    if(!window.editorMode || !window.selectedSceneElement) return null;
+    if(!window.selectedSceneElement) return null;
     
     const { type, index } = window.selectedSceneElement;
     const scene = window.currentTask?.scene;
@@ -1911,13 +1941,15 @@ window.editorMode = true;
       // Bottom center
       if(isNear(bc[0], bc[1])) return {type: 'rect', index, handleType: 'center'};
       
-      // Top center (n-direction)
+      // Top center (n-direction) - use clamped position for click detection
       const topCenter = [bc[0] + n[0]*h, bc[1] + n[1]*h];
-      if(isNear(topCenter[0], topCenter[1])) return {type: 'rect', index, handleType: 'topCenter'};
+      const clampedTopCenter = window.clampToCanvas(topCenter);
+      if(isNear(clampedTopCenter[0], clampedTopCenter[1])) return {type: 'rect', index, handleType: 'topCenter'};
       
-      // Bottom right (t-direction)
+      // Bottom right (t-direction) - use clamped position for click detection
       const bottomRight = [bc[0] + t[0]*w/2, bc[1] + t[1]*w/2];
-      if(isNear(bottomRight[0], bottomRight[1])) return {type: 'rect', index, handleType: 'bottomRight'};
+      const clampedBottomRight = window.clampToCanvas(bottomRight);
+      if(isNear(clampedBottomRight[0], clampedBottomRight[1])) return {type: 'rect', index, handleType: 'bottomRight'};
     }
     else if(type === 'ellipse' && scene?.ellipses?.[index]){
       const ellipse = scene.ellipses[index];
@@ -1930,28 +1962,50 @@ window.editorMode = true;
       // Center
       if(isNear(cx, cy)) return {type: 'ellipse', index, handleType: 'center'};
       
-      // Width direction handle (along t_vec)
+      // Width direction handle (along t_vec) - use clamped position for click detection
       const widthHandle = [cx + t[0]*w/2, cy + t[1]*w/2];
-      if(isNear(widthHandle[0], widthHandle[1])) return {type: 'ellipse', index, handleType: 'width'};
+      const clampedWidthHandle = window.clampToCanvas(widthHandle);
+      if(isNear(clampedWidthHandle[0], clampedWidthHandle[1])) return {type: 'ellipse', index, handleType: 'width'};
       
-      // Height direction handle (along n_vec)
+      // Height direction handle (along n_vec) - use clamped position for click detection
       const heightHandle = [cx + n[0]*h/2, cy + n[1]*h/2];
-      if(isNear(heightHandle[0], heightHandle[1])) return {type: 'ellipse', index, handleType: 'height'};
+      const clampedHeightHandle = window.clampToCanvas(heightHandle);
+      if(isNear(clampedHeightHandle[0], clampedHeightHandle[1])) return {type: 'ellipse', index, handleType: 'height'};
     }
     else if(type === 'circle' && scene?.circles?.[index]){
       const circle = scene.circles[index];
       const [cx, cy] = circle.center;
+      const r = circle.radius;
+      
+      // Center
       if(isNear(cx, cy)) return {type: 'circle', index, handleType: 'center'};
+      
+      // Cardinal radius handles - use clamped positions for click detection
+      const clampedRight = window.clampToCanvas([cx + r, cy]);
+      const clampedLeft = window.clampToCanvas([cx - r, cy]);
+      const clampedDown = window.clampToCanvas([cx, cy + r]);
+      const clampedUp = window.clampToCanvas([cx, cy - r]);
+      
+      if(isNear(clampedRight[0], clampedRight[1])) return {type: 'circle', index, handleType: 'radius'};
+      if(isNear(clampedLeft[0], clampedLeft[1])) return {type: 'circle', index, handleType: 'radius'};
+      if(isNear(clampedDown[0], clampedDown[1])) return {type: 'circle', index, handleType: 'radius'};
+      if(isNear(clampedUp[0], clampedUp[1])) return {type: 'circle', index, handleType: 'radius'};
     }
     else if(type === 'segment' && scene?.segments?.[index]){
       const seg = scene.segments[index];
-      if(isNear(seg.a[0], seg.a[1])) return {type: 'segment', index, handleType: 'a'};
-      if(isNear(seg.b[0], seg.b[1])) return {type: 'segment', index, handleType: 'b'};
+      // Use clamped positions for click detection (handles are drawn clamped)
+      const clampedA = window.clampToCanvas(seg.a);
+      const clampedB = window.clampToCanvas(seg.b);
+      if(isNear(clampedA[0], clampedA[1])) return {type: 'segment', index, handleType: 'a'};
+      if(isNear(clampedB[0], clampedB[1])) return {type: 'segment', index, handleType: 'b'};
     }
     else if(type === 'arrow' && scene?.arrows?.[index]){
       const arrow = scene.arrows[index];
-      if(isNear(arrow.a[0], arrow.a[1])) return {type: 'arrow', index, handleType: 'a'};
-      if(isNear(arrow.b[0], arrow.b[1])) return {type: 'arrow', index, handleType: 'b'};
+      // Use clamped positions for click detection (handles are drawn clamped)
+      const clampedA = window.clampToCanvas(arrow.a);
+      const clampedB = window.clampToCanvas(arrow.b);
+      if(isNear(clampedA[0], clampedA[1])) return {type: 'arrow', index, handleType: 'a'};
+      if(isNear(clampedB[0], clampedB[1])) return {type: 'arrow', index, handleType: 'b'};
     }
     else if(type === 'text' && scene?.texts?.[index]){
       const text = scene.texts[index];
@@ -2131,9 +2185,10 @@ window.editorMode = true;
     if(type === 'origin' && handleType === 'center' && scene.origin){
       // For center moves, set absolute position rather than using delta
       // This ensures perfect grid alignment
-      scene.origin[0] = useNewPos[0];
-      scene.origin[1] = useNewPos[1];
-      window.selectedSceneElement._handleStartPos = useNewPos;
+      const clampedPos = window.clampToCanvas(useNewPos);
+      scene.origin[0] = clampedPos[0];
+      scene.origin[1] = clampedPos[1];
+      window.selectedSceneElement._handleStartPos = clampedPos;
       
       // Synkroniser krefter
       if(oldPos){
@@ -2145,8 +2200,9 @@ window.editorMode = true;
     else if(type === 'plane' && scene.plane){
       if(handleType === 'through'){
         // Move plane through point - set absolute position for grid alignment
-        scene.plane.through[0] = useNewPos[0];
-        scene.plane.through[1] = useNewPos[1];
+        const clampedPos = window.clampToCanvas(useNewPos);
+        scene.plane.through[0] = clampedPos[0];
+        scene.plane.through[1] = clampedPos[1];
         // If dirPoint exists, move it too
         if(scene.plane.dirPoint) {
           scene.plane.dirPoint[0] += snappedDx;
@@ -2154,14 +2210,15 @@ window.editorMode = true;
         }
         // Save updated task to localStorage
         saveTask();
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        window.selectedSceneElement._handleStartPos = clampedPos;
       }
       else if(handleType === 'direction'){
         // Update dirPoint and recalculate n_vec from through to dirPoint
-        scene.plane.dirPoint = [useNewPos[0], useNewPos[1]];
+        const clampedPos = window.clampToCanvas(useNewPos);
+        scene.plane.dirPoint = [clampedPos[0], clampedPos[1]];
         
         const through = scene.plane.through;
-        const dirVec = [useNewPos[0] - through[0], useNewPos[1] - through[1]];
+        const dirVec = [clampedPos[0] - through[0], clampedPos[1] - through[1]];
         const len = geometry.length(dirVec);
         if(len > 0.01){
           // Normalize to get n_vec
@@ -2172,15 +2229,16 @@ window.editorMode = true;
           // Save updated task to localStorage (plane change invalidates old expectedForces)
           saveTask();
         }
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        window.selectedSceneElement._handleStartPos = clampedPos;
       }
     }
     else if(type === 'ellipse' && handleType === 'center' && scene.ellipses?.[index]){
       const ellipse = scene.ellipses[index];
       // For center moves, set absolute position for grid alignment
-      ellipse.center[0] = useNewPos[0];
-      ellipse.center[1] = useNewPos[1];
-      window.selectedSceneElement._handleStartPos = useNewPos;
+      const clampedPos = window.clampToCanvas(useNewPos);
+      ellipse.center[0] = clampedPos[0];
+      ellipse.center[1] = clampedPos[1];
+      window.selectedSceneElement._handleStartPos = clampedPos;
       
       // Synkroniser krefter
       if(oldPos){
@@ -2226,9 +2284,10 @@ window.editorMode = true;
     else if(type === 'circle' && handleType === 'center' && scene.circles?.[index]){
       const circle = scene.circles[index];
       // For center moves, set absolute position for grid alignment
-      circle.center[0] = useNewPos[0];
-      circle.center[1] = useNewPos[1];
-      window.selectedSceneElement._handleStartPos = useNewPos;
+      const clampedPos = window.clampToCanvas(useNewPos);
+      circle.center[0] = clampedPos[0];
+      circle.center[1] = clampedPos[1];
+      window.selectedSceneElement._handleStartPos = clampedPos;
       
       // Synkroniser krefter
       if(oldPos){
@@ -2240,17 +2299,19 @@ window.editorMode = true;
     else if(type === 'text' && handleType === 'center' && scene.texts?.[index]){
       const text = scene.texts[index];
       // For text position, set absolute position for grid alignment
-      text.pos[0] = useNewPos[0];
-      text.pos[1] = useNewPos[1];
-      window.selectedSceneElement._handleStartPos = useNewPos;
+      const clampedPos = window.clampToCanvas(useNewPos);
+      text.pos[0] = clampedPos[0];
+      text.pos[1] = clampedPos[1];
+      window.selectedSceneElement._handleStartPos = clampedPos;
     }
     else if(type === 'segment' && scene.segments?.[index]){
       const segment = scene.segments[index];
       if(handleType === 'a'){
         // Set absolute position for grid alignment
-        segment.a[0] = useNewPos[0];
-        segment.a[1] = useNewPos[1];
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        const clampedPos = window.clampToCanvas(useNewPos);
+        segment.a[0] = clampedPos[0];
+        segment.a[1] = clampedPos[1];
+        window.selectedSceneElement._handleStartPos = clampedPos;
         
         // Synkroniser krefter
         if(oldPos){
@@ -2261,25 +2322,27 @@ window.editorMode = true;
       }
       else if(handleType === 'b'){
         // Set absolute position for grid alignment
-        segment.b[0] = useNewPos[0];
-        segment.b[1] = useNewPos[1];
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        const clampedPos = window.clampToCanvas(useNewPos);
+        segment.b[0] = clampedPos[0];
+        segment.b[1] = clampedPos[1];
+        window.selectedSceneElement._handleStartPos = clampedPos;
         // Note: only 'a' is linked to expectedForce anchors, so 'b' doesn't trigger sync
       }
     }
     else if(type === 'arrow' && scene.arrows?.[index]){
       const arrow = scene.arrows[index];
+      const clampedPos = window.clampToCanvas(useNewPos);
       if(handleType === 'a'){
         // Set absolute position for grid alignment
-        arrow.a[0] = useNewPos[0];
-        arrow.a[1] = useNewPos[1];
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        arrow.a[0] = clampedPos[0];
+        arrow.a[1] = clampedPos[1];
+        window.selectedSceneElement._handleStartPos = clampedPos;
       }
       else if(handleType === 'b'){
         // Set absolute position for grid alignment
-        arrow.b[0] = useNewPos[0];
-        arrow.b[1] = useNewPos[1];
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        arrow.b[0] = clampedPos[0];
+        arrow.b[1] = clampedPos[1];
+        window.selectedSceneElement._handleStartPos = clampedPos;
       }
     }
     else if(type === 'rect' && scene.rects?.[index]){
@@ -2290,9 +2353,10 @@ window.editorMode = true;
       
       if(handleType === 'center'){
         // Move bottom center - set absolute position for grid alignment
-        rect.bottomCenter[0] = useNewPos[0];
-        rect.bottomCenter[1] = useNewPos[1];
-        window.selectedSceneElement._handleStartPos = useNewPos;
+        const clampedPos = window.clampToCanvas(useNewPos);
+        rect.bottomCenter[0] = clampedPos[0];
+        rect.bottomCenter[1] = clampedPos[1];
+        window.selectedSceneElement._handleStartPos = clampedPos;
         
         // Synkroniser krefter
         if(oldPos){
@@ -2343,7 +2407,7 @@ window.editorMode = true;
     const pos = getMousePos(e);
     
     // Handle scene element dragging in edit mode
-    if(window.draggingHandle && window.editorMode){
+    if(window.draggingHandle){
       moveSceneElement(window.draggingHandle, pos);
       return;
     }
@@ -2359,7 +2423,7 @@ window.editorMode = true;
       // Clear anchor candidates when not dragging
       window.anchorCandidates = null;
       window.anchorHoverIndex = -1;
-    } else if(active && active.dragging === 'anchor' && window.editorMode){
+    } else if(active && active.dragging === 'anchor'){
       // When dragging anchor in editor mode, show all anchor candidates
       // Build anchor candidates if not already built
       if(!window.anchorCandidates){
@@ -2496,10 +2560,9 @@ window.editorMode = true;
     const pos = getMousePos(e);
     
     // Check if clicking on scene element handle in edit mode
-    if(window.editorMode){
-      const handle = getSceneHandleAtPos(pos);
-      if(handle){
-        window.draggingHandle = handle;
+    const handle = getSceneHandleAtPos(pos);
+    if(handle){
+      window.draggingHandle = handle;
         window.selectedSceneElement._handleStartPos = pos;
         
         // Store the original element origin at drag start (to prevent self-snapping during editing)
@@ -2526,7 +2589,6 @@ window.editorMode = true;
         window.updateAppState();
         return;
       }
-    }
     
     // NEW: ensure hover state reflects this exact click position (user may click without prior mousemove)
     if(window.fm){ window.fm.updateHover(pos); }
@@ -2540,58 +2602,56 @@ window.editorMode = true;
     }
     
     // In task mode: forces only (no scene element interaction)
-    if(window.editorMode){
-      // In editor mode: scene elements take priority when hovered and no force is hovered
-      updateSceneElementHover(pos);
+    // In editor mode: scene elements take priority when hovered and no force is hovered
+    updateSceneElementHover(pos);
+    
+    // Handle scene element selection only if no force is hovered/dragged
+    if(window.hoveredSceneElement && hoveredForceIndex === -1){
+      // User clicked on a scene element - select it
+      window.selectedSceneElement = {
+        type: window.hoveredSceneElement.type,
+        index: window.hoveredSceneElement.index
+      };
+      // Auto-save task
+      if(window.currentTask) saveTask();
       
-      // Handle scene element selection only if no force is hovered/dragged
-      if(window.hoveredSceneElement && hoveredForceIndex === -1){
-        // User clicked on a scene element - select it
-        window.selectedSceneElement = {
-          type: window.hoveredSceneElement.type,
-          index: window.hoveredSceneElement.index
-        };
-        // Auto-save task
-        if(window.currentTask) saveTask();
+      // Expand the scene panel for this element (close others)
+      const scenePanel = document.getElementById('scene-items');
+      if(scenePanel){
+        // Find and deselect all items
+        const items = scenePanel.querySelectorAll('.scene-item');
+        items.forEach(item => {
+          item.classList.remove('selected');
+          // Hide arrange buttons when deselected
+          const header = item.querySelector('.scene-item-header');
+          if(header){
+            header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
+              btn.style.display = 'none';
+            });
+          }
+        });
         
-        // Expand the scene panel for this element (close others)
-        const scenePanel = document.getElementById('scene-items');
-        if(scenePanel){
-          // Find and deselect all items
-          const items = scenePanel.querySelectorAll('.scene-item');
-          items.forEach(item => {
-            item.classList.remove('selected');
-            // Hide arrange buttons when deselected
+        // Find and expand the matching item
+        for(const item of items){
+          const itemType = item.dataset.type;
+          const itemIndex = parseInt(item.dataset.index);
+          if(itemType === window.selectedSceneElement.type && itemIndex === window.selectedSceneElement.index){
+            item.classList.add('selected');
+            // Show arrange buttons when selected
             const header = item.querySelector('.scene-item-header');
             if(header){
               header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-                btn.style.display = 'none';
+                btn.style.display = 'inline-block';
               });
             }
-          });
-          
-          // Find and expand the matching item
-          for(const item of items){
-            const itemType = item.dataset.type;
-            const itemIndex = parseInt(item.dataset.index);
-            if(itemType === window.selectedSceneElement.type && itemIndex === window.selectedSceneElement.index){
-              item.classList.add('selected');
-              // Show arrange buttons when selected
-              const header = item.querySelector('.scene-item-header');
-              if(header){
-                header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-                  btn.style.display = 'inline-block';
-                });
-              }
-              break;
-            }
+            break;
           }
         }
-        
-        // Update panel heights and anchor picker UI
-        window.updateAppState();
-        return;
       }
+      
+      // Update panel heights and anchor picker UI
+      window.updateAppState();
+      return;
     }
     
     // If click is outside draw area, ignore force creation logic
@@ -2712,7 +2772,7 @@ window.editorMode = true;
       // Update scene panel to reflect changes
       updateScenePanel();
       // Save task when scene element handle is released
-      if(window.editorMode) saveTask();
+      saveTask();
       // Update snap points and guidelines after scene element change
       if(window.updateAppState && typeof window.updateAppState === 'function'){
         window.updateAppState();
@@ -2789,10 +2849,8 @@ window.editorMode = true;
       }
       if(action === 'next'){
         // Save current help_lines if in editor mode
-        if(window.editorMode){
-          saveHelpLines();
-          saveTask();
-        }
+        saveHelpLines();
+        saveTask();
         loadTask(window.currentTaskIndex+1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2801,7 +2859,7 @@ window.editorMode = true;
           const commentLabel = document.getElementById('settings-comment-label');
           if(window.currentTask && taskComment){
             const taskId = window.currentTask.id;
-            const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+            const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
             if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
           }
@@ -2814,29 +2872,20 @@ window.editorMode = true;
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
-            if(window.editorMode){
-              // Show editable version in editor mode
-              helpContent.style.display = 'block';
-              helpCanvas.style.display = 'none';
-              const text = window.currentTask.help_lines.join('\n');
-              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-              setupHelpLinesEditor();
-            } else {
-              // Show canvas rendering in task mode
-              helpContent.style.display = 'none';
-              helpCanvas.style.display = 'block';
-              drawHelpLinesCanvas();
-            }
+            // Show editable version in editor mode
+            helpContent.style.display = 'block';
+            helpCanvas.style.display = 'none';
+            const text = window.currentTask.help_lines.join('\n');
+            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+            setupHelpLinesEditor();
           }
         }
         return;
       }
       if(action === 'prev'){
         // Save current help_lines if in editor mode
-        if(window.editorMode){
-          saveHelpLines();
-          saveTask();
-        }
+        saveHelpLines();
+        saveTask();
         loadTask(window.currentTaskIndex-1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2845,7 +2894,7 @@ window.editorMode = true;
           const commentLabel = document.getElementById('settings-comment-label');
           if(window.currentTask && taskComment){
             const taskId = window.currentTask.id;
-            const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+            const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
             if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
           }
@@ -2858,39 +2907,34 @@ window.editorMode = true;
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
-            if(window.editorMode){
-              // Show editable version in editor mode
-              helpContent.style.display = 'block';
-              helpCanvas.style.display = 'none';
-              const text = window.currentTask.help_lines.join('\n');
-              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-              setupHelpLinesEditor();
-            } else {
-              // Show canvas rendering in task mode
-              helpContent.style.display = 'none';
-              helpCanvas.style.display = 'block';
-              drawHelpLinesCanvas();
-            }
+            // Show editable version in editor mode
+            helpContent.style.display = 'block';
+            helpCanvas.style.display = 'none';
+            const text = window.currentTask.help_lines.join('\n');
+            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+            setupHelpLinesEditor();
           }
         }
         return;
       }
       if(action === 'check'){
         // Cleanup task in editor mode before evaluation
-        if(window.editorMode && window.cleanupTaskForEvaluation){
+        if(window.cleanupTaskForEvaluation){
           const cleanup = window.cleanupTaskForEvaluation();
           if(cleanup.message){
             console.log('Cleanup messages:', cleanup.message);
           }
         }
         // Validate and save solution forces in editor mode
-        if(window.editorMode && window.validateSolutionForces){
+        if(window.validateSolutionForces){
           window.validateSolutionForces();
           window.saveSolutionForces();
         }
         // Save current forces before evaluating
         saveTaskForces();
-        runEvaluation();
+        if(typeof window.runEvaluation === 'function'){
+          window.runEvaluation();
+        }
         // Update level and user display after evaluation if score is available
         if(window.lastEvaluation && window.lastEvaluation.summary){
           const taskId = window.currentTask.id;
@@ -2943,27 +2987,36 @@ window.editorMode = true;
       }
       if(action === 'help'){
         const helpPanel = document.getElementById('help-panel');
-        if(!helpPanel) return;
-        if(!window.currentTask) return;
-        // Show help lines
+        if(!helpPanel) { console.warn('❌ helpPanel not found'); return; }
+        if(!window.currentTask) { console.warn('❌ currentTask not found'); return; }
+        // Show help lines editor in editor mode
         const helpContent = document.getElementById('help-content');
         const helpCanvas = document.getElementById('help-canvas');
         const helpTitle = document.getElementById('help-title');
+        console.log('helpContent:', helpContent, 'helpCanvas:', helpCanvas);
+        if(!helpContent) { console.warn('❌ helpContent not found'); }
+        if(!helpCanvas) { console.warn('❌ helpCanvas not found'); }
         if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
-        if(helpContent && helpCanvas && window.currentTask.help_lines){
-          if(window.editorMode){
-            // Show editable version in editor mode
-            helpContent.style.display = 'block';
-            helpCanvas.style.display = 'none';
-            const text = window.currentTask.help_lines.join('\n');
-            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-            setupHelpLinesEditor();
-          } else {
-            // Show canvas rendering in task mode
-            helpContent.style.display = 'none';
-            helpCanvas.style.display = 'block';
-            drawHelpLinesCanvas();
-          }
+        if(helpContent && helpCanvas) {
+          // Show editable version in editor mode
+          helpContent.style.display = 'block';
+          helpCanvas.style.display = 'none';
+          
+          // Clear and recreate textarea (avoid innerHTML for form elements)
+          helpContent.innerHTML = '';
+          const textarea = document.createElement('textarea');
+          textarea.id = 'help-lines-text';
+          textarea.className = 'help-lines-editor';
+          textarea.placeholder = 'Skriv hver linje på en ny rad...';
+          const text = (window.currentTask.help_lines && Array.isArray(window.currentTask.help_lines)) 
+            ? window.currentTask.help_lines.join('\n') 
+            : '';
+          textarea.value = text;
+          helpContent.appendChild(textarea);
+          
+          setupHelpLinesEditor();
+        } else {
+          console.warn('❌ Skipping textarea setup because helpContent or helpCanvas missing');
         }
         helpPanel.classList.remove('hidden');
         return;
@@ -2987,11 +3040,11 @@ window.editorMode = true;
         if(sGuides) sGuides.checked = !!window.enableGuidelines;
         if(sShowForceCoords) sShowForceCoords.checked = !!window.settings.show_force_coordinates;
         if(sShowSceneCoords) sShowSceneCoords.checked = !!window.settings.show_scene_coordinates;
-        if(sEditor) sEditor.checked = !!window.editorMode;
+        if(sEditor) sEditor.checked = true;
         // Load current task comment
         if(window.currentTask && taskComment){
           const taskId = window.currentTask.id;
-          const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+          const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
           taskComment.value = commentText;
           if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
         }
@@ -3048,13 +3101,32 @@ window.editorMode = true;
   if(sShowSceneCoords){ sShowSceneCoords.addEventListener('change', ()=>{ window.settings.show_scene_coordinates = !!sShowSceneCoords.checked; persist(); }); }
   if(sEditor){ 
     sEditor.addEventListener('change', ()=>{ 
-      window.editorMode = !!sEditor.checked;
-      try{ localStorage.setItem('editor_editorMode', JSON.stringify(window.editorMode)); } catch {}
-      updateEditorMode();
+      // Editor mode is always on, so don't toggle it
+      // (settings for theme/debug/etc)
       window.selectedSceneElement = null;
       window.updateAppState();
     }); 
   }
+  
+  // Task comment handler - save only in task.comment
+  const taskCommentInput = document.getElementById('settings-task-comment');
+  if(taskCommentInput){
+    taskCommentInput.addEventListener('input', ()=>{
+      if(!window.currentTask) return;
+      const commentText = taskCommentInput.value;
+      
+      // Save to task object only (no separate taskComments storage)
+      window.currentTask.comment = commentText;
+      
+      // Persist task to localStorage
+      try{
+        localStorage.setItem(`editor_task_${window.currentTask.id}`, JSON.stringify(window.currentTask));
+      } catch(err){
+        console.warn('Could not save comment:', err);
+      }
+    });
+  }
+  
   const btnSaveTask = document.getElementById('btn-save-task');
   const btnNewTask = document.getElementById('btn-new-task');
   const btnDeleteForce = document.getElementById('btn-delete-force');
@@ -3873,6 +3945,22 @@ window.editorMode = true;
           const taskClone = JSON.parse(JSON.stringify(task));
           // Forces are intentionally NOT included in export
           // Players start with only initialForces, no pre-drawn user forces
+          
+          // Merge help_lines from editor localStorage (if modified)
+          const editorTaskKey = `editor_task_${taskId}`;
+          try {
+            const savedTask = localStorage.getItem(editorTaskKey);
+            if (savedTask) {
+              const parsed = JSON.parse(savedTask);
+              if (parsed.help_lines && Array.isArray(parsed.help_lines)) {
+                taskClone.help_lines = parsed.help_lines;
+              }
+            }
+          } catch {}
+          
+          // Remove comments before export (they are developer notes, not part of task spec)
+          delete taskClone.comment;
+          
           tasksToExport.push(taskClone);
         }
       });
@@ -4116,7 +4204,7 @@ window.editorMode = true;
       const backup = {
         settings: window.settings,
         taskScores: window.taskScores,
-        taskComments: window.taskComments,
+        // Comments are now part of task.comment, not stored separately
         timestamp: new Date().toISOString(),
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
         localStorage: {}
@@ -4142,7 +4230,13 @@ window.editorMode = true;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `editor_backup_${Date.now()}.json`;
+      
+      // Generate filename: backup_<sanitized_username>_<timestamp yyyy_mm_dd_hh_mm>
+      const username = (window.settings.username || 'backup').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}_${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}_${String(now.getMinutes()).padStart(2,'0')}`;
+      a.download = `backup_${username}_${timestamp}.json`;
+      
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -4162,7 +4256,7 @@ window.editorMode = true;
           const backup = JSON.parse(evt.target?.result || '{}');
           if(backup.settings){ window.settings = { ...window.settings, ...backup.settings }; }
           if(backup.taskScores){ window.taskScores = backup.taskScores; }
-          if(backup.taskComments){ window.taskComments = backup.taskComments; }
+          // Comments are now restored from task.comment in localStorage keys
           
           // Restore all localStorage keys
           if(backup.localStorage){

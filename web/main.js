@@ -5,12 +5,17 @@
 (function(){
     // Canvas init =====
   const canvas = document.getElementById('app-canvas');
+  // Set canvas dimensions from shared constants (CANVAS_WIDTH, CANVAS_HEIGHT, defined in shared.js)
+  canvas.width = window.CANVAS_WIDTH;
+  canvas.height = window.CANVAS_HEIGHT;
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
+  
+  // Initialize scroll position to show grid area at top-left
+  window.initializeScroll();
 
   function clear() {
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    window.clearCanvas(ctx);
   }
 
   // Helper: draw a text rotated by angle (angle_deg) or oriented by a normal (n_vec => tangent)
@@ -43,6 +48,12 @@
 
   function frame() {
     clear();
+    
+    // Save context and translate so grid area (0,0 to 1000,640) starts at top-left
+    // Canvas extends from -200,-200 to 1000,640 (1200x800 total)
+    ctx.save();
+    ctx.translate(window.offsetX, window.offsetY);
+    
     if (gridOn) {
       drawGrid(ctx);
     }
@@ -59,7 +70,7 @@
 
     // Draw current task scene (before user forces)
     if(window.currentTask){
-      drawScene(ctx, window.currentTask, window.editorMode);
+      drawScene(ctx, window.currentTask, false);
     }
 
     // Debug: Draw snap points if debug mode is on
@@ -78,51 +89,20 @@
       drawGuidelines(ctx);
     }
     
-    // Step 5: Draw scene element hover/selection highlights
-    if(window.editorMode && !window.currentTask?.scene?.snapping_off){
-      // Don't show highlights while actively drawing a force
-      const activeForce = window.fm?.forces[window.fm?.activeIndex];
-      const isDrawingForce = activeForce?.drawing;
-      
-      if(!isDrawingForce && window.sceneLookup){
-        drawSceneElementHighlights(ctx);
-      }
-    }
+    // Step 5: Draw scene element hover/selection highlights (editor mode only - skip in player mode)
     
-    // Draw anchor candidates when dragging force anchor in editor mode
-    if(window.anchorCandidates && window.anchorCandidates.length > 0 && window.editorMode){
-      window.anchorCandidates.forEach((candidate, idx) => {
-        if(!candidate.pos) return;
-        
-        // Highlight the closest one (hovered) in bright color, others dim
-        const isHovered = (idx === window.anchorHoverIndex);
-        const radius = isHovered ? 8 : 5;
-        const color = isHovered ? '#ffff00' : '#aaaaaa'; // bright yellow vs dim gray
-        const alpha = isHovered ? 1.0 : 0.5;
-        
-        ctx.fillStyle = color;
-        ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        ctx.arc(candidate.pos[0], candidate.pos[1], radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-      });
-    }
+    // Draw anchor candidates when dragging force anchor in editor mode (editor only - skip in player mode)
     
     // Draw test forces
     if(window.fm){
       window.fm.drawAll(ctx);
     }
     
-    // Draw expected direction guides in editor mode
-    if(window.editorMode && window.currentTask && window.fm){
-      drawExpectedDirectionGuides(ctx, window.currentTask, window.fm.forces);
-    }
+    // Draw expected direction guides in editor mode (editor only - skip in player mode)
     
-    // Draw selection handles for selected scene element
-    if(window.selectedSceneElement && window.editorMode){
-      drawSceneElementHandles(ctx, window.selectedSceneElement);
-    }
+    // Draw selection handles for selected scene element (editor only - skip in player mode)
+    
+    ctx.restore();
     requestAnimationFrame(frame);
   }
   
@@ -506,12 +486,8 @@
     const raw = localStorage.getItem('tk_taskScores');
     if(raw){ window.taskScores = JSON.parse(raw); }
   } catch {}
-  // Task comments: taskId -> { comment: string }
+  // Task comments: stored in task.comment field (no separate storage)
   window.taskComments = {};
-  try {
-    const raw = localStorage.getItem('tk_taskComments');
-    if(raw){ window.taskComments = JSON.parse(raw); }
-  } catch {}
   function updateUserDisplay(){
     const userEl = document.getElementById('user-display');
     if(!userEl) return;
@@ -1083,9 +1059,8 @@
    * Returns {valid: boolean, message: string}
    */
   window.cleanupTaskForEvaluation = function(){
-    if(!window.currentTask || !window.editorMode){
-      return { valid: true, message: '' };
-    }
+    // Player mode: cleanup not needed
+    return { valid: true, message: '' };
     
     const task = window.currentTask;
     const messages = [];
@@ -1279,17 +1254,6 @@
       window.currentGuidelines = null;
     }
     
-    // 3. Update scene panel (if editor mode)
-    if(window.editorMode){
-      updateScenePanel();
-    } else {
-      // In task mode, ensure scene panel is cleared to avoid stale references
-      const scenePanel = document.getElementById('scene-items');
-      if(scenePanel){
-        scenePanel.innerHTML = '';
-      }
-    }
-    
     // 4. Update help button text (shows task id and score)
     updateHelpButton();
     
@@ -1340,47 +1304,40 @@
     window.fm = new ForcesManager();
     // Rebuild inputs for new manager to avoid stale listeners
     inputsContainer.innerHTML = '';
-    // Load persisted forces for this task (if any)
+    // CHANGE: Load ONLY initialForces, not savedForces (player mode should reset forces each session)
+    seedInitialForces(window.currentTask);
+    
+    // Load any saved forces for this task from localStorage
     const taskKey = `tk_forces_${window.currentTask.id}`;
-    const savedForces = localStorage.getItem(taskKey);
-    if(savedForces){
-      try{
-        const parsed = JSON.parse(savedForces);
-        if(Array.isArray(parsed) && parsed.length){
-          // Restore forces from saved state
-          window.fm.forces = parsed.map(spec=>{
-            const f = new Force();
-            f.anchor = spec.anchor ? [spec.anchor[0], spec.anchor[1]] : null;
-            f.arrowBase = spec.arrowBase ? [spec.arrowBase[0], spec.arrowBase[1]] : null;
-            f.arrowTip = spec.arrowTip ? [spec.arrowTip[0], spec.arrowTip[1]] : null;
-            f.name = spec.name || '';
-            f.moveable = (spec.moveable !== false);
-            // If isExpected not set, infer from moveable (false moveable = initial = not expected)
-            if(spec.isExpected !== undefined){
-              f.isExpected = spec.isExpected;
-            } else {
-              f.isExpected = (spec.moveable !== false);
-            }
-            if(f.arrowBase && f.arrowTip) f.updateDirectionAndLength();
-            return f;
-          });
-          // Ensure at least one blank editable force
-          const blanks = window.fm.forces.filter(f => f.anchor === null);
-          if(!blanks.length) {
-            const blankForce = new Force();
-            blankForce.isExpected = true;
-            window.fm.forces.push(blankForce);
-          }
-        } else {
-          seedInitialForces(window.currentTask);
+    const savedForcesData = localStorage.getItem(taskKey);
+    if(savedForcesData){
+      try {
+        const savedForces = JSON.parse(savedForcesData);
+        // Load saved forces into the forces array
+        savedForces.forEach(spec => {
+          const f = new Force();
+          f.anchor = spec.anchor ? [spec.anchor[0], spec.anchor[1]] : null;
+          f.arrowBase = spec.arrowBase ? [spec.arrowBase[0], spec.arrowBase[1]] : null;
+          f.arrowTip = spec.arrowTip ? [spec.arrowTip[0], spec.arrowTip[1]] : null;
+          f.name = spec.name || '';
+          f.moveable = spec.moveable !== false;
+          f.isExpected = spec.isExpected !== false;
+          if(f.arrowBase && f.arrowTip) f.updateDirectionAndLength();
+          window.fm.forces.push(f);
+        });
+        
+        // Ensure there's a trailing blank force for adding new ones
+        const hasBlank = window.fm.forces.some(f => !f.anchor && !f.arrowBase && !f.arrowTip && !f.name);
+        if(!hasBlank){
+          const blankForce = new Force();
+          blankForce.isExpected = true;
+          window.fm.forces.push(blankForce);
         }
-      } catch {
-        seedInitialForces(window.currentTask);
+      } catch (err) {
+        console.warn(`Could not load saved forces for task ${window.currentTask.id}:`, err);
       }
-    } else {
-      // No saved forces, use defaults
-      seedInitialForces(window.currentTask);
     }
+    
     window.fm.syncInputs(inputsContainer);
     ensureInputMeta();
     // Update all derived state after task load
@@ -1427,6 +1384,10 @@
         
         try {
           const savedTask = JSON.parse(taskData);
+          // Ensure help_lines exists
+          if(!savedTask.help_lines || !Array.isArray(savedTask.help_lines)){
+            savedTask.help_lines = [];
+          }
           // Find and replace existing task with same ID, or add new one
           const existingIdx = window.TASKS.findIndex(t => t.id === taskId);
           if(existingIdx >= 0){
@@ -1476,132 +1437,8 @@
     } catch {}
   }
   
-  // Populate the scene panel with all scene elements
-  // Scene panel functions have been moved to ui.js to avoid duplication.
-  // ui.js is loaded before main.js, so those functions take precedence.
-  // Do not redefine updateScenePanel here.
+  // Scene element creation buttons removed - editor only
 
-  // Scene element creation buttons
-  const wA = GRID_STEP * 8;
-  const hA = GRID_STEP * 6;
-  
-  const btnAddRect = document.getElementById('btn-add-rect');
-  const btnAddEllipse = document.getElementById('btn-add-ellipse');
-  const btnAddSegment = document.getElementById('btn-add-segment');
-  const btnAddArrow = document.getElementById('btn-add-arrow');
-  const btnAddText = document.getElementById('btn-add-text');
-  
-  if(btnAddRect){
-    btnAddRect.addEventListener('click', ()=>{
-      if(!window.currentTask) return;
-      const scene = window.currentTask.scene;
-      if(!Array.isArray(scene.rects)) scene.rects = [];
-      scene.rects.push({
-        width: wA,
-        height: hA,
-        bottomCenter: [DRAW_CENTER[0], DRAW_CENTER[1]],
-        angleDeg: 0,
-        n_vec: [0, -1],
-        t_vec: [1, 0],
-        snapping: true
-      });
-      updateScenePanel();
-      saveTask();
-      window.updateAppState();
-    });
-  }
-  
-  if(btnAddEllipse){
-    btnAddEllipse.addEventListener('click', ()=>{
-      if(!window.currentTask) return;
-      const scene = window.currentTask.scene;
-      if(!Array.isArray(scene.ellipses)) scene.ellipses = [];
-      scene.ellipses.push({
-        width: wA,
-        height: hA,
-        center: [DRAW_CENTER[0], DRAW_CENTER[1]],
-        n_vec: [0, -1],
-        t_vec: [1, 0],
-        snapping: true
-      });
-      updateScenePanel();
-      saveTask();
-      window.updateAppState();
-    });
-  }
-  
-  if(btnAddSegment){
-    btnAddSegment.addEventListener('click', ()=>{
-      if(!window.currentTask) return;
-      const scene = window.currentTask.scene;
-      if(!Array.isArray(scene.segments)) scene.segments = [];
-      scene.segments.push({
-        a: [DRAW_CENTER[0] - wA/2, DRAW_CENTER[1]],
-        b: [DRAW_CENTER[0] + wA/2, DRAW_CENTER[1]],
-        snapping: false
-      });
-      updateScenePanel();
-      saveTask();
-      window.updateAppState();
-    });
-  }
-  
-  if(btnAddArrow){
-    btnAddArrow.addEventListener('click', ()=>{
-      if(!window.currentTask) return;
-      const scene = window.currentTask.scene;
-      if(!Array.isArray(scene.arrows)) scene.arrows = [];
-      scene.arrows.push({
-        a: [DRAW_CENTER[0] - wA/2, DRAW_CENTER[1]],
-        b: [DRAW_CENTER[0] + wA/2, DRAW_CENTER[1]],
-        snapping: false
-      });
-      updateScenePanel();
-      saveTask();
-      window.updateAppState();
-    });
-  }
-  
-  if(btnAddText){
-    btnAddText.addEventListener('click', ()=>{
-      if(!window.currentTask) return;
-      const scene = window.currentTask.scene;
-      if(!Array.isArray(scene.texts)) scene.texts = [];
-      
-      // Beregn default posisjon: under forrige tekst-element eller DRAW_CENTER
-      let defaultPos = [DRAW_CENTER[0], DRAW_CENTER[1]];
-      const textSize = 14;
-      const padding = 5;
-      
-      if(scene.texts.length > 0) {
-        // Finn siste tekst-element som ikke er _isShortLines
-        for(let i = scene.texts.length - 1; i >= 0; i--) {
-          if(!scene.texts[i]._isShortLines) {
-            const lastText = scene.texts[i];
-            const lastSize = lastText.size || 14;
-            defaultPos = [
-              lastText.pos[0],
-              lastText.pos[1] + lastSize + padding
-            ];
-            break;
-          }
-        }
-      }
-      
-      scene.texts.push({
-        txt: 'Tekst',
-        pos: defaultPos,
-        size: textSize,
-        align: 'center',
-        color: '#222',
-        snapping: false
-      });
-      updateScenePanel();
-      saveTask();
-      window.updateAppState();
-    });
-  }
-  
   // Toggle force between initial and expected
   window.toggleForceType = function(forceIndex){
     if(!window.currentTask || !window.fm || forceIndex < 0 || forceIndex >= window.fm.forces.length) return;
@@ -1708,6 +1545,81 @@
     loadTask(startIdx);
   })();
 
+  // ===== Task Set Selection from localStorage =====
+  function populateTasksetSelect() {
+    const tasksetSelect = document.getElementById('taskset-select');
+    if (!tasksetSelect) {
+      console.warn('⚠️ No tasksets in browsers localStorage ');
+      return;
+    }
+
+    // Clear existing options except the default one
+    tasksetSelect.innerHTML = '<option value="">-- Ingen oppgavesett valgt --</option>';
+
+    // Find all taskset_* entries in localStorage
+    const tasksets = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('taskset_')) {
+        const name = key.replace('taskset_', '');
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          tasksets.push({
+            key: key,
+            name: name,
+            taskIds: data.taskIds || [],
+            timestamp: data.timestamp || ''
+          });
+        } catch (e) {
+          console.error('❌ Error parsing taskset:', key, e);
+        }
+      }
+    }
+
+    console.log(`📦 Found ${tasksets.length} tasksets in localStorage`);
+
+    // Get the localStorage section container
+    const localStorageSection = document.getElementById('taskset-localStorage-section');
+    
+    // If no tasksets found, hide the localStorage section
+    if (tasksets.length === 0) {
+      if (localStorageSection) {
+        localStorageSection.style.display = 'none';
+      }
+      return;
+    }
+    
+    // Show the section if tasksets exist
+    if (localStorageSection) {
+      localStorageSection.style.display = 'block';
+    }
+
+    // Sort by timestamp (newest first)
+    tasksets.sort((a, b) => {
+      const dateA = new Date(a.timestamp).getTime();
+      const dateB = new Date(b.timestamp).getTime();
+      return dateB - dateA;
+    });
+
+    // Add tasksets to select
+    tasksets.forEach(ts => {
+      const option = document.createElement('option');
+      option.value = ts.key;
+      const taskCount = ts.taskIds.length;
+      const date = new Date(ts.timestamp);
+      const dateStr = isNaN(date.getTime()) ? '' : ` (${date.toLocaleDateString('no-NO')})`;
+      option.textContent = `${ts.name} - ${taskCount} oppgaver${dateStr}`;
+      tasksetSelect.appendChild(option);
+    });
+  }
+
+  // Populate taskset select when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', populateTasksetSelect);
+  } else {
+    populateTasksetSelect();
+  }
+
   // ===== Mouse interaction for forces =====
   function withinForceArea(x,y){
     // Allow drawing anywhere within canvas bounds
@@ -1715,8 +1627,8 @@
   }
 
   function getMousePos(evt){
-    const rect = canvas.getBoundingClientRect();
-    return [evt.clientX - rect.left, evt.clientY - rect.top];
+    // Use shared getMousePos from shared.js
+    return window.getMousePos(evt);
   }
 
   // Editor state - track dragging scene element handles
@@ -1732,7 +1644,8 @@
    *   or null if no handle is near or not in editor mode
    */
   function getSceneHandleAtPos(pos){
-    if(!window.editorMode || !window.selectedSceneElement) return null;
+    // Player mode: no scene handle detection
+    return null;
     
     const { type, index } = window.selectedSceneElement;
     const scene = window.currentTask?.scene;
@@ -2206,11 +2119,7 @@
   canvas.addEventListener('mousemove', (e)=>{
     const pos = getMousePos(e);
     
-    // Handle scene element dragging in edit mode
-    if(window.draggingHandle && window.editorMode){
-      moveSceneElement(window.draggingHandle, pos);
-      return;
-    }
+    // Player mode: no scene element dragging
     
     const active = window.fm.forces[window.fm.activeIndex];
 
@@ -2218,50 +2127,9 @@
     const isInteracting = active && (active.drawing || !!active.dragging);
     if(!isInteracting){
       window.fm.updateHover(pos);
-      // Also update scene element hover (Step 5)
-      updateSceneElementHover(pos);
-      // Clear anchor candidates when not dragging
+      // Clear anchor candidates (editor mode only)
       window.anchorCandidates = null;
       window.anchorHoverIndex = -1;
-    } else if(active && active.dragging === 'anchor' && window.editorMode){
-      // When dragging anchor in editor mode, show all anchor candidates
-      // Build anchor candidates if not already built
-      if(!window.anchorCandidates){
-        window.anchorCandidates = window.buildAnchorCandidates ? window.buildAnchorCandidates(window.currentTask) : [];
-      }
-      
-      // Find closest candidate to current mouse position
-      let closestIdx = -1;
-      let closestDist = 20; // threshold for highlighting
-      window.anchorCandidates.forEach((candidate, idx) => {
-        if(!candidate.pos) return;
-        const dist = geometry.distance(pos, candidate.pos);
-        if(dist < closestDist){
-          closestDist = dist;
-          closestIdx = idx;
-        }
-      });
-      window.anchorHoverIndex = closestIdx;
-      
-      // Live update anchor-select dropdown to show the hovered candidate
-      const forceIdx = window.fm.activeIndex;
-      const anchorSelect = document.querySelector(`#force-inputs [data-index="${forceIdx}"].anchor-select`);
-      if(anchorSelect){
-        if(closestIdx >= 0 && window.anchorCandidates[closestIdx]){
-          // Update dropdown to show hovered candidate
-          const candidate = window.anchorCandidates[closestIdx];
-          const value = `${candidate.type}:${candidate.ref}:${candidate.point || candidate.segment}`;
-          if(anchorSelect.value !== value){
-            anchorSelect.value = value;
-          }
-        } else {
-          // No candidate nearby - show custom pos[x,y]
-          const customValue = `custom:${Math.round(pos[0])},${Math.round(pos[1])}`;
-          if(anchorSelect.value !== customValue){
-            anchorSelect.value = customValue;
-          }
-        }
-      }
     }
 
     // If active force is drawing/dragging, forward motion
@@ -2359,43 +2227,12 @@
     clearFeedback();
     const pos = getMousePos(e);
     
-    // Check if clicking on scene element handle in edit mode
-    if(window.editorMode){
-      const handle = getSceneHandleAtPos(pos);
-      if(handle){
-        window.draggingHandle = handle;
-        window.selectedSceneElement._handleStartPos = pos;
-        
-        // Store the original element origin at drag start (to prevent self-snapping during editing)
-        const { type, index } = handle;
-        const scene = window.currentTask?.scene;
-        if(scene){
-          if(type === 'rect' && scene.rects?.[index]){
-            const rect = scene.rects[index];
-            window.draggingHandle._snapOriginAtDragStart = [rect.bottomCenter[0], rect.bottomCenter[1]];
-          } else if(type === 'ellipse' && scene.ellipses?.[index]){
-            const ellipse = scene.ellipses[index];
-            window.draggingHandle._snapOriginAtDragStart = [ellipse.center[0], ellipse.center[1]];
-          } else if(type === 'segment' && scene.segments?.[index]){
-            const segment = scene.segments[index];
-            window.draggingHandle._snapOriginAtDragStart = [segment.a[0], segment.a[1]];
-          } else if(type === 'plane' && scene.plane){
-            window.draggingHandle._snapOriginAtDragStart = [scene.plane.through[0], scene.plane.through[1]];
-          } else if(type === 'origin' && scene.origin){
-            window.draggingHandle._snapOriginAtDragStart = [scene.origin[0], scene.origin[1]];
-          }
-        }
-        
-        // Update guidelines for the selected scene element via updateAppState
-        window.updateAppState();
-        return;
-      }
-    }
+    // Player mode: no scene element handle detection
     
     // NEW: ensure hover state reflects this exact click position (user may click without prior mousemove)
     if(window.fm){ window.fm.updateHover(pos); }
     
-    // Determine if there's a hovered force (takes priority over scene elements in editor mode)
+    // Determine if there's a hovered force
     let hoveredForceIndex = -1;
     if(window.fm && window.fm.forces){
       for(let i=0;i<window.fm.forces.length;i++){
@@ -2403,60 +2240,7 @@
       }
     }
     
-    // In task mode: forces only (no scene element interaction)
-    if(window.editorMode){
-      // In editor mode: scene elements take priority when hovered and no force is hovered
-      updateSceneElementHover(pos);
-      
-      // Handle scene element selection only if no force is hovered/dragged
-      if(window.hoveredSceneElement && hoveredForceIndex === -1){
-        // User clicked on a scene element - select it
-        window.selectedSceneElement = {
-          type: window.hoveredSceneElement.type,
-          index: window.hoveredSceneElement.index
-        };
-        // Auto-save task
-        if(window.currentTask) saveTask();
-        
-        // Expand the scene panel for this element (close others)
-        const scenePanel = document.getElementById('scene-items');
-        if(scenePanel){
-          // Find and deselect all items
-          const items = scenePanel.querySelectorAll('.scene-item');
-          items.forEach(item => {
-            item.classList.remove('selected');
-            // Hide arrange buttons when deselected
-            const header = item.querySelector('.scene-item-header');
-            if(header){
-              header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-                btn.style.display = 'none';
-              });
-            }
-          });
-          
-          // Find and expand the matching item
-          for(const item of items){
-            const itemType = item.dataset.type;
-            const itemIndex = parseInt(item.dataset.index);
-            if(itemType === window.selectedSceneElement.type && itemIndex === window.selectedSceneElement.index){
-              item.classList.add('selected');
-              // Show arrange buttons when selected
-              const header = item.querySelector('.scene-item-header');
-              if(header){
-                header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-                  btn.style.display = 'inline-block';
-                });
-              }
-              break;
-            }
-          }
-        }
-        
-        // Update panel heights and anchor picker UI
-        window.updateAppState();
-        return;
-      }
-    }
+    // Player mode: no scene element interaction
     
     // If click is outside draw area, ignore force creation logic
     const inArea = withinForceArea(pos[0], pos[1]);
@@ -2573,10 +2357,6 @@
       // Clear snap indicator and guidelines
       window.snapIndicator = null;
       window.currentGuidelines = null;
-      // Update scene panel to reflect changes
-      updateScenePanel();
-      // Save task when scene element handle is released
-      if(window.editorMode) saveTask();
       // Update snap points and guidelines after scene element change
       if(window.updateAppState && typeof window.updateAppState === 'function'){
         window.updateAppState();
@@ -2652,11 +2432,7 @@
         return;
       }
       if(action === 'next'){
-        // Save current help_lines if in editor mode
-        if(window.editorMode){
-          saveHelpLines();
-          saveTask();
-        }
+        // Player mode: no help_lines save needed
         loadTask(window.currentTaskIndex+1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2665,7 +2441,7 @@
           const commentLabel = document.getElementById('settings-comment-label');
           if(window.currentTask && taskComment){
             const taskId = window.currentTask.id;
-            const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+            const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
             if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
           }
@@ -2678,29 +2454,16 @@
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
-            if(window.editorMode){
-              // Show editable version in editor mode
-              helpContent.style.display = 'block';
-              helpCanvas.style.display = 'none';
-              const text = window.currentTask.help_lines.join('\n');
-              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-              setupHelpLinesEditor();
-            } else {
-              // Show canvas rendering in task mode
-              helpContent.style.display = 'none';
-              helpCanvas.style.display = 'block';
-              drawHelpLinesCanvas();
-            }
+            // Player mode: always show canvas rendering
+            helpContent.style.display = 'none';
+            helpCanvas.style.display = 'block';
+            drawHelpLinesCanvas();
           }
         }
         return;
       }
       if(action === 'prev'){
-        // Save current help_lines if in editor mode
-        if(window.editorMode){
-          saveHelpLines();
-          saveTask();
-        }
+        // Player mode: no help_lines save needed
         loadTask(window.currentTaskIndex-1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -2709,7 +2472,7 @@
           const commentLabel = document.getElementById('settings-comment-label');
           if(window.currentTask && taskComment){
             const taskId = window.currentTask.id;
-            const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+            const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
             if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
           }
@@ -2722,36 +2485,16 @@
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
-            if(window.editorMode){
-              // Show editable version in editor mode
-              helpContent.style.display = 'block';
-              helpCanvas.style.display = 'none';
-              const text = window.currentTask.help_lines.join('\n');
-              helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-              setupHelpLinesEditor();
-            } else {
-              // Show canvas rendering in task mode
-              helpContent.style.display = 'none';
-              helpCanvas.style.display = 'block';
-              drawHelpLinesCanvas();
-            }
+            // Player mode: always show canvas rendering
+            helpContent.style.display = 'none';
+            helpCanvas.style.display = 'block';
+            drawHelpLinesCanvas();
           }
         }
         return;
       }
       if(action === 'check'){
-        // Cleanup task in editor mode before evaluation
-        if(window.editorMode && window.cleanupTaskForEvaluation){
-          const cleanup = window.cleanupTaskForEvaluation();
-          if(cleanup.message){
-            console.log('Cleanup messages:', cleanup.message);
-          }
-        }
-        // Validate and save solution forces in editor mode
-        if(window.editorMode && window.validateSolutionForces){
-          window.validateSolutionForces();
-          window.saveSolutionForces();
-        }
+        // Player mode: skip validation and cleanup
         // Save current forces before evaluating
         saveTaskForces();
         runEvaluation();
@@ -2815,19 +2558,10 @@
         const helpTitle = document.getElementById('help-title');
         if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
         if(helpContent && helpCanvas && window.currentTask.help_lines){
-          if(window.editorMode){
-            // Show editable version in editor mode
-            helpContent.style.display = 'block';
-            helpCanvas.style.display = 'none';
-            const text = window.currentTask.help_lines.join('\n');
-            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
-            setupHelpLinesEditor();
-          } else {
-            // Show canvas rendering in task mode
-            helpContent.style.display = 'none';
-            helpCanvas.style.display = 'block';
-            drawHelpLinesCanvas();
-          }
+          // Player mode: always show canvas rendering
+          helpContent.style.display = 'none';
+          helpCanvas.style.display = 'block';
+          drawHelpLinesCanvas();
         }
         helpPanel.classList.remove('hidden');
         return;
@@ -2852,7 +2586,7 @@
         // Load current task comment
         if(window.currentTask && taskComment){
           const taskId = window.currentTask.id;
-          const commentText = (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
+          const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
           taskComment.value = commentText;
           if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
         }
@@ -2903,6 +2637,26 @@
   if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
   if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
   if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }
+  
+  // Task comment handler - save only in task.comment
+  const taskCommentInput = document.getElementById('settings-task-comment');
+  if(taskCommentInput){
+    taskCommentInput.addEventListener('input', ()=>{
+      if(!window.currentTask) return;
+      const commentText = taskCommentInput.value;
+      
+      // Save to task object only (no separate taskComments storage)
+      window.currentTask.comment = commentText;
+      
+      // Persist task to localStorage
+      try{
+        localStorage.setItem(`tk_task_${window.currentTask.id}`, JSON.stringify(window.currentTask));
+      } catch(err){
+        console.warn('Could not save comment:', err);
+      }
+    });
+  }
+  
   const btnSaveTask = document.getElementById('btn-save-task');
   const btnNewTask = document.getElementById('btn-new-task');
   const btnDeleteForce = document.getElementById('btn-delete-force');
@@ -3629,23 +3383,67 @@
   // Taskset upload for player mode
   const tasksetUploadBtn = document.getElementById('settings-upload-taskset');
   const tasksetUploadModal = document.getElementById('taskset-upload-modal');
+  const tasksetSelect = document.getElementById('taskset-select');
   const tasksetUploadInput = document.getElementById('taskset-upload-file-input');
   const tasksetUploadConfirm = document.getElementById('taskset-upload-confirm');
   const tasksetUploadCancel = document.getElementById('taskset-upload-cancel');
   const tasksetUploadClose = document.getElementById('taskset-upload-close');
   const tasksetUploadError = document.getElementById('taskset-upload-error');
+  const tasksetFileSelected = document.getElementById('taskset-file-selected');
+
+  // Store pending taskset data (selected but not yet uploaded)
+  let pendingTasksetData = null;
+  let pendingTasksetName = '';
 
   if(tasksetUploadBtn){
     tasksetUploadBtn.addEventListener('click', ()=>{
       tasksetUploadError.style.display = 'none';
       tasksetUploadError.textContent = '';
+      tasksetFileSelected.style.display = 'none';
+      tasksetFileSelected.textContent = '';
+      tasksetSelect.value = '';
+      tasksetUploadInput.value = '';
+      pendingTasksetData = null;
+      pendingTasksetName = '';
+      tasksetUploadConfirm.disabled = true;
       if(tasksetUploadModal) tasksetUploadModal.classList.remove('hidden');
     });
   }
 
-  if(tasksetUploadConfirm){
-    tasksetUploadConfirm.addEventListener('click', ()=>{
-      tasksetUploadInput.click();
+  // Handle selection from localStorage
+  if(tasksetSelect){
+    tasksetSelect.addEventListener('change', (e)=>{
+      const key = e.target.value;
+      tasksetUploadError.style.display = 'none';
+      tasksetUploadError.textContent = '';
+      tasksetFileSelected.style.display = 'none';
+      tasksetFileSelected.textContent = '';
+      tasksetUploadInput.value = '';
+      pendingTasksetData = null;
+      pendingTasksetName = '';
+      tasksetUploadConfirm.disabled = true;
+
+      if(!key) return; // No selection
+
+      try {
+        const data = JSON.parse(localStorage.getItem(key));
+        const selectedIds = data.taskIds || [];
+
+        if (selectedIds.length === 0) {
+          tasksetUploadError.textContent = 'Advarsel: oppgavesett er tomt (ingen oppgaver)';
+          tasksetUploadError.style.display = 'block';
+          return;
+        }
+
+        // Store data for when user clicks "Last opp"
+        pendingTasksetData = data;
+        pendingTasksetName = key.replace('taskset_', '');
+        tasksetUploadConfirm.disabled = false;
+      } catch (err) {
+        tasksetUploadError.textContent = 'Feil ved lesing av oppgavesett: ' + err.message;
+        tasksetUploadError.style.display = 'block';
+        console.error('Error loading taskset:', err);
+      }
     });
   }
 
@@ -3677,6 +3475,7 @@
     });
   }
 
+  // Handle file upload - shows filename with task count
   if(tasksetUploadInput){
     tasksetUploadInput.addEventListener('change', (e)=>{
       const file = e.target.files?.[0];
@@ -3699,57 +3498,141 @@
             throw new Error('Ugyldig fil: oppgaver mangler id');
           }
 
-          // Clear current tasks and scores
-          window.TASKS = [];
-          window.taskScores = {};
-          window.taskComments = {};
-          window.currentTaskIndex = 0;
+          // Clear selection from localStorage
+          if(tasksetSelect) tasksetSelect.value = '';
 
-          // Add imported tasks
-          tasksToImport.forEach(task => {
-            window.TASKS.push(task);
-            // Save to localStorage (scene/task data only, no forces)
-            try{
-              localStorage.setItem(`tk_task_${task.id}`, JSON.stringify(task));
-            } catch(err){
-              console.warn(`Could not save task ${task.id}:`, err);
-            }
-            
-            // Clear any existing forces for this task from localStorage
-            try{
-              localStorage.removeItem(`tk_forces_${task.id}`);
-            } catch(err){
-              console.warn(`Could not clear forces for ${task.id}:`, err);
-            }
-          });
+          // Clear any error messages
+          tasksetUploadError.style.display = 'none';
+          tasksetUploadError.textContent = '';
 
-          // Save state
-          try{
-            localStorage.setItem('tk_savedTasks', JSON.stringify(window.TASKS));
-            localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores));
-            localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments));
-            localStorage.setItem('tk_currentTaskIndex', '0');
-          } catch(err){
-            console.warn('Could not save to localStorage:', err);
-          }
+          // Show filename and task count in same style as localStorage selector
+          const fileName = file.name.replace('.json', '');
+          tasksetFileSelected.textContent = `${fileName} - ${tasksToImport.length} oppgaver`;
+          tasksetFileSelected.style.display = 'block';
 
-          // Update UI
-          updateUserDisplay();
-
-          // Close modal and load first task
-          tasksetUploadModal.classList.add('hidden');
-          loadTask(0);
-
-          alert(`✅ Oppgavesett lastet opp!\n\n${tasksToImport.length} oppgaver importert.\nProgresjon nullstilt.`);
+          // Store data for when user clicks "Last opp"
+          pendingTasksetData = tasksToImport;
+          pendingTasksetName = fileName;
+          tasksetUploadConfirm.disabled = false;
         } catch(err){
           tasksetUploadError.textContent = 'Feil: ' + err.message;
           tasksetUploadError.style.display = 'block';
+          tasksetFileSelected.style.display = 'none';
+          tasksetFileSelected.textContent = '';
+          pendingTasksetData = null;
+          pendingTasksetName = '';
+          tasksetUploadConfirm.disabled = true;
           console.error('Taskset import error:', err);
         }
       };
       reader.readAsText(file);
-      // Reset file input
-      e.target.value = '';
+    });
+  }
+
+  // Handle "Last opp" button - actually loads the taskset
+  if(tasksetUploadConfirm){
+    tasksetUploadConfirm.addEventListener('click', ()=>{
+      if(!pendingTasksetData){
+        tasksetUploadError.textContent = 'Feil: Ingen oppgavesett valgt';
+        tasksetUploadError.style.display = 'block';
+        return;
+      }
+
+      try {
+        let tasksToImport = [];
+
+        // Check if it's from localStorage (has taskIds) or from file (is array of tasks)
+        if(Array.isArray(pendingTasksetData)){
+          // File upload - direct array of tasks
+          tasksToImport = pendingTasksetData;
+        } else if(pendingTasksetData.taskIds){
+          // localStorage selection - need to load tasks by ID
+          const selectedIds = pendingTasksetData.taskIds || [];
+          tasksToImport = selectedIds
+            .map(id => {
+              const taskKey = `tk_task_${id}`;
+              const taskData = localStorage.getItem(taskKey);
+              if(taskData){
+                try {
+                  return JSON.parse(taskData);
+                } catch {
+                  return null;
+                }
+              }
+              return null;
+            })
+            .filter(t => t !== null);
+        }
+
+        if(tasksToImport.length === 0){
+          throw new Error('Ingen gyldige oppgaver funnet');
+        }
+
+        // Clear current tasks and scores
+        window.TASKS = [];
+        window.taskScores = {};
+        window.taskComments = {};
+        window.currentTaskIndex = 0;
+
+        // Clean up all old tk_forces_* and tk_task_* keys from localStorage
+        // This prevents leftover forces from previous tasksets from appearing
+        const keysToRemove = [];
+        for(let i = 0; i < localStorage.length; i++){
+          const key = localStorage.key(i);
+          if(key && (key.startsWith('tk_forces_') || key.startsWith('tk_task_'))){
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key);
+          } catch(err) {
+            console.warn(`Could not remove ${key}:`, err);
+          }
+        });
+
+        // Add imported tasks
+        tasksToImport.forEach(task => {
+          // Ensure help_lines exists (for player mode help panel)
+          if(!task.help_lines || !Array.isArray(task.help_lines)){
+            task.help_lines = [];
+          }
+          // Remove comments (they are developer notes, not part of task spec)
+          delete task.comment;
+          window.TASKS.push(task);
+          // Save to localStorage (scene/task data only, no forces)
+          try{
+            localStorage.setItem(`tk_task_${task.id}`, JSON.stringify(task));
+          } catch(err){
+            console.warn(`Could not save task ${task.id}:`, err);
+          }
+        });
+
+        // Save state
+        try{
+          localStorage.setItem('tk_savedTasks', JSON.stringify(window.TASKS.map(t => t.id)));
+          localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores));
+          localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments));
+          localStorage.setItem('tk_currentTaskIndex', '0');
+        } catch(err){
+          console.warn('Could not save to localStorage:', err);
+        }
+
+        // Update UI
+        updateUserDisplay();
+
+        // Close modal and load first task
+        tasksetUploadModal.classList.add('hidden');
+        loadTask(0);
+        
+        // Reset state
+        pendingTasksetData = null;
+        pendingTasksetName = '';
+      } catch(err){
+        tasksetUploadError.textContent = 'Feil: ' + err.message;
+        tasksetUploadError.style.display = 'block';
+        console.error('Taskset load error:', err);
+      }
     });
   }
 
@@ -3811,8 +3694,6 @@
       const helpContent = document.getElementById('help-content');
       if(helpContent) helpContent.innerHTML = '';
     }
-    // Update scene panel to reflect new task
-    updateScenePanel();
     alert('Full reset utført.');
   }
 

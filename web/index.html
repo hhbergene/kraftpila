@@ -26,7 +26,7 @@
     </div>
     <!-- Canvas scroll container -->
     <div id="canvas-container">
-      <canvas id="app-canvas" width="1000" height="640"></canvas>
+      <canvas id="app-canvas"></canvas>
     </div>
     <!-- Conflict modal dialog -->
     <div id="conflict-modal" class="hidden modal">
@@ -97,10 +97,13 @@
           <textarea id="settings-task-comment" placeholder="Skriv kommentar..." style="flex:1; padding:6px 8px; font-size:13px; border:1px solid #888; border-radius:4px; resize:vertical; min-height:60px; font-family:inherit;"></textarea>
         </label>
         <div class="settings-divider"></div>
+        <div style="background:#e8f4f8; padding:12px; border-radius:4px; margin-bottom:16px; font-size:13px; line-height:1.5; color:#333;">
+          <strong>Lagring:</strong> Alle kreftene og instillingene blir lagret i localStorage, men kan nullstilles av browser. Ta backup for å sikre progresjonen eller levere fil med svar til lærer.
+        </div>
         <div class="settings-buttons">
-          <button id="settings-download" title="Download innstillinger">Last ned</button>
-          <button id="settings-restore" title="Last opp innstillinger">Gjenopprett</button>
-          <button id="settings-upload-taskset" title="Last opp oppgavesett">Last opp oppgavesett</button>
+          <button id="settings-download" title="Download innstillinger">Last ned backup</button>
+          <button id="settings-restore" title="Last opp innstillinger">Gjenopprett fra backup</button>
+          <button id="settings-upload-taskset" title="Last opp oppgavesett">Last opp oppgavesett fra lærer</button>
           <input type="file" id="settings-file-input" accept=".json" style="display:none;" />
           <input type="file" id="taskset-upload-input" accept=".json" style="display:none;" />
         </div>
@@ -115,10 +118,23 @@
           ⚠️ <strong>Advarsel:</strong> Dette nullstiller gjeldende progresjon og laster inn nytt oppgavesett.
         </div>
         <div id="taskset-upload-error" style="background:#f8d7da; color:#721c24; padding:12px; border-radius:4px; margin-bottom:16px; display:none; font-size:13px;"></div>
-        <input type="file" id="taskset-upload-file-input" accept=".json" style="display:block; margin-bottom:16px; padding:8px; border:1px solid #ccc; border-radius:4px; width:100%; box-sizing:border-box;" />
+        
+        <div id="taskset-localStorage-section" style="margin-bottom:16px;">
+          <label style="display:block; margin-bottom:8px; font-weight:bold; font-size:14px;">Velg oppgavesett fra lagring:</label>
+          <select id="taskset-select" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px; box-sizing:border-box;">
+            <option value="">-- Ingen oppgavesett valgt --</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block; margin-bottom:8px; font-weight:bold; font-size:14px;">Last opp fra fil:</label>
+          <input type="file" id="taskset-upload-file-input" accept=".json" style="display:block; padding:8px; border:1px solid #ccc; border-radius:4px; width:100%; box-sizing:border-box;" />
+          <div id="taskset-file-selected" style="margin-top:8px; font-size:13px; color:#555; display:none;"></div>
+        </div>
+        
         <div style="display:flex; gap:8px; justify-content:flex-end;">
           <button id="taskset-upload-cancel" style="padding:8px 16px; background:#999; color:white; border:none; border-radius:4px; cursor:pointer;">Avbryt</button>
-          <button id="taskset-upload-confirm" style="padding:8px 16px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer;">Last opp</button>
+          <button id="taskset-upload-confirm" style="padding:8px 16px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer;" disabled>Last opp</button>
         </div>
       </div>
     </div>

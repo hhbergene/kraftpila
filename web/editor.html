@@ -25,7 +25,7 @@
     </div>
     <!-- Canvas scroll container -->
     <div id="canvas-container">
-      <canvas id="app-canvas" width="1000" height="640"></canvas>
+      <canvas id="app-canvas"></canvas>
     </div>
     <!-- Editor mode buttons panel (always visible in editor) -->
     <div id="editor-buttons">
@@ -60,6 +60,17 @@
           <h3>Scene</h3>
         </div>
         <div id="scene-items" class="scene-items"></div>
+      </div>
+    </div>
+
+    <!-- Feedback panel (left side) -->
+    <div id="feedback-panel" class="hidden">
+      <div id="feedback-score"></div>
+      <div id="feedback-text"></div>
+      <div id="feedback-nav">
+        <button id="fb-prev" title="Forrige">◀</button>
+        <span id="fb-count"></span>
+        <button id="fb-next" title="Neste">▶</button>
       </div>
     </div>
 
@@ -130,6 +141,16 @@
         <button id="settings-save">Lagre</button>
         <button id="settings-cancel">Avbryt</button>
       </div>
+    </div>
+
+    <!-- Help panel for editing task help_lines -->
+    <div id="help-panel" class="hidden">
+      <div class="help-header">
+        <h3 id="help-title">Hjelp</h3>
+        <button id="help-close" title="Lukk">✖</button>
+      </div>
+      <div id="help-content"></div>
+      <canvas id="help-canvas" style="display:none;"></canvas>
     </div>
 
     <!-- Settings panel overlay (right side) for editor -->

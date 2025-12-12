@@ -896,7 +896,9 @@
    * Displays score via window.showFeedback() or fallback to DOM element
    */
   function runEvaluation(){
-    if(!window.currentTask || !window.fm) return;
+    if(!window.currentTask || !window.fm){
+      return;
+    }
     const forceResults = evalForces(window.currentTask, window.fm.forces);
     const relationResults = evalRelations(window.currentTask, forceResults);
     const summary = computeScores(window.currentTask, forceResults, relationResults, window.fm.forces);

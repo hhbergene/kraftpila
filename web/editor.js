@@ -12,6 +12,9 @@
 // Enable editor mode for this file
 window.editorMode = true;
 
+// Initialize empty tasks array (will be populated from localStorage)
+window.tasks = [];
+
 (function(){
     // Canvas init =====
   const canvas = document.getElementById('app-canvas');
@@ -832,6 +835,15 @@ window.editorMode = true;
     if(!task || !task.initialForces) {
       return;
     }
+    
+    // Remove any existing initialForces (non-moveable forces) to avoid duplicates
+    if(window.fm && window.fm.forces){
+      window.fm.forces = window.fm.forces.filter(f => {
+        // Keep moveable forces (expected) and blank forces
+        return f.moveable !== false && (f.anchor !== null || f.arrowBase !== null || f.arrowTip !== null || !f.name);
+      });
+    }
+    
     const hadInitialBlank = (window.fm.forces.length===1 && !window.fm.forces[0].anchor && !window.fm.forces[0].arrowBase && !window.fm.forces[0].arrowTip);
     task.initialForces.forEach(spec => {
       // Build geometry from anchorFrom rect point + direction & length
@@ -942,7 +954,7 @@ window.editorMode = true;
     if(helpBtn && window.currentTask){
       const span = helpBtn.querySelector('span');
       if(span){
-        let btnText = 'Oppgave ' + window.currentTask.id;
+        let btnText = 'Oppgave ' + (window.currentTask.taskTitle || window.currentTask.id);
         // Add score if available
         const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
         if(taskScore && typeof taskScore.score === 'number'){
@@ -1419,30 +1431,139 @@ window.editorMode = true;
     updatePanelHeights();
   };
 
+  // Generate unique task ID
+  function generateUniqueTaskId() {
+    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  const NEW_ID_PATTERN = /^task_\d{13}_[a-z0-9]{9}$/;
+  function isNewStyleId(id){
+    return typeof id === 'string' && NEW_ID_PATTERN.test(id);
+  }
+
+  function normalizeTaskMeta(task){
+    if(!task) return task;
+    // Normalize title fields
+    const title = task.taskTitle || task.title;
+    if(title && !task.taskTitle) task.taskTitle = title;
+    if(title && !task.title) task.title = title;
+    // Normalize subtitle fields
+    const sub = task.taskSubTitle || task.subTitle;
+    if(sub && !task.taskSubTitle) task.taskSubTitle = sub;
+    if(sub && !task.subTitle) task.subTitle = sub;
+    return task;
+  }
+
+  // One-time migration: convert legacy tasks (old IDs) into new IDs and migrate related storage
+  function migrateLegacyTasks(){
+    const taskKeys = [];
+    const forcesKeys = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(!key) continue;
+      if(key.startsWith('editor_task_')) taskKeys.push(key);
+      if(key.startsWith('editor_forces_')) forcesKeys.push(key);
+    }
+
+    let taskOrder = [];
+    let savedTasks = [];
+    try { taskOrder = JSON.parse(localStorage.getItem('editor_taskOrder') || '[]'); } catch {}
+    try { savedTasks = JSON.parse(localStorage.getItem('editor_savedTasks') || '[]'); } catch {}
+
+    const migrated = [];
+    taskKeys.forEach(taskKey => {
+      try {
+        const taskData = JSON.parse(localStorage.getItem(taskKey));
+        if(!taskData || !taskData.id || isNewStyleId(taskData.id)) return;
+
+        const oldId = taskData.id;
+        const newId = generateUniqueTaskId();
+        const oldTitle = taskData.taskTitle || '';
+
+        // Promote old ID to title and old title to subtitle
+        const migratedTask = { ...taskData, id: newId, taskTitle: oldId, taskSubTitle: oldTitle };
+
+        localStorage.setItem(`editor_task_${newId}`, JSON.stringify(migratedTask));
+        localStorage.removeItem(taskKey);
+
+        // Migrate forces one-to-one and remove legacy entry
+        const oldForcesKey = `editor_forces_${oldId}`;
+        const newForcesKey = `editor_forces_${newId}`;
+        const oldForcesData = localStorage.getItem(oldForcesKey);
+        if(oldForcesData && !localStorage.getItem(newForcesKey)){
+          localStorage.setItem(newForcesKey, oldForcesData);
+        }
+        if(oldForcesData) localStorage.removeItem(oldForcesKey);
+
+        // Update stored lists to point at the new ID
+        const replaceId = (list, from, to) => {
+          if(!Array.isArray(list)) return false;
+          let changed = false;
+          for(let i = 0; i < list.length; i++){
+            if(list[i] === from){
+              list[i] = to;
+              changed = true;
+            }
+          }
+          return changed;
+        };
+
+        replaceId(taskOrder, oldId, newId);
+        replaceId(savedTasks, oldId, newId);
+
+        migrated.push({ oldId, newId });
+      } catch(e) {
+        console.warn(`Legacy migration skipped for ${taskKey}:`, e.message);
+      }
+    });
+
+    if(!migrated.length) return;
+
+    // Deduplicate lists after replacement
+    const dedupe = (list) => Array.from(new Set(Array.isArray(list) ? list.filter(Boolean) : []));
+    taskOrder = dedupe(taskOrder);
+    savedTasks = dedupe(savedTasks);
+
+    try { localStorage.setItem('editor_taskOrder', JSON.stringify(taskOrder)); } catch {}
+    try { localStorage.setItem('editor_savedTasks', JSON.stringify(savedTasks)); } catch {}
+
+    console.group('🔄 Migrated legacy editor tasks');
+    migrated.forEach(({oldId, newId}) => {
+      console.log(`${oldId} → ${newId}`);
+    });
+    console.groupEnd();
+  }
+
   function loadTask(index){
-    if(!window.TASKS || !window.TASKS.length) {
+    if(!window.tasks || !window.tasks.length) {
       return;
     }
-    window.currentTaskIndex = (index + window.TASKS.length) % window.TASKS.length;
+    window.currentTaskIndex = (index + window.tasks.length) % window.tasks.length;
+    const task = normalizeTaskMeta(window.tasks[window.currentTaskIndex]);
     // NEW: persist current task index
     try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
     
     // Check if task already exists in localStorage - if so, load ONLY from localStorage
-    const taskId = window.TASKS[window.currentTaskIndex].id;
+    const taskId = window.tasks[window.currentTaskIndex].id;
     const taskStorageKey = `editor_task_${taskId}`;
     const savedTaskData = localStorage.getItem(taskStorageKey);
     
     if(savedTaskData){
       // Task has been edited before - load completely from localStorage
       try {
-        window.currentTask = JSON.parse(savedTaskData);
+        window.currentTask = normalizeTaskMeta(JSON.parse(savedTaskData));
       } catch {
         // Fallback to default task if parse fails
-        window.currentTask = window.TASKS[window.currentTaskIndex];
+        window.currentTask = task;
       }
     } else {
-      // First time loading this task - use default from TASKS
-      window.currentTask = window.TASKS[window.currentTaskIndex];
+      // First time loading this task - use default from tasks
+      window.currentTask = task;
+    }
+
+    // Keep array entry in sync after normalization
+    if(window.tasks && window.currentTaskIndex !== undefined){
+      window.tasks[window.currentTaskIndex] = window.currentTask;
     }
     
     // Use ALL points for highlighting/hovering (includes segments, arrows, etc.)
@@ -1552,13 +1673,13 @@ window.editorMode = true;
         if(!taskData) continue;
         
         try {
-          const savedTask = JSON.parse(taskData);
+          const savedTask = normalizeTaskMeta(JSON.parse(taskData));
           // Find and replace existing task with same ID, or add new one
-          const existingIdx = window.TASKS.findIndex(t => t.id === taskId);
+          const existingIdx = window.tasks.findIndex(t => t.id === taskId);
           if(existingIdx >= 0){
-            window.TASKS[existingIdx] = savedTask;
+            window.tasks[existingIdx] = savedTask;
           } else {
-            window.TASKS.push(savedTask);
+            window.tasks.push(savedTask);
           }
         } catch {}
       }
@@ -1568,12 +1689,12 @@ window.editorMode = true;
   // Save task order to localStorage
   function saveTaskOrder(){
     try {
-      const taskOrder = window.TASKS.map(t => t.id);
+      const taskOrder = window.tasks.map(t => t.id);
       localStorage.setItem('editor_taskOrder', JSON.stringify(taskOrder));
     } catch {}
   }
 
-  // Load and apply task order from localStorage, append new tasks from tasks.js
+  // Load and apply task order from localStorage
   function loadTaskOrder(){
     try {
       const saved = localStorage.getItem('editor_taskOrder');
@@ -1582,23 +1703,33 @@ window.editorMode = true;
       const savedOrder = JSON.parse(saved);
       
       // Create map of all current tasks
-      const taskMap = new Map(window.TASKS.map(t => [t.id, t]));
+      const taskMap = new Map(window.tasks.map(t => [t.id, t]));
       
-      // Rebuild TASKS array: apply saved order, then append new tasks
+      // Rebuild tasks array: apply saved order, then append new tasks
       const orderedTasks = [];
+      const validIds = []; // Track which IDs from savedOrder are valid
       for(const id of savedOrder){
         if(taskMap.has(id)){
           orderedTasks.push(taskMap.get(id));
+          validIds.push(id);
           taskMap.delete(id); // Mark as used
         }
+        // Skip IDs that don't exist in current tasks (these are old/renamed IDs)
       }
       
-      // Append remaining tasks (new ones from tasks.js)
+      // Append remaining tasks (new ones, if any)
       for(const task of taskMap.values()){
         orderedTasks.push(task);
       }
       
-      window.TASKS = orderedTasks;
+      // Only update window.tasks if there were changes
+      window.tasks = orderedTasks;
+      
+      // Clean up taskOrder - remove IDs that no longer exist
+      // This prevents old IDs from accumulating
+      if(validIds.length !== savedOrder.length){
+        localStorage.setItem('editor_taskOrder', JSON.stringify(validIds));
+      }
     } catch {}
   }
   
@@ -1855,7 +1986,343 @@ window.editorMode = true;
 
   // Solution forces removed - use editor.js for editor mode
 
+  // Debug/Cleanup: Analyze localStorage structure for editor mode
+  window.analyzeEditorStorage = function() {
+    console.group('📋 Editor Mode Storage Analysis');
+    
+    // Collect all editor_* keys
+    const editorKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('editor_')) {
+        editorKeys.push(key);
+      }
+    }
+    
+    console.log(`Found ${editorKeys.length} editor_* entries in localStorage:`);
+    editorKeys.sort().forEach(key => console.log(`  - ${key}`));
+    
+    // Separate by type
+    const taskKeys = editorKeys.filter(k => k.startsWith('editor_task_'));
+    const forcesKeys = editorKeys.filter(k => k.startsWith('editor_forces_'));
+    const other = editorKeys.filter(k => !k.startsWith('editor_task_') && !k.startsWith('editor_forces_'));
+    
+    console.log(`\n📦 Breakdown:`);
+    console.log(`  Tasks (editor_task_*): ${taskKeys.length}`);
+    console.log(`  Forces (editor_forces_*): ${forcesKeys.length}`);
+    console.log(`  Other: ${other.length}`, other);
+    
+    // Check for orphaned forces (forces without matching task)
+    console.log(`\n🔍 Orphaned Forces Detection:`);
+    const taskIds = new Set(taskKeys.map(k => k.replace('editor_task_', '')));
+    const orphanedForces = forcesKeys.filter(k => {
+      const forceId = k.replace('editor_forces_', '');
+      return !taskIds.has(forceId);
+    });
+    
+    if (orphanedForces.length > 0) {
+      console.warn(`  Found ${orphanedForces.length} orphaned forces:`);
+      orphanedForces.forEach(key => {
+        const forceId = key.replace('editor_forces_', '');
+        console.warn(`    - ${key} (orphaned - no matching editor_task_${forceId})`);
+      });
+    } else {
+      console.log(`  ✓ No orphaned forces found`);
+    }
+    
+    // Check for missing forces (tasks without matching forces)
+    console.log(`\n🔍 Tasks Without Forces:`);
+    const forcesIds = new Set(forcesKeys.map(k => k.replace('editor_forces_', '')));
+    const tasksWithoutForces = taskKeys.filter(k => {
+      const taskId = k.replace('editor_task_', '');
+      return !forcesIds.has(taskId);
+    });
+    
+    if (tasksWithoutForces.length > 0) {
+      console.log(`  Found ${tasksWithoutForces.length} tasks without forces:`);
+      tasksWithoutForces.forEach(key => {
+        const taskId = key.replace('editor_task_', '');
+        console.log(`    - ${key} (no editor_forces_${taskId})`);
+      });
+    }
+    
+    // Check current task structure
+    console.log(`\n📝 Current Tasks Structure:`);
+    taskKeys.forEach(key => {
+      const taskId = key.replace('editor_task_', '');
+      try {
+        const taskData = JSON.parse(localStorage.getItem(key));
+        console.log(`  ${key}:`);
+        console.log(`    - id: "${taskData.id}"`);
+        console.log(`    - taskTitle: "${taskData.taskTitle || '(empty)'}"`);
+        console.log(`    - taskSubTitle: "${taskData.taskSubTitle || '(empty)'}"`);
+        console.log(`    - Has forces key: ${'editor_forces_' + taskData.id in localStorage ? 'YES' : 'NO'}`);
+        
+        // Check if forces exist at both old and new location
+        const oldForcesKey = `editor_forces_${taskId}`;
+        const newForcesKey = `editor_forces_${taskData.id}`;
+        const oldExists = localStorage.getItem(oldForcesKey) !== null;
+        const newExists = localStorage.getItem(newForcesKey) !== null;
+        
+        if (oldExists || newExists) {
+          console.log(`    - Forces locations:`);
+          if (oldExists) console.log(`      * Old: ${oldForcesKey} ✓`);
+          if (newExists) console.log(`      * New: ${newForcesKey} ✓`);
+          if (oldExists && newExists && oldForcesKey !== newForcesKey) {
+            console.warn(`      ⚠️  MISMATCH: Forces exist at both locations!`);
+          }
+        }
+      } catch (e) {
+        console.error(`    Error parsing ${key}:`, e.message);
+      }
+    });
+    
+    // Show forces content
+    console.log(`\n⚡ Forces Data:`);
+    forcesKeys.forEach(key => {
+      try {
+        const forcesData = JSON.parse(localStorage.getItem(key));
+        console.log(`  ${key}: ${Array.isArray(forcesData) ? forcesData.length + ' forces' : 'invalid'}`);
+      } catch (e) {
+        console.error(`    Error parsing ${key}:`, e.message);
+      }
+    });
+    
+    console.groupEnd();
+  };
+
+  // Cleanup: Merge/migrate orphaned old forces to new task IDs
+  window.cleanupEditorStorage = function() {
+    console.group('🧹 Editor Storage Cleanup');
+    
+    // Collect all editor_* keys
+    const editorKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('editor_')) {
+        editorKeys.push(key);
+      }
+    }
+    
+    const taskKeys = editorKeys.filter(k => k.startsWith('editor_task_'));
+    const forcesKeys = editorKeys.filter(k => k.startsWith('editor_forces_'));
+    
+    // Load all current tasks with their actual IDs
+    const currentTasks = {};
+    taskKeys.forEach(key => {
+      try {
+        const taskData = JSON.parse(localStorage.getItem(key));
+        if (taskData && taskData.id) {
+          currentTasks[taskData.id] = {
+            storageKey: key,
+            oldKeyId: key.replace('editor_task_', ''),
+            taskData: taskData
+          };
+        }
+      } catch (e) {
+        console.error(`Error reading ${key}:`, e.message);
+      }
+    });
+    
+    console.log(`Found ${Object.keys(currentTasks).length} valid tasks with current IDs`);
+    
+    // Helper: Create a signature of scene elements (ignoring text and metadata)
+    function getSceneSignature(scene) {
+      if (!scene) return null;
+      
+      const sig = {
+        origin: scene.origin ? JSON.stringify(scene.origin) : null,
+        plane: scene.plane ? JSON.stringify(scene.plane) : null,
+        rects: scene.rects ? JSON.stringify(scene.rects) : null,
+        circles: scene.circles ? JSON.stringify(scene.circles) : null,
+        ellipses: scene.ellipses ? JSON.stringify(scene.ellipses) : null,
+        segments: scene.segments ? JSON.stringify(scene.segments) : null,
+        arrows: scene.arrows ? JSON.stringify(scene.arrows) : null,
+        // NOTE: Deliberately excluding texts, help_lines, and other metadata
+      };
+      return JSON.stringify(sig);
+    }
+    
+    // Find duplicate tasks (same scene, different metadata/text)
+    const sceneSignatures = {};
+    const duplicates = [];
+    
+    Object.entries(currentTasks).forEach(([id, taskInfo]) => {
+      const sig = getSceneSignature(taskInfo.taskData.scene);
+      
+      if (sig) {
+        if (!sceneSignatures[sig]) {
+          sceneSignatures[sig] = [];
+        }
+        sceneSignatures[sig].push({
+          id: id,
+          storageKey: taskInfo.storageKey,
+          taskTitle: taskInfo.taskData.taskTitle || '(empty)',
+          taskSubTitle: taskInfo.taskData.taskSubTitle || '(empty)',
+          helpLinesCount: (taskInfo.taskData.help_lines || []).length,
+          fullData: taskInfo.taskData
+        });
+      }
+    });
+    
+    // Report duplicates
+    Object.entries(sceneSignatures).forEach(([sig, tasks]) => {
+      if (tasks.length > 1) {
+        duplicates.push(tasks);
+      }
+    });
+    
+    console.log(`\n🔀 Duplicate Detection (same scene, different metadata):`);
+    if (duplicates.length > 0) {
+      console.warn(`Found ${duplicates.length} groups of duplicates:`);
+      duplicates.forEach((group, groupIdx) => {
+        console.group(`  Group ${groupIdx + 1}: ${group.length} tasks with identical scene`);
+        group.forEach((task, idx) => {
+          const isFirst = idx === 0;
+          console.log(`    ${isFirst ? '✓ KEEP' : '✗ DELETE'}: ${task.storageKey}`);
+          console.log(`      ID: ${task.id}`);
+          console.log(`      Title: "${task.taskTitle}"`);
+          console.log(`      SubTitle: "${task.taskSubTitle}"`);
+          console.log(`      Help lines: ${task.helpLinesCount}`);
+        });
+        console.groupEnd();
+      });
+    } else {
+      console.log(`✓ No duplicates found`);
+    }
+    
+    // Check for orphaned forces
+    const forcesToMigrate = [];
+    const forcesToDelete = [];
+    
+    forcesKeys.forEach(forcesKey => {
+      const forcesKeyId = forcesKey.replace('editor_forces_', '');
+      const hasMatchingTask = Object.values(currentTasks).some(t => t.taskData.id === forcesKeyId);
+      
+      if (!hasMatchingTask) {
+        // This forces entry is orphaned, check if any task has an old ID matching this forces ID
+        let foundMatch = false;
+        
+        Object.entries(currentTasks).forEach(([currentId, taskInfo]) => {
+          if (taskInfo.oldKeyId === forcesKeyId && currentId !== forcesKeyId) {
+            // Found a task that was migrated to new ID
+            foundMatch = true;
+            const newForcesKey = `editor_forces_${currentId}`;
+            const existingNewForces = localStorage.getItem(newForcesKey);
+            
+            if (!existingNewForces) {
+              // New location doesn't exist, migrate it
+              forcesToMigrate.push({
+                oldKey: forcesKey,
+                newKey: newForcesKey,
+                oldId: forcesKeyId,
+                newId: currentId,
+                taskTitle: taskInfo.taskData.taskTitle
+              });
+            } else {
+              // New location exists, delete old
+              forcesToDelete.push(forcesKey);
+            }
+          }
+        });
+        
+        if (!foundMatch) {
+          // Completely orphaned, no matching task at all
+          forcesToDelete.push(forcesKey);
+        }
+      }
+    });
+    
+    // Report migrations needed
+    if (forcesToMigrate.length > 0) {
+      console.log(`\n🔄 Forces to Migrate:`);
+      forcesToMigrate.forEach(item => {
+        console.log(`  ${item.oldKey}`);
+        console.log(`    → ${item.newKey}`);
+        console.log(`    Task: "${item.taskTitle}" (${item.newId})`);
+      });
+    }
+    
+    // Report deletions needed
+    if (forcesToDelete.length > 0) {
+      console.log(`\n🗑️  Forces to Delete (orphaned):`);
+      forcesToDelete.forEach(key => {
+        const forceId = key.replace('editor_forces_', '');
+        console.log(`  ${key} (no matching task found)`);
+      });
+    }
+    
+    if (forcesToMigrate.length === 0 && forcesToDelete.length === 0) {
+      console.log(`✓ No cleanup needed - storage is clean`);
+    }
+    
+    console.groupEnd();
+    
+    return {
+      taskCount: Object.keys(currentTasks).length,
+      duplicateGroups: duplicates.map((group, idx) => ({
+        groupIndex: idx + 1,
+        sceneTaskCount: group.length,
+        tasks: group.map(t => ({
+          id: t.id,
+          storageKey: t.storageKey,
+          taskTitle: t.taskTitle,
+          taskSubTitle: t.taskSubTitle,
+          helpLinesCount: t.helpLinesCount
+        })),
+        recommendKeep: group[0],
+        recommendDelete: group.slice(1)
+      })),
+      duplicateCount: duplicates.reduce((sum, g) => sum + g.length - 1, 0),
+      toMigrate: forcesToMigrate,
+      toDelete: forcesToDelete,
+      orphanedForcesCount: forcesToDelete.length + forcesToMigrate.length
+    };
+  };
+
+  // Execute cleanup: Actually migrate/delete orphaned forces
+  window.executeCleanup = function(cleanupReport) {
+    if (!cleanupReport) {
+      console.log('Run window.cleanupEditorStorage() first to get a report');
+      return;
+    }
+    
+    console.group('⚙️  Executing Cleanup');
+    
+    // Migrate forces to new locations
+    cleanupReport.toMigrate.forEach(item => {
+      try {
+        const forcesData = localStorage.getItem(item.oldKey);
+        if (forcesData) {
+          localStorage.setItem(item.newKey, forcesData);
+          localStorage.removeItem(item.oldKey);
+          console.log(`✓ Migrated: ${item.oldKey} → ${item.newKey}`);
+        }
+      } catch (e) {
+        console.error(`✗ Failed to migrate ${item.oldKey}:`, e.message);
+      }
+    });
+    
+    // Delete orphaned forces
+    cleanupReport.toDelete.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+        console.log(`✓ Deleted: ${key}`);
+      } catch (e) {
+        console.error(`✗ Failed to delete ${key}:`, e.message);
+      }
+    });
+    
+    console.log(`\n📊 Summary:`);
+    console.log(`  Migrated: ${cleanupReport.toMigrate.length} forces`);
+    console.log(`  Deleted: ${cleanupReport.toDelete.length} orphaned forces`);
+    console.log(`  Remaining tasks: ${cleanupReport.taskCount}`);
+    
+    console.groupEnd();
+  };
+
   // Load saved tasks from localStorage before loading initial task
+  migrateLegacyTasks();
   loadSavedTasks();
   
   // Apply saved task order from localStorage
@@ -2870,7 +3337,7 @@ window.editorMode = true;
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
@@ -2905,7 +3372,7 @@ window.editorMode = true;
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
@@ -2996,7 +3463,7 @@ window.editorMode = true;
         console.log('helpContent:', helpContent, 'helpCanvas:', helpCanvas);
         if(!helpContent) { console.warn('❌ helpContent not found'); }
         if(!helpCanvas) { console.warn('❌ helpCanvas not found'); }
-        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
+        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
         if(helpContent && helpCanvas) {
           // Show editable version in editor mode
           helpContent.style.display = 'block';
@@ -3148,7 +3615,7 @@ window.editorMode = true;
       
       // Insert the new task right after current task
       const currentIdx = window.currentTaskIndex !== undefined ? window.currentTaskIndex : 0;
-      window.TASKS.splice(currentIdx + 1, 0, newTask);
+      window.tasks.splice(currentIdx + 1, 0, newTask);
       
       // Save the new task to localStorage
       const taskKey = `editor_task_${newTask.id}`;
@@ -3181,14 +3648,12 @@ window.editorMode = true;
   if(btnNewTask){
     btnNewTask.addEventListener('click', ()=>{
       // Create a new task from scratch
-      const taskId = prompt('Oppgave-ID (f.eks. "Custom 1"):');
-      if(!taskId) return;
-      
       const title = prompt('Oppgave-tittel:');
       if(!title) return;
       
       const newTask = {
-        id: taskId,
+        id: generateUniqueTaskId(), // Auto-generate unique ID
+        taskTitle: title, // Store user-provided title as taskTitle
         title: title,
         category: 'Egendefinert',
         origin: [DRAW_CENTER[0], DRAW_CENTER[1]],
@@ -3208,12 +3673,22 @@ window.editorMode = true;
         relations: []
       };
       
-      // Add to TASKS array
-      if(!window.TASKS) window.TASKS = [];
-      window.TASKS.push(newTask);
+      // Add to tasks array
+      if(!window.tasks) window.tasks = [];
+      window.tasks.push(newTask);
+      
+      // Update taskOrder to include new task
+      try {
+        const taskOrderKey = 'editor_taskOrder';
+        let taskOrder = JSON.parse(localStorage.getItem(taskOrderKey) || '[]');
+        if(!taskOrder.includes(newTask.id)) {
+          taskOrder.push(newTask.id);
+          localStorage.setItem(taskOrderKey, JSON.stringify(taskOrder));
+        }
+      } catch {}
       
       // Load the new task
-      const newIndex = window.TASKS.length - 1;
+      const newIndex = window.tasks.length - 1;
       loadTask(newIndex);
       
       // Save the new task to localStorage
@@ -3624,7 +4099,7 @@ window.editorMode = true;
   function updateTaskOrderList(){
     if(!taskList) return;
     taskList.innerHTML = '';
-    if(!window.TASKS || window.TASKS.length === 0) return;
+    if(!window.tasks || window.tasks.length === 0) return;
     
     // Load saved checkbox state from localStorage
     let savedCheckState = {};
@@ -3633,7 +4108,7 @@ window.editorMode = true;
       if (saved) savedCheckState = JSON.parse(saved);
     } catch {}
 
-    window.TASKS.forEach((task, idx) => {
+    window.tasks.forEach((task, idx) => {
       const item = document.createElement('div');
       item.className = 'task-order-item';
       // Highlight newly imported tasks
@@ -3647,12 +4122,17 @@ window.editorMode = true;
       // Check if this task should be checked (saved state or newly imported)
       const isChecked = newlyImportedTaskIds.has(task.id) || (savedCheckState[task.id] !== false);
       
+      const title = task.taskTitle || task.title || '(Ingen tittel)';
+      const subtitle = task.taskSubTitle || task.subTitle || '';
+      const category = task.category || '';
+
       item.innerHTML = `
         <input type="checkbox" class="task-order-checkbox" ${isChecked ? 'checked' : ''} data-task-id="${task.id}" />
         <span class="task-order-handle">⋮⋮</span>
-        <span class="task-order-id">${task.id}</span>
-        <span class="task-order-title">${task.title || '(Ingen tittel)'}</span>
-        <span class="task-order-category">${task.category || ''}</span>
+        <span class="task-order-id">(${task.id.slice(-5)})</span>
+        <span class="task-order-title">${title}</span>
+        <span class="task-order-subtitle">${subtitle}</span>
+        <span class="task-order-category">${category}</span>
       `;
 
       // Drag handlers
@@ -3667,7 +4147,25 @@ window.editorMode = true;
         taskList.querySelectorAll('.task-order-item').forEach(el => {
           el.classList.remove('drag-over');
         });
-        // Auto-save after drag-drop
+        // Update window.tasks from current DOM order and save
+        const items = taskList.querySelectorAll('.task-order-item');
+        const newOrder = [];
+        items.forEach(item => {
+          const taskId = item.dataset.taskId;
+          const task = window.tasks.find(t => t.id === taskId);
+          if(task) newOrder.push(task);
+        });
+        window.tasks = newOrder;
+        
+        // Update currentTaskIndex if the current task moved
+        if(window.currentTask && window.currentTaskIndex !== undefined){
+          const currentTaskId = window.currentTask.id;
+          const newIndex = window.tasks.findIndex(t => t.id === currentTaskId);
+          if(newIndex >= 0){
+            window.currentTaskIndex = newIndex;
+          }
+        }
+        
         saveTaskOrder();
       });
 
@@ -3689,6 +4187,21 @@ window.editorMode = true;
 
       item.addEventListener('drop', (e) => {
         e.preventDefault();
+      });
+
+      // Click handler to load the clicked task
+      item.addEventListener('click', (e) => {
+        // Don't trigger if clicking on checkbox or dragging
+        if(e.target.classList.contains('task-order-checkbox') || item.classList.contains('dragging')) {
+          return;
+        }
+        
+        const taskId = item.dataset.taskId;
+        const taskIndex = window.tasks.findIndex(t => t.id === taskId);
+        if(taskIndex >= 0) {
+          loadTask(taskIndex);
+          closeTaskOrderModal();
+        }
       });
 
       taskList.appendChild(item);
@@ -3722,6 +4235,9 @@ window.editorMode = true;
       taskOrderModal.classList.remove('hidden');
     });
   }
+
+  // Expose updateTaskOrderList as global function so ui.js can call it
+  window.updateTaskOrderList = updateTaskOrderList;
 
   // ===== Task Set Management (Save/Export/Open/Import) - integrated in task-order-modal =====
   const tasksetNameInput = document.getElementById('taskset-name');
@@ -3856,19 +4372,37 @@ window.editorMode = true;
         const date = new Date(ts.timestamp);
         const dateStr = isNaN(date.getTime()) ? ts.timestamp : date.toLocaleString('no-NO');
         
+        const container = document.createElement('div');
+        container.style.cssText = 'display:flex; align-items:center; padding:8px; border-bottom:1px solid #eee;';
+        
         const label = document.createElement('label');
-        label.style.cssText = 'display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;';
+        label.style.cssText = 'flex:1; display:flex; flex-direction:column; cursor:pointer;';
         label.innerHTML = `
-          <input type="radio" name="taskset-select" value="${ts.key}" ${idx === 0 ? 'checked' : ''} style="margin-right:8px;">
-          <strong>${ts.name}</strong><br>
-          <span style="font-size:11px; color:#666;">Lagret: ${dateStr} (${ts.taskCount} oppgaver)</span>
+          <div style="display:flex; align-items:center;">
+            <input type="radio" name="taskset-select" value="${ts.key}" ${idx === 0 ? 'checked' : ''} style="margin-right:8px;">
+            <strong>${ts.name}</strong>
+          </div>
+          <span style="font-size:11px; color:#666; margin-left:24px;">Lagret: ${dateStr} (${ts.taskCount} oppgaver)</span>
         `;
         
         label.addEventListener('change', (e) => {
           if (e.target.checked) selectedKey = ts.key;
         });
         
-        tasksetList.appendChild(label);
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.style.cssText = 'padding:4px 8px; margin-left:8px; background:#fee; border:1px solid #fcc; border-radius:4px; cursor:pointer; font-size:16px;';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          localStorage.removeItem(ts.key);
+          // Refresh the list
+          tasksetOpenBtn.click();
+        });
+        
+        container.appendChild(label);
+        container.appendChild(deleteBtn);
+        tasksetList.appendChild(container);
         if (idx === 0) selectedKey = ts.key;
       });
 
@@ -3886,6 +4420,10 @@ window.editorMode = true;
       try {
         const data = JSON.parse(localStorage.getItem(selected.value));
         const selectedIds = data.taskIds || [];
+        const setName = selected.value.replace('taskset_', '');
+
+        // Fill in taskset name in input
+        tasksetNameInput.value = setName;
 
         // Check all corresponding checkboxes in task order list
         if (taskOrderModal) {
@@ -3906,7 +4444,6 @@ window.editorMode = true;
         // Hide modal and show success
         tasksetOpenModal.classList.add('hidden');
         tasksetResultDiv.style.display = 'block';
-        const setName = selected.value.replace('taskset_', '');
         tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${setName}" åpnet (${selectedIds.length} oppgaver valgt)</div>`;
         
         // Auto-save new selection
@@ -3952,7 +4489,8 @@ window.editorMode = true;
             const savedTask = localStorage.getItem(editorTaskKey);
             if (savedTask) {
               const parsed = JSON.parse(savedTask);
-              if (parsed.help_lines && Array.isArray(parsed.help_lines)) {
+              // Copy help_lines if it exists and is an array (even if empty)
+              if (Array.isArray(parsed.help_lines)) {
                 taskClone.help_lines = parsed.help_lines;
               }
             }

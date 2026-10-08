@@ -221,3 +221,37 @@ window.clampToCanvas = function(pos) {
   
   return [x, y];
 };
+
+/**
+ * Helper functions for task geometry (extracted from tasks.js)
+ */
+
+// Vector magnitude/norm
+window.norm = function(v) { 
+  return window.geometry && window.geometry.length ? window.geometry.length(v) : Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+};
+
+// Normalize vector to unit length
+window.unit = function(v) { 
+  const n = window.norm(v); 
+  return n > 1e-6 ? [v[0]/n, v[1]/n] : [0, 0];
+};
+
+// Get plane normal vector from rotation angle (degrees)
+window.planeNormalFromAngle = function(angleDeg) {
+  const a = angleDeg * Math.PI / 180;
+  // Python logic: nx=-sin(a), ny=-cos(a) (y down)
+  return window.unit([-Math.sin(a), -Math.cos(a)]);
+};
+
+// Get plane tangent vector from rotation angle (degrees)
+window.planeTangentFromAngle = function(angleDeg) {
+  const a = angleDeg * Math.PI / 180;
+  // (y-positive down) tangent t = (cos(a), -sin(a))
+  return window.unit([Math.cos(a), -Math.sin(a)]);
+};
+
+// Get tangent vector perpendicular to normal
+window.tangentFromNormal = function(n) { 
+  return window.unit([-n[1], n[0]]);
+};

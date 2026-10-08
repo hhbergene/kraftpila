@@ -125,10 +125,7 @@
         const row = document.createElement('div');
         row.className = 'force-row';
         row.dataset.forceIndex = idx; // Add index tracking to row
-        // Label
-        const label = document.createElement('span');
-        label.textContent = (idx+1)+'.';
-        label.style.width='20px';
+        // Label (removed numbering)
         const input = document.createElement('input');
         input.type='text';
         input.placeholder='Navn';
@@ -282,7 +279,7 @@
         row.style.display = 'flex';
         row.style.gap = '4px';
         row.style.alignItems = 'center';
-        row.appendChild(label); row.appendChild(input); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
+        row.appendChild(input); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
         container.appendChild(row);
         rows.push(row);
         
@@ -457,10 +454,12 @@
         }
         
         // Delete button visible if force has points OR has a name (so user can delete name-only forces)
+        // In editor mode: can delete both expected and initial forces
+        // In player mode: can only delete expected forces
         if(deleteBtn){
           const hasPoints = !!(f.anchor || f.arrowBase || f.arrowTip);
           const hasName = !!(f.name && f.name.trim() !== '');
-          const canDelete = hasPoints || hasName;
+          const canDelete = (hasPoints || hasName) && (isEditorMode || isExpected);
           deleteBtn.style.display = canDelete ? 'flex' : 'none';
         }
         

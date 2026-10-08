@@ -44,7 +44,8 @@
     '\\geq': '≥',
     '\\approx': '≈',
     '\\sqrt': '√',
-    '\\degree': '°'
+    '\\degree': '°',
+    '\\Leftrightarrow': '⇔'
   };
 
   function drawFormattedText(ctx, text, x, y, options={}){

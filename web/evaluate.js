@@ -11,9 +11,11 @@
 (function(){
   const DIR_TOL_DEG = 2.0; // direction tolerance Degrees
   const POS_TOL = 22;     // position tolerance (px)
-  const DIR_SPAN_DEG = 24; // linear falloff span for direction
-  const POS_SPAN = 2*POS_TOL; // linear falloff span for position
+  const DIR_SPAN_DEG = 24; // linear falloff span for direction 
+  const POS_SPAN = 44; // linear falloff span for position
   const COVERAGE_PENALTY_EXP = 1.5; // penalize missing forces
+  const MATCH_THRESHOLD = 0.20; // matching threshold (keep at 0.2 for tolerance)
+  const NAME_MISMATCH_PENALTY = 0.5; // penalty for name mismatch (use 0.5 for balanced matching)
   // NEW: helper for adaptive direction tolerance (tighter for axis-aligned expected directions)
   function axisAlignedDirTol(dir){
     return (Math.abs(dir[0]) < 1e-3 || Math.abs(dir[1]) < 1e-3) ? (DIR_TOL_DEG/4) : DIR_TOL_DEG;
@@ -55,8 +57,9 @@
         const fj = matched[j];
         const vj = [fj.arrowTip[0]-fj.arrowBase[0], fj.arrowTip[1]-fj.arrowBase[1]];
         const ang = angleBetweenDeg(vi, vj);
-        // skip parallel/anti-parallel
-        if(ang < NON_PARALLEL_DEG || Math.abs(ang-180) < NON_PARALLEL_DEG) continue;
+        // For parallel forces (same direction), allow them to overlap
+        // For non-parallel forces (including anti-parallel), check for overlaps and penalize
+        if(ang < NON_PARALLEL_DEG) continue; // Skip only strictly parallel (same direction)
         // overlap if they intersect or are very close
         const inter = segmentsIntersect(fi.arrowBase, fi.arrowTip, fj.arrowBase, fj.arrowTip);
         const near = minSegDistance(fi.arrowBase, fi.arrowTip, fj.arrowBase, fj.arrowTip) <= OVERLAP_DIST_PX;
@@ -64,6 +67,17 @@
       }
     }
     return 1.0;
+  }
+
+  /**
+   * Clamp value to min-max range
+   * @param {number} val - Value to clamp
+   * @param {number} min - Minimum value
+   * @param {number} max - Maximum value
+   * @returns {number} Clamped value
+   */
+  function clamp(val, min, max){
+    return Math.max(min, Math.min(max, val));
   }
 
   /**
@@ -97,13 +111,21 @@
   function distPointToSegment(p,a,b){ const ab=[b[0]-a[0],b[1]-a[1]]; const ab2=ab[0]*ab[0]+ab[1]*ab[1]; if(ab2===0) return geometry.distance(p,a); const t=Math.max(0,Math.min(1, ((p[0]-a[0])*ab[0]+(p[1]-a[1])*ab[1])/ab2)); const proj=[a[0]+t*ab[0], a[1]+t*ab[1]]; return geometry.distance(p,proj); }
 
   /**
-   * Clamp value within range [lo, hi]
-   * @param {number} x - Value to clamp
-   * @param {number} lo - Minimum value
-   * @param {number} hi - Maximum value
-   * @returns {number} Clamped value
+   * Linear ramp-down scoring function with hard cut (strict version)
+   * Returns 0 if |value| > hardCut, else linearly ramps down from tol to 0 over span
+   * @param {number} value - Error value to evaluate
+   * @param {number} tol - Tolerance threshold (perfect within this)
+   * @param {number} span - Falloff distance
+   * @param {number} hardCut - Hard cutoff (above this = 0, no mercy)
+   * @returns {number} Score from 0 to 1
    */
-  function clamp(x,lo,hi){ return x<lo?lo:(x>hi?hi:x); }
+  function rampDownLinearStrict(value, tol, span, hardCut){
+    const a = Math.abs(value);
+    if(a > hardCut) return 0; // Hard cut
+    if(a <= tol) return 1;
+    if(span <= 0) return 0;
+    return clamp(1 - (a - tol)/span, 0, 1);
+  }
 
   /**
    * Linear ramp-down scoring function (tolerance-based falloff)
@@ -114,6 +136,18 @@
    * @returns {number} Score from 0 to 1
    */
   function rampDownLinear(value, tol, span){ const a=Math.abs(value); if(a<=tol) return 1; if(span<=0) return 0; return clamp(1 - (a - tol)/span, 0, 1); }
+
+  /**
+   * Geometric mean of three values (robust to zeros)
+   * Returns the cubic root of product, treating zero/negative as 1e-6 minimum
+   * @param {number} a - First value
+   * @param {number} b - Second value
+   * @param {number} c - Third value
+   * @returns {number} Geometric mean
+   */
+  function geoMean(a,b,c){
+    return Math.pow(Math.max(1e-6,a)*Math.max(1e-6,b)*Math.max(1e-6,c), 1/3);
+  }
 
   /**
    * Normalize force name for comparison (lowercase, remove spaces/special chars)
@@ -168,9 +202,9 @@
   }
 
   /**
-   * Match drawn forces to expected forces using Python-style algorithm
-   * Scores based on name match (0.5 weight) + direction match (0.5 weight)
-   * Forces without correct names can still match if direction is close (>0.2 score)
+   * Match drawn forces to expected forces 
+   * Scores based on name match, direction match and anchor position match
+   * Forces without correct names can still match if score is above threshold
    * Uses greedy algorithm: highest scores matched first, each force matched at most once
    * @param {Object} task - Task with expectedForces array
    * @param {Object[]} forces - Array of drawn force objects with vec, anchor, name
@@ -180,9 +214,6 @@
     const aliasMap = buildAliasMap(task.expectedForces||[]);
     const expectedDict = {};
     (task.expectedForces||[]).forEach(spec=>{ expectedDict[spec.name] = spec; });
-    
-    const NAME_MISMATCH_PENALTY = 0.5;
-    const MATCH_THRESHOLD = 0.2;
     
     // Compute pairwise match scores
     const pairs = []; // { score, taskName, forceIdx }
@@ -202,17 +233,40 @@
           else if(aliasMap[drawn] === taskName) nameOk = true;
         }
         
-        // Direction match?
+        // Direction match
         let dirScore = 0;
         if(drawnF.vec && spec.dir){
           const expected_dir = expectedDir(spec, task);
-          const dir_tol_deg = axisAlignedDirTol(expected_dir); // NEW
+          const dir_tol_deg = axisAlignedDirTol(expected_dir);
           const dirErr = angleBetweenDeg(drawnF.vec, expected_dir);
           dirScore = rampDownLinear(dirErr, dir_tol_deg, DIR_SPAN_DEG);
         }
         
-        // Combined score
-        const combined = nameOk ? (0.5 + 0.5 * dirScore) : (NAME_MISMATCH_PENALTY * dirScore);
+        // Position match
+        let posScore = 0;
+        if(spec.anchor && drawnF.anchor){
+          if(spec.anchor.type==='point'){
+            const sceneObj = window.sceneLookup[spec.anchor.ref];
+            const P = sceneObj && sceneObj.points[spec.anchor.point];
+            if(P){
+              const posErr = geometry.distance(drawnF.anchor, P);
+              posScore = rampDownLinear(posErr, POS_TOL, POS_SPAN);
+            }
+          } else if(spec.anchor.type==='segment'){
+            const sceneObj = window.sceneLookup[spec.anchor.ref];
+            const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
+            if(seg){
+              const posErr = distPointToSegment(drawnF.anchor, seg[0], seg[1]);
+              posScore = rampDownLinear(posErr, POS_TOL, POS_SPAN);
+            }
+          }
+        }
+        
+        // Combined geometry score
+        const geomScore = 0.6*dirScore + 0.4*posScore;
+        
+        // Combined with name penalty - more tolerant of missing name
+        const combined = nameOk ? (0.5 + 0.5*geomScore) : (NAME_MISMATCH_PENALTY * geomScore);
         pairs.push({ score: combined, taskName, forceIdx: idx });
       }
     }
@@ -238,6 +292,7 @@
   /**
    * Evaluate all expected forces against drawn forces.
    * Computes name, direction, and position scores for each matched force.
+   * Also stores anchorType for feedback messages.
    * 
    * CRITICAL: Only evaluates task.expectedForces, NOT initialForces.
    * initialForces must be excluded from expectedForces before calling this function.
@@ -245,7 +300,7 @@
    * 
    * @param {Object} task - Task with expectedForces and anchor specifications
    * @param {Object[]} forces - All drawn force objects
-   * @returns {Object[]} Array of force results: {name, found, nameOk, dirErr, dirOk, posErr, posOk, index, drawnName}
+   * @returns {Object[]} Array of force results: {name, found, nameOk, dirErr, dirOk, posErr, posOk, index, drawnName, anchorType}
    */
   function evalForces(task, forces){
     const aliasMap = buildAliasMap(task.expectedForces||[]);
@@ -265,26 +320,28 @@
       const userDir = match.vec ? unit(match.vec) : [0,0];
       const expDir = expectedDir(spec, task);
       const dirErr = angleBetweenDeg(userDir, expDir);
-      const dirTolDeg = axisAlignedDirTol(expDir); // NEW
+      const dirTolDeg = axisAlignedDirTol(expDir);
       const dirOk = dirErr <= dirTolDeg;
       
       // Name check
       let nameOk = false;
       if(match.name){
         const drawn = normalizeName(match.name);
-        const canon = normalizeName(spec.name);
-        if(drawn === canon) nameOk = true;
+        const canon = normalizeName(spec.name); // canoncialal name
+        if(drawn === canon) nameOk = true; // or alias match
         else if(aliasMap[drawn] === spec.name) nameOk = true;
       }
       
-      // Position error
-      let posErr = null; let posOk=false;
+      // Position error (and store anchor type for feedback)
+      let posErr = null; let posOk=false; let anchorType=null;
       if(spec.anchor && match.anchor){
         if(spec.anchor.type==='point'){
+          anchorType = 'point';
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const P = sceneObj && sceneObj.points[spec.anchor.point];
           if(P){ posErr = geometry.distance(match.anchor, P); posOk = posErr <= POS_TOL; }
         } else if(spec.anchor.type==='segment'){
+          anchorType = 'segment';
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
           if(seg){ posErr = distPointToSegment(match.anchor, seg[0], seg[1]); posOk = posErr <= POS_TOL; }
@@ -298,11 +355,12 @@
         nameOk,
         dirErr,
         dirOk,
-        dirTolDeg, // NEW: store tolerance used
+        dirTolDeg, 
         posErr,
         posOk,
         index:matchIndex,
-        drawnName: match.name || ''
+        drawnName: match.name || '',
+        anchorType
       });
     });
     return results;
@@ -399,6 +457,7 @@
    * Evaluate magnitude relations between forces
    * Checks that force ratios (e.g., G = N, F = R) match expected values
    * Handles component-based comparisons (normal, tangent, vertical) when specified
+   * Returns score 0 if any involved force is missing
    * @param {Object} task - Task with relations array: [{lhs: [{name, component?}], rhs: [...], ratio, tol_rel}]
    * @param {Object[]} forceResults - Force evaluation results with found/index properties
    * @returns {Object[]} Array of relation results: {lhs, rhs, measuredRatio, expectedRatio, relError, ok, indices, tolRel}
@@ -407,7 +466,7 @@
     const forceByName = {};
     const indexByName = {};
     
-    // Include expectedForces from forceResults
+    // Include matched expected forces from forceResults
     forceResults.forEach(r=>{
       if(r.found && r.index >= 0){
         forceByName[r.name] = window.fm.forces[r.index];
@@ -415,41 +474,10 @@
       }
     });
     
-    // Log plane vectors for reference
-    const plane = task.scene?.plane;
-    if(plane){
-      // Calculate angleDeg from n_vec if not stored
-      let angleDeg = plane.angleDeg;
-      if(plane.n_vec && (angleDeg === undefined || angleDeg === null)){
-        angleDeg = Math.atan2(plane.n_vec[1], plane.n_vec[0]) * 180 / Math.PI;
-      }
-    }
-    
-    // Expected forces are logged elsewhere if needed
-    if(task.expectedForces && Array.isArray(task.expectedForces)){
-      // Task has expected forces to evaluate
-    }
-    
-    // Log force coordinates and vectors with expected direction comparison
-    Object.keys(forceByName).forEach(forceName => {
-      const f = forceByName[forceName];
-      if(f && f.anchor && f.arrowBase && f.arrowTip){
-        const forceVec = [f.arrowTip[0] - f.arrowBase[0], f.arrowTip[1] - f.arrowBase[1]];
-        const forceMag = Math.sqrt(forceVec[0]*forceVec[0] + forceVec[1]*forceVec[1]);
-        const forceDir = forceMag > 0 ? [forceVec[0]/forceMag, forceVec[1]/forceMag] : [0, 0];
-        
-        // Find expected force spec to compare directions
-        const expSpec = task.expectedForces?.find(e => e.name === forceName);
-        const expDir = expSpec ? expectedDir(expSpec, task) : null;
-      }
-    });
-    
-    // ALSO include initialForces (pre-drawn forces)
-    // These should be available for relations even though they're not in expectedForces
+    // Include initialForces (pre-drawn forces) - they can be used in relations
     if(task.initialForces && Array.isArray(task.initialForces)){
       task.initialForces.forEach(initSpec => {
         if(initSpec.name && window.fm && window.fm.forces){
-          // Find the drawn force with matching name
           const matchingForce = window.fm.forces.find(f => f && f.name && f.name.toLowerCase().trim() === initSpec.name.toLowerCase().trim());
           if(matchingForce){
             const idx = window.fm.forces.indexOf(matchingForce);
@@ -521,7 +549,6 @@
       const measuredRatio = rhsV===0? 0 : lhsV/rhsV;
       const expected = rel.ratio || 1.0;
       const relError = expected===0? 0 : Math.abs(measuredRatio - expected)/expected;
-      const ok = relError <= tolRel;
 
       const involvedIdx = [];
       allNames.forEach(name=>{
@@ -530,6 +557,10 @@
       });
 
       const missingNames = allNames.filter(n => typeof indexByName[n] !== 'number');
+      
+      // If any involved force is missing, relation score is 0 (not gradual)
+      const relScore = missingNames.length > 0 ? 0 : rampDownLinear(relError, tolRel, tolRel);
+      const ok = relError <= tolRel && missingNames.length === 0;
 
       out.push({
         lhs: lhsNames.join('+'),
@@ -540,6 +571,7 @@
         expectedRatio: expected,
         measuredRatio,
         relError,
+        relScore, 
         ok,
         indices: involvedIdx,
         tolRel
@@ -552,14 +584,17 @@
    * Build user feedback lines for force and relation errors
    * Distinguishes missing names from wrong names
    * Skips detail feedback for forces with explicitly wrong names
+   * Uses force name as fallback when drawnName is empty
+   * Includes anchor-specific messages for position errors
    * @param {Object[]} forceResults - Force evaluation results
    * @param {Object[]} relationResults - Relation evaluation results
    * @param {Object[]} allForces - All drawn forces (for detecting extras)
    * @param {boolean} debugMode - If true, include error magnitudes in messages
    * @param {Object} task - Task object with expectedForces and initialForces
+   * @param {number} neatness - Neatness factor (1.0 = perfect, < 1.0 = overlapping)
    * @returns {Object[]} Array of feedback lines: {text, indices}
    */
-  function buildFeedbackLines(forceResults, relationResults, allForces, debugMode, task){
+  function buildFeedbackLines(forceResults, relationResults, allForces, debugMode, task, neatness){
     const lines=[];
     
     // Separate forces with missing names from those with wrong names
@@ -594,9 +629,20 @@
       lines.push({ text: msg, indices });
     }
     
+    // Count missing forces (not found at all)
+    const missingForces = forceResults.filter(r => !r.found);
+    if(missingForces.length > 0){
+      let msg;
+      if(missingForces.length === 1){
+        msg = `Det mangler en kraft`;
+      } else {
+        msg = `Det mangler ${missingForces.length} krefter`;
+      }
+      lines.push({ text: msg, indices: [] });
+    }
+    
     forceResults.forEach(r=>{
       if(!r.found){ 
-        lines.push({ text: r.name+': mangler', indices: [] }); 
         return; 
       }
       
@@ -605,20 +651,34 @@
       const dirOk = r.dirOk;
       const posOk = (r.posErr!=null) && r.posOk;
       
-      // Skip detailed feedback if name is wrong (not missing, but explicitly wrong)
-      if(!nameOk && r.drawnName) return;
+      // Skip detailed feedback if name is missing or wrong
+      if(!nameOk) return;
+      
+      // Use r.name as fallback when drawnName is empty (NEW)
+      const label = r.drawnName || r.name;
       
       // Build messages based on dir and pos status
       if(!dirOk){
         // Direction wrong
-        let msg = `Juster retningen til ${r.drawnName}`;
+        let msg = `Juster retningen til ${label}`;
         if(debugMode && typeof r.dirErr === 'number') msg += ` (${r.dirErr.toFixed(1)}°)`;
         lines.push({ text: msg, indices: [r.index] });
       }
       
       if(!posOk && r.posErr !== null){
-        // Position wrong
-        let msg = `Angrepspunkt til ${r.drawnName} bør ligge i massemidtpunkt`;
+        // Position wrong - use anchor type for message (NEW)
+        let anchorDesc = 'angrepspunktet';
+        if(r.anchorType === 'point'){
+          anchorDesc = 'massemidtpunktet';
+        } else if(r.anchorType === 'segment'){
+          // Determine based on force type (G=gravity, others=friction/normal)
+          if(label.toUpperCase().includes('G')){
+            anchorDesc = 'massemidtpunktet';
+          } else {
+            anchorDesc = 'kontaktflaten/segmentet';
+          }
+        }
+        let msg = `Angrepspunkt til ${label} bør ligge i ${anchorDesc}`;
         if(debugMode && typeof r.posErr === 'number') msg += ` (${r.posErr.toFixed(1)}px)`;
         lines.push({ text: msg, indices: [r.index] });
       }
@@ -627,18 +687,35 @@
     relationResults.forEach(rr=>{
       if(rr.ok) return; // Skip relations that are OK
       
-      // Skip hvis noen involverte krefter mangler (bruk navn hvis tilgjengelig)
-      const involvedForcesMissing =
-        rr.missingInvolved === true
-        || (Array.isArray(rr.forceNames) && rr.forceNames.some(name=>{
-             const res = forceResults.find(r=> r.name === name);
-             return !res || !res.found;
-           }))
-        || rr.indices.some(idx => {
-             const result = forceResults.find(r => r.index === idx);
-             return !result || !result.found;
-           });
+      // Skip if any involved force is completely missing
+      if(rr.missingInvolved) return;
+      
+      // Check if involved forces are truly missing (not in allForces, OR in forceResults but not found)
+      const involvedForcesMissing = rr.indices.some(idx => {
+        // Check if force is in allForces
+        if(idx < 0 || idx >= allForces.length) return true;
+        const force = allForces[idx];
+        const isCompleted = typeof force.isCompleted==='function' ? force.isCompleted() : (force.anchor && force.arrowBase && force.arrowTip);
+        if(!isCompleted) return true;
+        
+        // If it's in forceResults, it must be found
+        const resultForForce = forceResults.find(r => r.index === idx);
+        if(resultForForce && !resultForForce.found) return true;
+        
+        // Otherwise, it's drawn (either expectedForce or initialForce)
+        return false;
+      });
+      
       if(involvedForcesMissing) return;
+      
+      // Skip relation feedback if any involved force has wrong or missing name
+      const involvedForceHasWrongName = rr.indices.some(idx => {
+        const resultForForce = forceResults.find(r => r.index === idx);
+        if(resultForForce && !resultForForce.nameOk) return true;
+        return false;
+      });
+      
+      if(involvedForceHasWrongName) return;
 
       // Bygg navnsliste
       const forceNames = [];
@@ -658,12 +735,20 @@
         msg = `Lengdeforholdet mellom kreftene ${allButLast} og ${last} er feil`;
       }
       
+      // Feedback with measured vs expected ratio (only in debug mode)
+      let feedback = '';
       if(debugMode){
-        const errPct = (rr.relError*100).toFixed(1)+'%';
-        const ratioTxt = (typeof rr.measuredRatio==='number') ? rr.measuredRatio.toFixed(2) : rr.measuredRatio;
-        msg += ` (målt ${ratioTxt}, feil ${errPct})`;
+        if(typeof rr.measuredRatio === 'number' && typeof rr.expectedRatio === 'number'){
+          const measured = rr.measuredRatio.toFixed(2);
+          const expected = rr.expectedRatio.toFixed(2);
+          feedback = ` (målt ${measured}, forventet ${expected})`;
+        } else {
+          const errPct = (rr.relError*100).toFixed(1)+'%';
+          feedback = ` (feil ${errPct})`;
+        }
       }
       
+      msg += feedback;
       lines.push({ text: msg, indices: rr.indices||[] });
     });
     
@@ -699,6 +784,11 @@
       lines.push({ text: msg, indices });
     }
     
+    // Check neatness - warn about overlapping forces
+    if(neatness !== undefined && neatness < 1.0){
+      lines.push({ text: `Unngå overlappende kraftpiler ved å parallellforskyve pila litt til siden for angrepspunktet.`, indices: [] });
+    }
+    
     return lines;
   }
 
@@ -706,18 +796,13 @@
    * Compute overall scoring based on force and relation evaluation
    * 
    * Scoring formula:
-   * - Per-force score: average of (nameScore [0 or 1] + dirScore + posScore)
-   * - baseScore: average of all per-force scores (or 0 if no forces found)
+   * - Per-force score: geoMean(nameScore, dirScore, posScore) - geometric mean makes 0 in any component very punishing
+   * - baseScore: average of per-force scores for ALL expected forces (0 if not found)
    * - coverage: foundCount / expectedCount, penalized by factor ^ 1.5
-   * - relations: average score of all relation checks (1.0 if no relations)
-   * - sumFWeighted: penalizes extra forces; if extras > 0: max(0, 1.0 - 0.3×extras/expected)
+   * - relations: score 0 if any force missing, else rampDownLinear
+   * - gating: apply caps based on coverage and essential forces (G, N)
    * 
-   * Combined formula:
-   * - With relations: (baseScore + relationsScore + sumFWeighted) / 3
-   * - Without relations: (baseScore + sumFWeighted) / 2
-   * - Final: combined × coverageFactor
-   * 
-   * Includes comprehensive debug output showing all score components and calculation steps
+   * Final formula includes all components and strict gating.
    * 
    * @param {Object} task - Task with expectedForces, relations, sumF requirements
    * @param {Object[]} forceResults - Force evaluation results from evalForces()
@@ -752,26 +837,35 @@
       return count + (isCompleted && !matchedIndices.has(idx) && !isInitialForce ? 1 : 0);
     }, 0);
 
-    // Per-force scoring (name: 1.0 if OK, 0 if missing/wrong, dir, pos)
+    // NEW: Per-force scoring including missing forces (count as 0)
+    // For each expected force, compute score from its result or 0 if not found
     let perForceScores = [];
-    foundForces.forEach(r=>{
+    const expectedNames = (task.expectedForces||[]).map(s=>s.name);
+    expectedNames.forEach(name=>{
+      const r = forceResults.find(rr=>rr.name === name && rr.found);
+      if(!r){
+        // Force not found → score 0
+        perForceScores.push(0);
+        return;
+      }
       const nameScore = r.nameOk ? 1.0 : 0.0;
-      const dirTol = r.dirTolDeg || DIR_TOL_DEG; // NEW use stored tolerance
+      const dirTol = r.dirTolDeg || DIR_TOL_DEG;
       const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
       const posScore = (typeof r.posErr==='number') ? rampDownLinear(r.posErr, POS_TOL, POS_SPAN) : 0.0;
-      const combined = (nameScore + dirScore + posScore)/3;
+      // Use arithmetic mean instead of geometric mean for more balanced scoring
+      const combined = (nameScore + dirScore + posScore) / 3;
       perForceScores.push(combined);
     });
 
-    const baseScore = perForceScores.length? (perForceScores.reduce((a,b)=>a+b,0)/perForceScores.length) : 0.0;
+    const baseScore = perForceScores.length > 0 ? (perForceScores.reduce((a,b)=>a+b,0)/perForceScores.length) : 0.0;
     // Coverage: how many expected forces were found (extras don't affect coverage)
     const coverage = expectedCount>0? (foundCount/expectedCount) : 1.0;
     const coverageFactor = Math.pow(clamp(coverage,0,1), COVERAGE_PENALTY_EXP);
 
-    // Relations score (if any relations exist)
+    // NEW: Relations score with strict missing handling
     let relationsScore = 1.0;
     if(relationResults && relationResults.length){
-      const relScores = relationResults.map(rr=> rampDownLinear(rr.relError, (rr.tolRel||0.15), (rr.tolRel||0.15)*2));
+      const relScores = relationResults.map(rr => rr.relScore !== undefined ? rr.relScore : (rr.missingInvolved ? 0 : rampDownLinear(rr.relError, rr.tolRel||0.15, rr.tolRel||0.15)));
       relationsScore = relScores.length? (relScores.reduce((a,b)=>a+b,0)/relScores.length) : 1.0;
     }
     const hasRelations = (task.relations && task.relations.length)>0;
@@ -780,24 +874,34 @@
     const sumFResult = evalSumF(task, forceResults, allForces);
     const sumFScore = sumFResult.score;
     
-    // Combine scores: if there are extra forces, penalize based on equilibrium
-    // If sumF is OK (1.0) but extras exist: reduce to account for extras
-    // If sumF is broken: use the reduced score
+    // Combine scores based on what we have
     let sumFWeighted = sumFScore;
     if(extrasCount > 0){
       sumFWeighted = sumFScore*0.5*(extrasCount<=2?1.:Math.pow(0.7, extrasCount-2));
     }
-    let finalScore;
+    
+    let combined;
     if(hasRelations){
-      const combined = (baseScore + relationsScore + sumFWeighted*2) / 4;
-      // NEW: neatness factor (0.9 if any non-parallel expected forces overlap, else 1.0)
-      const neatness = computeNeatness(task, forceResults, allForces);
-      finalScore = combined * coverageFactor * neatness;
+      // With relations: use base score and relations only (sumF is fallback only)
+      combined = (baseScore + relationsScore) / 2;
     } else {
-      const combined = (baseScore + sumFWeighted) / 2;
-      const neatness = computeNeatness(task, forceResults, allForces); // NEW
-      finalScore = combined * coverageFactor * neatness;
+      // Without relations: use sumF as fallback
+      combined = (baseScore + sumFWeighted) / 2;
     }
+    
+    const neatness = computeNeatness(task, forceResults, allForces);
+    let finalScore = combined * coverageFactor * neatness;
+    
+    // NEW: Apply gating/caps based on coverage and essential forces
+    let cap = 1.0;
+    if(coverage < 0.75) cap = Math.min(cap, 0.6);     // mangler mye → maks 60%
+    if(coverage < 0.50) cap = Math.min(cap, 0.35);    // mangler halvparten → maks 35%
+    
+    // Check for missing essential forces (G and N)
+    const missing = name => !forceResults.find(r=>r.name === name && r.found);
+    if(missing("G") || missing("N")) cap = Math.min(cap, 0.75);
+    
+    finalScore = Math.min(finalScore, cap);
     finalScore = clamp(finalScore, 0, 1);
 
     // Build debug output if needed
@@ -811,8 +915,12 @@
       });
       
       debugOutput += `✏️ TEGNEDE KREFTER:\n`;
+      // Only show drawn forces that correspond to expectedForces
+      const expectedForceNames = (task.expectedForces || []).map(f => f.name);
       allForces.forEach((f, idx) => {
         if(!f.anchor || !f.arrowBase || !f.arrowTip) return;
+        // Skip if this force is not in expectedForces (e.g., initialForces)
+        if(f.name && !expectedForceNames.includes(f.name)) return;
         const result = forceResults.find(r => r.index === idx);
         const nameStatus = result ? (result.nameOk ? '✓' : '✗') : '?';
         const dirStatus = result ? (result.dirOk ? '✓' : '✗') : '?';
@@ -821,17 +929,18 @@
         debugOutput += `  ${displayName}: Navn${nameStatus} Retning${dirStatus} Posisjon${posStatus}${result && result.dirErr !== undefined ? ` (${result.dirErr.toFixed(1)}°)` : ''}\n`;
       });
       
-      debugOutput += `📊 KRAFT-SCORER:\n`;
-      forceResults.forEach(r => {
-        if(!r.found) {
-          debugOutput += `  ${r.name}: MANGLER\n`;
+      debugOutput += `📊 KRAFT-SCORER (med aritmetisk gjennomsnitt):\n`;
+      expectedNames.forEach((name, idx) => {
+        const r = forceResults.find(rr => rr.name === name && rr.found);
+        if(!r){
+          debugOutput += `  ${name}: MANGLER (0%)\n`;
         } else {
           const nameScore = r.nameOk ? 1.0 : 0.0;
           const dirTol = r.dirTolDeg || DIR_TOL_DEG;
           const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
           const posScore = (typeof r.posErr==='number') ? rampDownLinear(r.posErr, POS_TOL, POS_SPAN) : 0.0;
-          const combined = (nameScore + dirScore + posScore)/3;
-          debugOutput += `  ${r.name}: Navn=${nameScore.toFixed(2)} Dir=${dirScore.toFixed(2)} (tol=${dirTol.toFixed(2)}°) Pos=${posScore.toFixed(2)} → ${(combined*100).toFixed(0)}%\n`;
+          const combined = (nameScore + dirScore + posScore) / 3;
+          debugOutput += `  ${name}: Navn=${nameScore.toFixed(2)} Dir=${dirScore.toFixed(2)} (tol=${dirTol.toFixed(2)}°) Pos=${posScore.toFixed(2)} → Gjennomsnitt=${(combined*100).toFixed(0)}%\n`;
         }
       });
       
@@ -849,44 +958,46 @@
       
       debugOutput += `  Coverage (${foundCount}/${expectedCount}): ${(coverage*100).toFixed(0)}%\n`;
       debugOutput += `  Coverage factor (^1.5): ${(coverageFactorVal*100).toFixed(0)}%\n`;
+      debugOutput += `  Neatness factor: ${(neatness*100).toFixed(0)}%\n`;
+      debugOutput += `  Gating cap: ${(cap*100).toFixed(0)}%\n`;
       
       debugOutput += `\n🧮 FINAL SCORE FORMULA:\n`;
       
-      // Recalculate sumFWeighted for debug display
-      let sumFWeightedDebug = sumFScore;
-      if(extrasCount > 0){
-        if(sumFScore === 1.0){
-          sumFWeightedDebug = 1.0 - (0.3 * extrasCount / Math.max(1, expectedCount));
-        } else {
-          sumFWeightedDebug = sumFScore;
-        }
-      }
+      // Use consistent sumFWeighted formula for debug
+      const sumFWeightedDebug = sumFWeighted;
       const sumFWeightedPct = (sumFWeightedDebug * 100).toFixed(0);
-      let sumFExpl = '';
-      if(extrasCount > 0){
-        if(sumFScore === 1.0){
-          sumFExpl = ` = 100% - (0.3 × ${extrasCount}/${expectedCount}) = ${sumFWeightedPct}%`;
-        } else {
-          sumFExpl = ` (broken, with extras) = ${sumFWeightedPct}%`;
-        }
-      }
       
       if(hasRelations){
-        debugOutput += `  Combined = (Base + Relations + SumF) / 3\n`;
-        debugOutput += `  Combined = (${baseScoreInfo} + ${(relationsScore*100).toFixed(0)}% + ${sumFWeightedPct}%) / 3 = ${((baseScore + relationsScore + sumFWeightedDebug)*100/3).toFixed(0)}%\n`;
-        debugOutput += `  Final = Combined × Coverage\n`;
-        debugOutput += `  Final = ${((baseScore + relationsScore + sumFWeightedDebug)*100/3).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% = ${(finalScore*100).toFixed(0)}%\n`;
+        debugOutput += `  Combined = (Base + Relations) / 2 (SumF is fallback only)\n`;
+        debugOutput += `  Combined = (${baseScoreInfo} + ${(relationsScore*100).toFixed(0)}%) / 2 = ${(combined*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
       } else {
         debugOutput += `  Combined = (Base + SumF) / 2\n`;
-        debugOutput += `  Combined = (${baseScoreInfo} + ${sumFWeightedPct}%) / 2 = ${((baseScore + sumFWeightedDebug)*100/2).toFixed(0)}%\n`;
-        debugOutput += `  Final = Combined × Coverage\n`;
-        debugOutput += `  Final = ${((baseScore + sumFWeightedDebug)*100/2).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% = ${(finalScore*100).toFixed(0)}%\n`;
+        debugOutput += `  Combined = (${baseScoreInfo} + ${(sumFWeighted*100).toFixed(0)}%) / 2 = ${(combined*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
       }
       
+      debugOutput += `  Final = min(Intermediate, Cap) = min(${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%, ${(cap*100).toFixed(0)}%) = ${(finalScore*100).toFixed(0)}%\n`;
       debugOutput += `═════════════════════════`;
     }
     
-    return { expectedCount, foundCount, extrasCount, coverage, baseScore, relationsScore, finalScore, debugOutput, sumFResult };
+    return { expectedCount, foundCount, extrasCount, coverage, baseScore, relationsScore, finalScore, debugOutput, sumFResult, neatness };
+  }
+
+  /**
+   * Convert finalScore (0-1) to points (0-2) with strict thresholds
+   * @param {number} score - Final score (0-1)
+   * @returns {number} Points (0-2)
+   */
+  function scoreToPoints(score){
+    if(score < 0.20) return 0.0;
+    if(score < 0.40) return 0.5;
+    if(score < 0.65) return 1.0;
+    if(score < 0.88) return 1.5;
+    if(score < 0.94) return 1.75;
+    return 2.0;
   }
 
   /**
@@ -903,9 +1014,9 @@
     const relationResults = evalRelations(window.currentTask, forceResults);
     const summary = computeScores(window.currentTask, forceResults, relationResults, window.fm.forces);
     
-    // Score is always computed and shown separately
-    const pct = Math.round(summary.finalScore*100);
-    const scoreText = `Score: ${pct}%`;
+    // Convert finalScore (0-1) to points (0-2) with strict thresholds
+    const points = scoreToPoints(summary.finalScore);
+    const scoreText = `Score: ${summary.finalScore.toFixed(2)} (${points.toFixed(1)} poeng)`;
     
     // Build feedback lines
     const lines = [];
@@ -915,7 +1026,7 @@
     }
     
     // Detailed feedback lines (force and relation errors)
-    lines.push(...buildFeedbackLines(forceResults, relationResults, window.fm.forces, window.settings && window.settings.debug, window.currentTask));
+    lines.push(...buildFeedbackLines(forceResults, relationResults, window.fm.forces, window.settings && window.settings.debug, window.currentTask, summary.neatness));
 
     
     window.lastEvaluation = { lines, summary };

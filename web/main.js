@@ -2,6 +2,9 @@
 // Fallback uten ES-moduler slik at fil kan åpnes direkte via file://.
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
 
+// Initialize empty TASKS array (will be populated from localStorage)
+window.TASKS = [];
+
 (function(){
     // Canvas init =====
   const canvas = document.getElementById('app-canvas');
@@ -481,6 +484,8 @@
   } catch {}
   // Player mode only - editor mode functionality is in editor.js
   window.editorMode = false;
+  // Initialize empty tasks array (will be populated from localStorage)
+  window.tasks = [];
   window.taskScores = {};
   try {
     const raw = localStorage.getItem('tk_taskScores');
@@ -867,7 +872,7 @@
     if(helpBtn && window.currentTask){
       const span = helpBtn.querySelector('span');
       if(span){
-        let btnText = 'Oppgave ' + window.currentTask.id;
+        let btnText = 'Oppgave ' + (window.currentTask.taskTitle || window.currentTask.id);
         // Add score if available
         const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
         if(taskScore && typeof taskScore.score === 'number'){
@@ -1269,31 +1274,30 @@
   };
 
   function loadTask(index){
-    if(!window.TASKS || !window.TASKS.length) return;
-    window.currentTaskIndex = (index + window.TASKS.length) % window.TASKS.length;
+    if(!window.tasks || !window.tasks.length) return;
+    window.currentTaskIndex = (index + window.tasks.length) % window.tasks.length;
     // NEW: persist current task index
     try { localStorage.setItem('tk_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
     
     // Check if task already exists in localStorage - if so, load ONLY from localStorage
-    const taskId = window.TASKS[window.currentTaskIndex].id;
+    const taskId = window.tasks[window.currentTaskIndex].id;
     const taskStorageKey = `tk_task_${taskId}`;
     const savedTaskData = localStorage.getItem(taskStorageKey);
     
+    let isLoadedFromStorage = false;
     if(savedTaskData){
       // Task has been edited before - load completely from localStorage
       try {
         window.currentTask = JSON.parse(savedTaskData);
       } catch {
         // Fallback to default task if parse fails
-        window.currentTask = window.TASKS[window.currentTaskIndex];
+        window.currentTask = window.tasks[window.currentTaskIndex];
       }
     } else {
-      // First time loading this task - use default from TASKS
-      window.currentTask = window.TASKS[window.currentTaskIndex];
+      // First time loading this task - use default from tasks
+      window.currentTask = window.tasks[window.currentTaskIndex];
     }
     
-    // Use ALL points for highlighting/hovering (includes segments, arrows, etc.)
-    window.sceneLookup = window.buildAllScenePoints(window.currentTask);
     // Use snap-enabled lookup for snapping
     const snapLookup = buildSceneLookup(window.currentTask);
     window.snapPoints = snapping.buildSnapPoints(snapLookup);
@@ -1305,6 +1309,7 @@
     // Rebuild inputs for new manager to avoid stale listeners
     inputsContainer.innerHTML = '';
     // CHANGE: Load ONLY initialForces, not savedForces (player mode should reset forces each session)
+    // Always seed initialForces from task definition (they never come from localStorage)
     seedInitialForces(window.currentTask);
     
     // Load any saved forces for this task from localStorage
@@ -1313,6 +1318,15 @@
     if(savedForcesData){
       try {
         const savedForces = JSON.parse(savedForcesData);
+        
+        // Remove trailing blank force added by seedInitialForces before adding saved forces
+        if(window.fm.forces.length > 0){
+          const lastForce = window.fm.forces[window.fm.forces.length - 1];
+          if(!lastForce.anchor && !lastForce.arrowBase && !lastForce.arrowTip && !lastForce.name){
+            window.fm.forces.pop();
+          }
+        }
+        
         // Load saved forces into the forces array
         savedForces.forEach(spec => {
           const f = new Force();
@@ -1353,31 +1367,18 @@
     const taskToSave = JSON.parse(JSON.stringify(window.currentTask));
     try {
       localStorage.setItem(`tk_task_${taskId}`, JSON.stringify(taskToSave));
-      
-      // Also save to tasks list so we know it exists
-      const savedTasksKey = 'tk_savedTasks';
-      let savedTasks = [];
-      try {
-        const stored = localStorage.getItem(savedTasksKey);
-        if(stored) savedTasks = JSON.parse(stored);
-      } catch {}
-      
-      if(!savedTasks.includes(taskId)) {
-        savedTasks.push(taskId);
-        localStorage.setItem(savedTasksKey, JSON.stringify(savedTasks));
-      }
     } catch {}
   }
   
   // Load all saved tasks from localStorage and merge with default TASKS
   function loadSavedTasks(){
-    const savedTasksKey = 'tk_savedTasks';
+    const taskOrderKey = 'tk_taskOrder';
     try {
-      const stored = localStorage.getItem(savedTasksKey);
+      const stored = localStorage.getItem(taskOrderKey);
       if(!stored) return;
       
-      const savedTaskIds = JSON.parse(stored);
-      for(const taskId of savedTaskIds){
+      const taskIds = JSON.parse(stored);
+      for(const taskId of taskIds){
         const taskKey = `tk_task_${taskId}`;
         const taskData = localStorage.getItem(taskKey);
         if(!taskData) continue;
@@ -1389,11 +1390,11 @@
             savedTask.help_lines = [];
           }
           // Find and replace existing task with same ID, or add new one
-          const existingIdx = window.TASKS.findIndex(t => t.id === taskId);
+          const existingIdx = window.tasks.findIndex(t => t.id === taskId);
           if(existingIdx >= 0){
-            window.TASKS[existingIdx] = savedTask;
+            window.tasks[existingIdx] = savedTask;
           } else {
-            window.TASKS.push(savedTask);
+            window.tasks.push(savedTask);
           }
         } catch {}
       }
@@ -1403,12 +1404,12 @@
   // Save task order to localStorage
   function saveTaskOrder(){
     try {
-      const taskOrder = window.TASKS.map(t => t.id);
+      const taskOrder = window.tasks.map(t => t.id);
       localStorage.setItem('tk_taskOrder', JSON.stringify(taskOrder));
     } catch {}
   }
 
-  // Load and apply task order from localStorage, append new tasks from tasks.js
+  // Load and apply task order from localStorage
   function loadTaskOrder(){
     try {
       const saved = localStorage.getItem('tk_taskOrder');
@@ -1416,10 +1417,20 @@
 
       const savedOrder = JSON.parse(saved);
       
-      // Create map of all current tasks
-      const taskMap = new Map(window.TASKS.map(t => [t.id, t]));
+      // Check if there are any tk_task_* entries in localStorage (tasks loaded from player mode)
+      let hasPlayerTasks = false;
+      for(let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if(key && key.startsWith('tk_task_')){
+          hasPlayerTasks = true;
+          break;
+        }
+      }
       
-      // Rebuild TASKS array: apply saved order, then append new tasks
+      // Create map of all current tasks
+      const taskMap = new Map(window.tasks.map(t => [t.id, t]));
+      
+      // Rebuild tasks array: apply saved order, then append new tasks only if NO player tasks exist
       const orderedTasks = [];
       for(const id of savedOrder){
         if(taskMap.has(id)){
@@ -1428,12 +1439,14 @@
         }
       }
       
-      // Append remaining tasks (new ones from tasks.js)
-      for(const task of taskMap.values()){
-        orderedTasks.push(task);
+      // Append remaining tasks (new ones, if any)
+      if(!hasPlayerTasks){
+        for(const task of taskMap.values()){
+          orderedTasks.push(task);
+        }
       }
       
-      window.TASKS = orderedTasks;
+      window.tasks = orderedTasks;
     } catch {}
   }
   
@@ -1500,8 +1513,11 @@
     if(!window.currentTask || !window.fm) return;
     const taskKey = `tk_forces_${window.currentTask.id}`;
     
-    // Filter out blank forces (only save forces with actual data)
+    // Filter out blank forces AND initialForces (only save editable expected forces)
     const nonBlankForces = window.fm.forces.filter(f => {
+      // Skip initialForces (they have moveable=false)
+      if(f.moveable === false) return false;
+      
       const hasAnchor = f.anchor !== null && f.anchor !== undefined;
       const hasArrowBase = f.arrowBase !== null && f.arrowBase !== undefined;
       const hasArrowTip = f.arrowTip !== null && f.arrowTip !== undefined;
@@ -1613,12 +1629,7 @@
     });
   }
 
-  // Populate taskset select when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', populateTasksetSelect);
-  } else {
-    populateTasksetSelect();
-  }
+
 
   // ===== Mouse interaction for forces =====
   function withinForceArea(x,y){
@@ -2452,7 +2463,7 @@
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
@@ -2483,7 +2494,7 @@
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
           if(helpContent && helpCanvas && window.currentTask.help_lines){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
@@ -2518,26 +2529,10 @@
         window.snapIndicator = null;
         window.currentGuidelines = null;
         clearFeedback();
-        // Remove only expected forces, keep initial forces
+        // Delete saved forces for this task (initialForces are restored from task definition)
         const taskKey = `tk_forces_${window.currentTask.id}`;
         try{
-          const savedForces = localStorage.getItem(taskKey);
-          if(savedForces){
-            const parsed = JSON.parse(savedForces);
-            if(Array.isArray(parsed)){
-              // Keep only initial forces (isExpected=false or moveable=false)
-              const initialForces = parsed.filter(f => {
-                let isExpected = f.isExpected;
-                if(isExpected === undefined) isExpected = (f.moveable !== false);
-                return !isExpected;
-              });
-              if(initialForces.length){
-                localStorage.setItem(taskKey, JSON.stringify(initialForces));
-              } else {
-                localStorage.removeItem(taskKey);
-              }
-            }
-          }
+          localStorage.removeItem(taskKey);
         } catch {}
         // Clear score for this task
         if(window.currentTask && window.taskScores){
@@ -2553,17 +2548,20 @@
         if(!helpPanel) return;
         if(!window.currentTask) return;
         // Show help lines
-        const helpContent = document.getElementById('help-content');
         const helpCanvas = document.getElementById('help-canvas');
         const helpTitle = document.getElementById('help-title');
-        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.id}: ${window.currentTask.title}`;
-        if(helpContent && helpCanvas && window.currentTask.help_lines){
-          // Player mode: always show canvas rendering
-          helpContent.style.display = 'none';
+        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+        if(helpCanvas && window.currentTask.help_lines && window.currentTask.help_lines.length > 0){
+          // Show canvas and make panel visible
           helpCanvas.style.display = 'block';
-          drawHelpLinesCanvas();
+          helpPanel.classList.remove('hidden');
+          // Use requestAnimationFrame to ensure canvas has rendered and has size
+          requestAnimationFrame(() => {
+            drawHelpLinesCanvas();
+          });
+        } else {
+          helpPanel.classList.remove('hidden');
         }
-        helpPanel.classList.remove('hidden');
         return;
       }
       if(action === 'settings'){
@@ -2770,18 +2768,7 @@
       try {
         localStorage.removeItem(`tk_task_${taskId}`);
         localStorage.removeItem(`tk_forces_${taskId}`);
-        localStorage.removeItem(`tk_relations_${taskId}`);
         localStorage.removeItem(`tk_sumF_${taskId}`);
-        
-        // Update saved tasks list
-        const savedTasksKey = 'tk_savedTasks';
-        let savedTasks = [];
-        try {
-          const stored = localStorage.getItem(savedTasksKey);
-          if(stored) savedTasks = JSON.parse(stored);
-        } catch {}
-        savedTasks = savedTasks.filter(id => id !== taskId);
-        localStorage.setItem(savedTasksKey, JSON.stringify(savedTasks));
         
         // Update task order - remove deleted task ID
         try {
@@ -2882,13 +2869,6 @@
         });
       }
       
-      // Add relations from localStorage if present
-      const relKey = `tk_relations_${task.id}`;
-      const savedRelations = localStorage.getItem(relKey);
-      if(savedRelations){
-        try{ task.relations = JSON.parse(savedRelations); }catch{}
-      }
-      
       // Add sumF from localStorage if present
       const sumFKey = `tk_sumF_${task.id}`;
       const savedSumF = localStorage.getItem(sumFKey);
@@ -2955,14 +2935,10 @@
   function showRelationsEditor(){
     if(!window.currentTask || !window.fm) return;
     relationsModal.classList.remove('hidden');
-    // Load relations from localStorage or task
-    const relKey = `tk_relations_${window.currentTask.id}`;
+    // Load relations from task object
     let relations = relationsList._relations || [];
     if(relationsList._relations === undefined){
-      const savedRelations = localStorage.getItem(relKey);
-      if(savedRelations){
-        try{ relations = JSON.parse(savedRelations); }catch{}
-      } else if(window.currentTask.relations){
+      if(window.currentTask.relations){
         relations = JSON.parse(JSON.stringify(window.currentTask.relations));
       }
     }
@@ -3125,9 +3101,8 @@
     if(!window.currentTask || !relationsList._relations) return;
     // Use the cached relations array that's been updated by event listeners
     const relations = relationsList._relations;
-    // Save to localStorage
-    const relKey = `tk_relations_${window.currentTask.id}`;
-    try{ localStorage.setItem(relKey, JSON.stringify(relations)); }catch{}
+    // Save to task object
+    window.currentTask.relations = relations;
   }
 
   function autoRelationValue(rel, forces){
@@ -3142,115 +3117,6 @@
     const lhsSum = sumLen(rel.lhs);
     const rhsSum = sumLen(rel.rhs);
     return rhsSum ? (lhsSum/rhsSum).toFixed(2) : '?';
-  }
-
-  // Task order manager modal logic
-  const taskOrderModal = document.getElementById('task-order-modal');
-  const taskList = document.getElementById('task-list');
-  const taskCount = document.getElementById('task-count');
-  const taskOrderClose = document.getElementById('task-order-close');
-
-  function updateTaskOrderList(){
-    if(!taskList) return;
-    taskList.innerHTML = '';
-    if(!window.TASKS || window.TASKS.length === 0) return;
-
-    taskCount.textContent = window.TASKS.length;
-
-    window.TASKS.forEach((task, idx) => {
-      const item = document.createElement('div');
-      item.className = 'task-order-item';
-      item.draggable = true;
-      item.dataset.index = idx;
-      item.dataset.taskId = task.id;
-      item.innerHTML = `
-        <span class="task-order-handle">⋮⋮</span>
-        <span class="task-order-id">${task.id}</span>
-        <span class="task-order-title">${task.title || '(Ingen tittel)'}</span>
-        <span class="task-order-category">${task.category || ''}</span>
-      `;
-
-      // Drag handlers
-      item.addEventListener('dragstart', (e) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', item.innerHTML);
-        item.classList.add('dragging');
-      });
-
-      item.addEventListener('dragend', (e) => {
-        item.classList.remove('dragging');
-        taskList.querySelectorAll('.task-order-item').forEach(el => {
-          el.classList.remove('drag-over');
-        });
-      });
-
-      item.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        
-        const draggingItem = taskList.querySelector('.dragging');
-        if(draggingItem && draggingItem !== item){
-          const rect = item.getBoundingClientRect();
-          const afterElement = getAfterElement(taskList, e.clientY);
-          if(afterElement == null){
-            taskList.appendChild(draggingItem);
-          } else {
-            taskList.insertBefore(draggingItem, afterElement);
-          }
-        }
-      });
-
-      item.addEventListener('drop', (e) => {
-        e.preventDefault();
-      });
-
-      taskList.appendChild(item);
-    });
-  }
-
-  function getAfterElement(container, y){
-    const draggableElements = [...container.querySelectorAll('.task-order-item:not(.dragging)')];
-    
-    // Find the element where cursor is closest to, returning the element below cursor
-    for(let i = 0; i < draggableElements.length; i++){
-      const box = draggableElements[i].getBoundingClientRect();
-      const midpoint = box.top + box.height / 2;
-      
-      // If cursor is above this element's midpoint, insert before it
-      if(y < midpoint){
-        return draggableElements[i];
-      }
-    }
-    
-    // Cursor is below all elements, return null (append to end)
-    return null;
-  }
-
-  // Button to open task order modal
-  const btnTaskOrder = document.getElementById('btn-task-order');
-  if(btnTaskOrder){
-    btnTaskOrder.addEventListener('click', ()=>{
-      if(!taskOrderModal) return;
-      updateTaskOrderList();
-      taskOrderModal.classList.remove('hidden');
-    });
-  }
-
-  if(taskOrderClose){
-    taskOrderClose.addEventListener('click', ()=>{
-      // Apply current order from DOM
-      const items = taskList.querySelectorAll('.task-order-item');
-      const newOrder = [];
-      items.forEach(item => {
-        const taskId = item.dataset.taskId;
-        const task = window.TASKS.find(t => t.id === taskId);
-        if(task) newOrder.push(task);
-      });
-      window.TASKS = newOrder;
-      saveTaskOrder();
-      
-      if(taskOrderModal) taskOrderModal.classList.add('hidden');
-    });
   }
 
   // Conflict modal handlers
@@ -3397,6 +3263,9 @@
 
   if(tasksetUploadBtn){
     tasksetUploadBtn.addEventListener('click', ()=>{
+      // Populate taskset list when opening modal
+      populateTasksetSelect();
+      
       tasksetUploadError.style.display = 'none';
       tasksetUploadError.textContent = '';
       tasksetFileSelected.style.display = 'none';
@@ -3610,7 +3479,7 @@
 
         // Save state
         try{
-          localStorage.setItem('tk_savedTasks', JSON.stringify(window.TASKS.map(t => t.id)));
+          localStorage.setItem('tk_taskOrder', JSON.stringify(window.TASKS.map(t => t.id)));
           localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores));
           localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments));
           localStorage.setItem('tk_currentTaskIndex', '0');

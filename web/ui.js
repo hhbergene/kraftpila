@@ -521,71 +521,84 @@ function updateScenePanel(){
     const metaEditor = document.createElement('div');
     metaEditor.className = 'scene-item';
     metaEditor.style.marginBottom = '8px';
+    const titleVal = window.currentTask.taskTitle || window.currentTask.title || '';
+    const subTitleVal = window.currentTask.taskSubTitle || window.currentTask.subTitle || '';
+    const categoryVal = window.currentTask.category || '';
     metaEditor.innerHTML = `
       <div class="scene-editor-row">
-        <label>Id:</label>
-        <input type="text" id="task-id-input" class="scene-editor-input" value="${window.currentTask.id || ''}" style="flex:1; padding:2px 4px; font-size:11px;" />
+        <label>Oppgave-Tittel:</label>
+        <input type="text" id="task-title-input" class="scene-editor-input" value="${titleVal}" style="flex:1; padding:2px 4px; font-size:11px;" />
       </div>
       <div class="scene-editor-row">
-        <label>Tittel:</label>
-        <input type="text" id="task-title-input" class="scene-editor-input" value="${window.currentTask.title || ''}" style="flex:1; padding:2px 4px; font-size:11px;" />
+        <label>Undertittel:</label>
+        <input type="text" id="task-subtitle-input" class="scene-editor-input" value="${subTitleVal}" style="flex:1; padding:2px 4px; font-size:11px;" />
       </div>
       <div class="scene-editor-row">
         <label>Kategori:</label>
-        <input type="text" id="task-category-input" class="scene-editor-input" value="${window.currentTask.category || ''}" style="flex:1; padding:2px 4px; font-size:11px;" />
+        <input type="text" id="task-category-input" class="scene-editor-input" value="${categoryVal}" style="flex:1; padding:2px 4px; font-size:11px;" />
       </div>
     `;
     scenePanel.appendChild(metaEditor);
     
     // Wire up metadata input handlers
-    const idInput = metaEditor.querySelector('#task-id-input');
     const titleInput = metaEditor.querySelector('#task-title-input');
+    const subtitleInput = metaEditor.querySelector('#task-subtitle-input');
     const categoryInput = metaEditor.querySelector('#task-category-input');
     
-    if(idInput) {
-      idInput.addEventListener('change', () => {
-        const oldId = window.currentTask.id;
-        const newId = idInput.value.trim();
-        if(newId && newId !== oldId) {
-          // Migrate localStorage entries from old ID to new ID
-          const keys = ['tk_task_', 'tk_forces_', 'tk_solutionForces_', 'tk_relations_', 'tk_sumF_'];
-          keys.forEach(prefix => {
-            const oldKey = `${prefix}${oldId}`;
-            const newKey = `${prefix}${newId}`;
-            const value = localStorage.getItem(oldKey);
-            if(value) {
-              localStorage.setItem(newKey, value);
-              localStorage.removeItem(oldKey);
-            }
-          });
-          // Update task ID
-          window.currentTask.id = newId;
-          // Update savedTasks list
-          try {
-            let savedTasks = JSON.parse(localStorage.getItem('tk_savedTasks') || '[]');
-            const idx = savedTasks.indexOf(oldId);
-            if(idx >= 0) {
-              savedTasks[idx] = newId;
-              localStorage.setItem('tk_savedTasks', JSON.stringify(savedTasks));
-            }
-          } catch {}
-          saveTask();
+    if(titleInput) {
+      titleInput.addEventListener('change', () => {
+        window.currentTask.taskTitle = titleInput.value;
+        window.currentTask.title = titleInput.value;
+        // Also update in window.tasks array so oppgavelisten reflects the change
+        if(window.tasks && window.currentTaskIndex !== undefined){
+          const task = window.tasks.find(t => t.id === window.currentTask.id);
+          if(task){
+            task.taskTitle = titleInput.value;
+            task.title = titleInput.value;
+          }
+        }
+        saveTask();
+        updateHelpButton();
+        // Update task order list if it exists
+        if(window.updateTaskOrderList){
+          window.updateTaskOrderList();
         }
       });
     }
     
-    if(titleInput) {
-      titleInput.addEventListener('change', () => {
-        window.currentTask.title = titleInput.value;
+    if(subtitleInput) {
+      subtitleInput.addEventListener('change', () => {
+        window.currentTask.taskSubTitle = subtitleInput.value;
+        window.currentTask.subTitle = subtitleInput.value;
+        // Also update in window.tasks array
+        if(window.tasks && window.currentTaskIndex !== undefined){
+          const task = window.tasks.find(t => t.id === window.currentTask.id);
+          if(task){
+            task.taskSubTitle = subtitleInput.value;
+            task.subTitle = subtitleInput.value;
+          }
+        }
         saveTask();
-        updateHelpButton();
+        // Update task order list if it exists
+        if(window.updateTaskOrderList){
+          window.updateTaskOrderList();
+        }
       });
     }
     
     if(categoryInput) {
       categoryInput.addEventListener('change', () => {
         window.currentTask.category = categoryInput.value;
+        // Also update in window.tasks array so oppgavelisten reflects the change
+        if(window.tasks && window.currentTaskIndex !== undefined){
+          const task = window.tasks.find(t => t.id === window.currentTask.id);
+          if(task) task.category = categoryInput.value;
+        }
         saveTask();
+        // Update task order list if it exists
+        if(window.updateTaskOrderList){
+          window.updateTaskOrderList();
+        }
       });
     }
   }
@@ -695,36 +708,76 @@ function setupHelpLinesEditor(){
 // Draw help lines on canvas using formatted text
 function drawHelpLinesCanvas(){
   const canvas = document.getElementById('help-canvas');
-  if(!canvas || !window.currentTask || !window.currentTask.help_lines) return;
-  
-  // Set canvas size
-  const helpPanel = document.getElementById('help-panel');
-  canvas.width = helpPanel.offsetWidth;
-  canvas.height = helpPanel.offsetHeight - 50; // Account for header
+  const container = document.getElementById('help-content-container');
+  if(!canvas || !container || !window.currentTask || !window.currentTask.help_lines) return;
   
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
   
-  // Clear canvas
-  ctx.fillStyle = '#f9f9f9';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Handle device pixel ratio for sharp text
+  const dpr = window.devicePixelRatio || 1;
   
-  // Draw each help line
-  let y = 30;
-  const lineHeight = 40;
-  const startX = 20;
+  // Set canvas display width (smaller, more readable)
+  const maxDisplayWidth = 700; // Max width for readability
+  const containerWidth = container.offsetWidth - 40; // Account for padding and scrollbar
+  const displayWidth = Math.min(containerWidth, maxDisplayWidth);
+  canvas.style.width = displayWidth + 'px';
   
+  // Set actual canvas resolution for sharpness
+  canvas.width = displayWidth * dpr;
+  ctx.scale(dpr, dpr);
+  
+  // Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, displayWidth, canvas.height);
+  
+  // Calculate height needed for all help lines
+  let y = 20;
+  const lineHeight = 24;
+  const startX = 15;
+  const padding = 20;
+  
+  // First pass: draw to calculate needed height
+  let maxY = y;
   for(const line of window.currentTask.help_lines){
     if(window.drawFormattedText){
       window.drawFormattedText(ctx, line, startX, y, {
-        size: 16,
-        color: '#333',
+        size: 14,
+        color: '#000000',
         align: 'left'
       });
     } else {
-      // Fallback if drawFormattedText not available
-      ctx.font = '16px Arial';
-      ctx.fillStyle = '#333';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(line, startX, y);
+    }
+    y += lineHeight;
+    maxY = y;
+  }
+  
+  // Set canvas height based on content
+  canvas.height = (maxY + padding) * dpr;
+  canvas.style.height = (maxY + padding) + 'px';
+  
+  // Reset scale after height change
+  ctx.scale(dpr, dpr);
+  
+  // Clear with white background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, displayWidth, maxY + padding);
+  
+  // Redraw all lines
+  y = 20;
+  for(const line of window.currentTask.help_lines){
+    if(window.drawFormattedText){
+      window.drawFormattedText(ctx, line, startX, y, {
+        size: 14,
+        color: '#000000',
+        align: 'left'
+      });
+    } else {
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#000000';
       ctx.fillText(line, startX, y);
     }
     y += lineHeight;

@@ -3200,10 +3200,57 @@ window.TASKS = [];
           if(backup.taskComments){ window.taskComments = backup.taskComments; }
           
           // Restore all localStorage keys
-          if(backup.localStorage){
-            for(const key in backup.localStorage){
+          const restored = backup.localStorage || {};
+          const editorTaskKeys = Object.keys(restored).filter(k => k.startsWith('editor_task_'));
+          const isEditorBackup = editorTaskKeys.length > 0;
+
+          if(isEditorBackup){
+            // Backup from the editor: convert editor_task_* into the player's tk_task_* format
+            const tasksById = new Map();
+            editorTaskKeys.forEach(k => {
               try{
-                localStorage.setItem(key, backup.localStorage[key]);
+                const task = JSON.parse(restored[k]);
+                if(!task || !task.id) return;
+                if(!Array.isArray(task.help_lines)) task.help_lines = [];
+                delete task.comment;
+                tasksById.set(task.id, task);
+              } catch(e){
+                console.warn(`Could not parse ${k}`, e);
+              }
+            });
+
+            const parseList = (key) => {
+              try{
+                const list = JSON.parse(restored[key] || '[]');
+                return Array.isArray(list) ? list : [];
+              } catch { return []; }
+            };
+            const orderedIds = Array.from(new Set([
+              ...parseList('editor_taskOrder'),
+              ...parseList('editor_savedTasks'),
+              ...tasksById.keys()
+            ])).filter(id => tasksById.has(id));
+
+            // Replace existing player tasks and forces (as taskset upload does)
+            const oldKeys = [];
+            for(let i = 0; i < localStorage.length; i++){
+              const key = localStorage.key(i);
+              if(key && (key.startsWith('tk_task_') || key.startsWith('tk_forces_'))) oldKeys.push(key);
+            }
+            oldKeys.forEach(key => { try{ localStorage.removeItem(key); } catch {} });
+
+            orderedIds.forEach(id => {
+              try{ localStorage.setItem(`tk_task_${id}`, JSON.stringify(tasksById.get(id))); } catch(e){
+                console.warn(`Could not save task ${id}`, e);
+              }
+            });
+            try{ localStorage.setItem('tk_taskOrder', JSON.stringify(orderedIds)); } catch {}
+            window.tasks = [];
+            window.TASKS = window.tasks;
+          } else {
+            for(const key in restored){
+              try{
+                localStorage.setItem(key, restored[key]);
               } catch(e){
                 console.warn(`Could not restore localStorage key: ${key}`, e);
               }
@@ -3227,11 +3274,14 @@ window.TASKS = [];
           try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); } catch {}
           try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
           try{ localStorage.setItem('tk_taskComments', JSON.stringify(window.taskComments)); } catch {}
+          // Reload tasks from storage so restored tasks show up without a page reload
+          loadSavedTasks();
+          loadTaskOrder();
           // Update UI
           updateUserDisplay();
           if(usr) usr.value = window.settings.username || '';
           if(dbg) dbg.checked = !!window.settings.debug;
-          alert('Innstillinger gjenopprettet!');
+          alert(isEditorBackup ? `Gjenopprettet ${window.tasks.length} oppgaver fra editor-backup!` : 'Innstillinger gjenopprettet!');
           // Reload current task to reflect restored forces
           if(typeof window.currentTaskIndex === 'number'){
             loadTask(window.currentTaskIndex);
@@ -3439,6 +3489,7 @@ window.TASKS = [];
 
         // Clear current tasks and scores
         window.TASKS = [];
+        window.tasks = window.TASKS;
         window.taskScores = {};
         window.taskComments = {};
         window.currentTaskIndex = 0;

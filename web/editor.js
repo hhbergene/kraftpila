@@ -1889,7 +1889,15 @@ window.tasks = [];
   window.rememberUndoSelection = rememberSelection;
   window.recordUndo = recordUndo;
   window.undo = function(){
+    const posBefore = undoPos;
     autoSave(); // ventende endring blir eget steg
+    // Feltets egen angre (f.eks. navn som ble fjernet) ga et nytt steg identisk med steget før
+    // det mellomliggende. Slå dem sammen, så ett trykk til angrer selve kraften.
+    if(undoPos === posBefore + 1 && undoPos >= 2 && sameState(undoStack[undoPos], undoStack[undoPos - 2])){
+      undoStack.splice(undoPos - 1, 2);
+      undoPos -= 2;
+      updateUndoButtons();
+    }
     rememberSelection();
     if(undoPos <= 0) return;
     undoPos--;

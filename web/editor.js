@@ -1954,13 +1954,9 @@ window.tasks = [];
     try {
       const taskOrder = window.tasks.map(t => t.id);
       localStorage.setItem('editor_taskOrder', JSON.stringify(taskOrder));
-      // Slettede oppgaver skal heller ikke stå i listen over lagrede oppgaver
-      const stored = localStorage.getItem('editor_savedTasks');
-      if(stored){
-        const ids = new Set(taskOrder);
-        const savedTasks = JSON.parse(stored).filter(id => ids.has(id));
-        localStorage.setItem('editor_savedTasks', JSON.stringify(savedTasks));
-      }
+      // Lagrede oppgaver = oppgaver i settet som har egen lagret kopi (slettede faller bort, importerte kommer til)
+      const savedTasks = taskOrder.filter(id => localStorage.getItem(`editor_task_${id}`) !== null);
+      localStorage.setItem('editor_savedTasks', JSON.stringify(savedTasks));
     } catch {}
   }
 
@@ -4459,10 +4455,9 @@ window.tasks = [];
   // Expose updateTaskOrderList as global function so ui.js can call it
   window.updateTaskOrderList = updateTaskOrderList;
 
-  // ===== Task Set Management (Save/Export/Open/Import) - integrated in task-order-modal =====
+  // ===== Task Set Management (Åpne/Eksporter/Importer) - integrated in task-order-modal =====
   const tasksetNameInput = document.getElementById('taskset-name');
   const tasksetErrorDiv = document.getElementById('taskset-error');
-  const tasksetSaveBtn = document.getElementById('taskset-save-btn');
   const tasksetExportBtn = document.getElementById('taskset-export-btn');
   const tasksetOpenBtn = document.getElementById('taskset-open-btn');
   const tasksetImportBtn = document.getElementById('taskset-import-btn');
@@ -4511,172 +4506,97 @@ window.tasks = [];
     return order;
   }
 
-  // ===== LAGRE: Save task set with minimal data (localStorage) =====
-  if (tasksetSaveBtn) {
-    tasksetSaveBtn.addEventListener('click', () => {
-      const name = tasksetNameInput.value.trim();
-      const validation = validateTasksetName(name);
+  // ===== ÅPNE: Hent et oppgavesett som ligger på nettsiden =====
+  // oppgavesett.json er en liste over tilgjengelige sett: [{ "name": "...", "file": "..." }]
+  const TASKSET_MANIFEST = 'oppgavesett.json';
 
-      // Show error if invalid
-      if (!validation.valid) {
-        tasksetErrorDiv.textContent = validation.error;
-        tasksetErrorDiv.style.display = 'block';
-        return;
-      }
-
-      // Clear error
-      tasksetErrorDiv.style.display = 'none';
-
-      // Get selected task IDs and order
-      const selectedIds = getSelectedTaskIds();
-      const taskOrder = getTaskOrderFromList();
-
-      // Save to localStorage with minimal data
-      const tasksetKey = `taskset_${name}`;
-      const tasksetData = {
-        taskIds: selectedIds,
-        order: taskOrder,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        localStorage.setItem(tasksetKey, JSON.stringify(tasksetData));
-        
-        // Show success message
-        tasksetResultDiv.style.display = 'block';
-        tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${name}" lagret (${selectedIds.length} oppgaver)</div>`;
-        
-        // Clear input
-        tasksetNameInput.value = '';
-      } catch (err) {
-        tasksetErrorDiv.textContent = 'Feil ved lagring til localStorage: ' + err.message;
-        tasksetErrorDiv.style.display = 'block';
-      }
-    });
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
 
-  // ===== ÅPNE: Load task set from localStorage =====
-  if (tasksetOpenBtn) {
-    tasksetOpenBtn.addEventListener('click', () => {
-      // List all taskset_* from localStorage
-      const tasksets = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('taskset_')) {
-          const name = key.replace('taskset_', '');
-          try {
-            const data = JSON.parse(localStorage.getItem(key));
-            tasksets.push({
-              key: key,
-              name: name,
-              timestamp: data.timestamp || 'Ukjent',
-              taskCount: (data.taskIds || []).length
-            });
-          } catch (e) {
-            console.error('Error parsing taskset:', key, e);
-          }
-        }
-      }
+  function showTasksetError(msg){
+    tasksetErrorDiv.textContent = msg;
+    tasksetErrorDiv.style.display = 'block';
+  }
 
-      if (tasksets.length === 0) {
-        tasksetResultDiv.style.display = 'block';
-        tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ Ingen lagrede oppgavesett</div>';
+  async function fetchJson(url){
+    const res = await fetch(url, { cache: 'no-cache' });
+    if(!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // Godtar eksportfil ({tasks:[...]}), ren liste, og backup-filen (editor_task_* i localStorage)
+  function extractTasks(data){
+    if(Array.isArray(data)) return data;
+    if(data && Array.isArray(data.tasks)) return data.tasks;
+    if(data && data.localStorage && typeof data.localStorage === 'object'){
+      const ls = data.localStorage;
+      let order = [];
+      try { order = JSON.parse(ls.editor_taskOrder || '[]'); } catch {}
+      const rank = id => { const i = order.indexOf(id); return i < 0 ? Infinity : i; };
+      const ids = Object.keys(ls)
+        .filter(k => k.startsWith('editor_task_') && !k.startsWith('editor_task_lock_'))
+        .map(k => k.slice('editor_task_'.length))
+        .sort((a, b) => rank(a) - rank(b));
+      const tasks = [];
+      ids.forEach(id => {
+        try { const t = JSON.parse(ls['editor_task_' + id]); if(t && t.id) tasks.push(t); } catch {}
+      });
+      return tasks;
+    }
+    throw new Error('Ukjent filformat – fant ingen oppgaver');
+  }
+
+  if (tasksetOpenBtn) {
+    tasksetOpenBtn.addEventListener('click', async () => {
+      tasksetErrorDiv.style.display = 'none';
+      let sets;
+      try {
+        sets = await fetchJson(TASKSET_MANIFEST);
+      } catch (err) {
+        showTasksetError('Kunne ikke hente oppgavesett fra nettsiden (' + err.message + '). Det virker ikke fra en lokal fil (file://).');
         return;
       }
-
-      // Show list in modal
+      if (!Array.isArray(sets) || sets.length === 0) {
+        showTasksetError('Ingen oppgavesett er publisert på nettsiden.');
+        return;
+      }
       tasksetList.innerHTML = '';
-      let selectedKey = null;
-      
-      tasksets.forEach((ts, idx) => {
-        const date = new Date(ts.timestamp);
-        const dateStr = isNaN(date.getTime()) ? ts.timestamp : date.toLocaleString('no-NO');
-        
-        const container = document.createElement('div');
-        container.style.cssText = 'display:flex; align-items:center; padding:8px; border-bottom:1px solid #eee;';
-        
+      sets.forEach((s, idx) => {
         const label = document.createElement('label');
-        label.style.cssText = 'flex:1; display:flex; flex-direction:column; cursor:pointer;';
-        label.innerHTML = `
-          <div style="display:flex; align-items:center;">
-            <input type="radio" name="taskset-select" value="${ts.key}" ${idx === 0 ? 'checked' : ''} style="margin-right:8px;">
-            <strong>${ts.name}</strong>
-          </div>
-          <span style="font-size:11px; color:#666; margin-left:24px;">Lagret: ${dateStr} (${ts.taskCount} oppgaver)</span>
-        `;
-        
-        label.addEventListener('change', (e) => {
-          if (e.target.checked) selectedKey = ts.key;
-        });
-        
-        // Delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '🗑️';
-        deleteBtn.style.cssText = 'padding:4px 8px; margin-left:8px; background:#fee; border:1px solid #fcc; border-radius:4px; cursor:pointer; font-size:16px;';
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          localStorage.removeItem(ts.key);
-          // Refresh the list
-          tasksetOpenBtn.click();
-        });
-        
-        container.appendChild(label);
-        container.appendChild(deleteBtn);
-        tasksetList.appendChild(container);
-        if (idx === 0) selectedKey = ts.key;
+        label.style.cssText = 'display:flex; align-items:center; padding:8px; border-bottom:1px solid #eee; cursor:pointer;';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'taskset-select';
+        radio.value = String(idx);
+        radio.checked = idx === 0;
+        radio.style.marginRight = '8px';
+        const strong = document.createElement('strong');
+        strong.textContent = s.name || s.file;
+        label.appendChild(radio);
+        label.appendChild(strong);
+        tasksetList.appendChild(label);
       });
-
-      // Show modal
+      tasksetOpenModal._sets = sets;
       tasksetOpenModal.classList.remove('hidden');
     });
   }
 
-  // ===== ÅPNE CONFIRM: Load selected task set =====
   if (tasksetOpenConfirm) {
-    tasksetOpenConfirm.addEventListener('click', () => {
+    tasksetOpenConfirm.addEventListener('click', async () => {
       const selected = tasksetList.querySelector('input[name="taskset-select"]:checked');
-      if (!selected) return;
-
+      const set = selected && tasksetOpenModal._sets && tasksetOpenModal._sets[Number(selected.value)];
+      if (!set) return;
+      tasksetOpenModal.classList.add('hidden');
       try {
-        const data = JSON.parse(localStorage.getItem(selected.value));
-        const selectedIds = data.taskIds || [];
-        const setName = selected.value.replace('taskset_', '');
-
-        // Fill in taskset name in input
-        tasksetNameInput.value = setName;
-
-        // Check all corresponding checkboxes in task order list
-        if (taskOrderModal) {
-          const allCheckboxes = taskOrderModal.querySelectorAll('.task-order-checkbox');
-          allCheckboxes.forEach(cb => {
-            cb.checked = selectedIds.includes(cb.dataset.taskId);
-          });
-        }
-
-        // Navigate to first task in set
-        if (selectedIds.length > 0) {
-          const firstTaskIdx = window.tasks.findIndex(t => t.id === selectedIds[0]);
-          if (firstTaskIdx >= 0) {
-            loadTask(firstTaskIdx);
-          }
-        }
-
-        // Hide modal and show success
-        tasksetOpenModal.classList.add('hidden');
-        tasksetResultDiv.style.display = 'block';
-        tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${setName}" åpnet (${selectedIds.length} oppgaver valgt)</div>`;
-        
-        // Auto-save new selection
-        markEdited('order');
+        const data = await fetchJson(set.file);
+        await importTasks(extractTasks(data), set.name || set.file);
       } catch (err) {
-        console.error('Error opening taskset:', err);
-        tasksetErrorDiv.textContent = 'Feil ved åpning av sett: ' + err.message;
-        tasksetErrorDiv.style.display = 'block';
+        showTasksetError('Feil ved åpning av oppgavesett: ' + err.message);
       }
     });
   }
 
-  // ===== ÅPNE CANCEL: Close open modal =====
   if (tasksetOpenCancel) {
     tasksetOpenCancel.addEventListener('click', () => {
       tasksetOpenModal.classList.add('hidden');
@@ -4754,7 +4674,7 @@ window.tasks = [];
     });
   }
 
-  // ===== IMPORTER: Import task objects from file with merge logic =====
+  // ===== IMPORTER: Les oppgaver fra lokal fil =====
   if (tasksetImportBtn) {
     tasksetImportBtn.addEventListener('click', () => {
       tasksetFileInput.click();
@@ -4764,115 +4684,130 @@ window.tasks = [];
   if (tasksetFileInput) {
     tasksetFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (!file) {
-        console.log('Import: Ingen fil valgt');
-        return;
-      }
-
-      console.log('Import: Starter lesing av fil:', file.name);
+      if (!file) return;
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
+        tasksetErrorDiv.style.display = 'none';
         try {
-          const importData = JSON.parse(event.target.result);
-          const tasksToImport = importData.tasks || [];
-          console.log('Import: Parsert JSON, antall tasks:', tasksToImport.length);
-
-          const reportItems = [];
-          const imported = [];
-          const skipped = [];
-
-          tasksToImport.forEach((task, idx) => {
-            const taskId = task.id;
-            const forcesKey = `editor_forces_${taskId}`;
-            const existingTask = localStorage.getItem(`editor_task_${taskId}`);
-
-            console.log(`Import task ${idx + 1}/${tasksToImport.length}: "${taskId}" - Finnes allerede: ${!!existingTask}`);
-
-            // Check if task already exists in editor namespace
-            if (existingTask) {
-              skipped.push({ id: taskId, title: task.title || taskId, reason: 'Oppgaven finnes allerede' });
-              const itemHtml = `<div style="padding:8px 10px; border-bottom:1px solid #eee; color:#d32f2f; background:#fde8e8;">⏭️ <strong>${task.title || taskId}</strong> – eksisterer allerede</div>`;
-              reportItems.push(itemHtml);
-              console.log(`  → Hoppet over (finnes allerede), HTML: ${itemHtml.substring(0, 50)}...`);
-            } else {
-              // Add new task
-              imported.push({ id: taskId, title: task.title || taskId });
-              
-              // Save full task (and forces if available) via autoSave
-              queueStorage(`editor_task_${taskId}`, task);
-              if (task._forces) {
-                queueStorage(forcesKey, task._forces);
-              }
-              markEdited('order');
-              
-              // Add to tasks array
-              window.tasks.push(task);
-              console.log(`  → Lagt til i tasks array`);
-              
-              const itemHtml = `<div style="padding:8px 10px; border-bottom:1px solid #eee; color:#2e7d32; background:#f1f8f4;">✅ <strong>${task.title || taskId}</strong> – importert</div>`;
-              reportItems.push(itemHtml);
-            }
-          });
-
-          // Show detailed report
-          
-          if (!tasksetResultDiv || !tasksetReportDiv) {
-            console.error('FEIL: tasksetResultDiv eller tasksetReportDiv finnes ikke!');
-            alert('FEIL: Kan ikke vise import-rapport - elementer finnes ikke i DOM');
-            return;
-          }
-
-
-
-          // Mark newly imported tasks for highlighting
-          imported.forEach(imp => {
-            newlyImportedTaskIds.add(imp.id);
-          });
-          
-          // Simplified report - just summary and instructions
-          const totalInFile = imported.length + skipped.length;
-          const reportHtml = `
-<div style="background: #fff3cd; padding: 12px; border: 2px solid #ffc107; border-radius: 4px; margin-bottom: 12px;">
-  <div style="font-size: 13px; color: #333; line-height: 1.6;">
-    <strong>✅ Importert og valgt ${totalInFile} oppgaver.</strong> Grønne er nye.<br>
-    <span style="font-size: 12px; color: #666;">Slett oppgave før import hvis du vil importere allerede eksisterende oppgave</span>
-  </div>
-</div>
-          `;
-          
-          tasksetReportDiv.innerHTML = reportHtml;
-          
-          // Show the result div - use !important to override
-          tasksetResultDiv.style.cssText = 'display: block !important; visibility: visible !important;';
-          
-          // Oppdater task-order-listen med nye oppgaver
-          updateTaskOrderList();
-          
-          // Auto-save new order immediately
-          markEdited('order');
-          
-          // Scroll to result so user sees it
-          setTimeout(() => {
-            tasksetResultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }, 100);
-
-
-          // Reset file input
-          tasksetFileInput.value = '';
+          await importTasks(extractTasks(JSON.parse(event.target.result)), file.name);
         } catch (err) {
-          console.error('Import feil:', err);
-          tasksetResultDiv.style.display = 'block';
-          tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ <strong>Feil ved lesing av fil:</strong> ' + err.message + '</div>';
-          tasksetFileInput.value = '';
+          showTasksetError('Feil ved lesing av fil: ' + err.message);
         }
+        tasksetFileInput.value = '';
       };
-      
-      reader.onerror = (err) => {
-        console.error('FileReader feil:', err);
+      reader.onerror = () => {
+        showTasksetError('Kunne ikke lese filen');
+        tasksetFileInput.value = '';
       };
-
       reader.readAsText(file);
     });
+  }
+
+  function newTaskId(){
+    return `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  }
+
+  // Spør hva som skal skje når en importert oppgave har samme id som en eksisterende
+  function askConflict(incoming, existing){
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal';
+      const box = document.createElement('div');
+      box.className = 'modal-content';
+      const title = (t) => escapeHtml(t.taskTitle || t.title || t.id);
+      box.innerHTML = `
+        <h2 style="font-size:16px; margin:0 0 12px 0;">Oppgaven finnes allerede</h2>
+        <p style="font-size:13px; margin:0 0 8px 0;">Eksisterende: <strong>${title(existing)}</strong><br>Importert: <strong>${title(incoming)}</strong></p>
+        <label style="display:block; font-size:13px; margin-bottom:12px;"><input type="checkbox" id="merge-all"> Bruk samme valg for alle like oppgaver</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;"></div>`;
+      const row = box.querySelector('div');
+      [['keep', 'Behold gammel', '#888'], ['replace', 'Erstatt', '#FF9800'], ['renew', 'Ny id (behold begge)', '#4CAF50']].forEach(([choice, text, color]) => {
+        const btn = document.createElement('button');
+        btn.textContent = text;
+        btn.style.cssText = `padding:8px 14px; background:${color}; color:white; border:none; border-radius:4px; cursor:pointer;`;
+        btn.addEventListener('click', () => {
+          const all = box.querySelector('#merge-all').checked;
+          overlay.remove();
+          resolve({ choice, all });
+        });
+        row.appendChild(btn);
+      });
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    });
+  }
+
+  // Slår importerte oppgaver sammen med de eksisterende. Nye og erstattede oppgaver havner sist i listen.
+  async function importTasks(incoming, sourceName){
+    autoSave(); // lagre ventende redigeringer først
+    const counts = { added: 0, kept: 0, replaced: 0, renewed: 0, invalid: 0 };
+    const currentId = window.currentTask && window.currentTask.id;
+    let currentReplaced = false;
+    let applyAll = null;
+    const touched = [];
+
+    for (const raw of incoming) {
+      if (!raw || typeof raw !== 'object' || !raw.id) { counts.invalid++; continue; }
+      const task = JSON.parse(JSON.stringify(raw));
+      const existingIdx = window.tasks.findIndex(t => t.id === task.id);
+      if (existingIdx >= 0) {
+        let choice = applyAll;
+        if (!choice) {
+          const ans = await askConflict(task, window.tasks[existingIdx]);
+          choice = ans.choice;
+          if (ans.all) applyAll = choice;
+        }
+        if (choice === 'keep') { counts.kept++; continue; }
+        if (choice === 'replace') {
+          window.tasks.splice(existingIdx, 1);
+          ['editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(p => queueStorage(p + task.id, null));
+          if (task.id === currentId) currentReplaced = true;
+          counts.replaced++;
+        } else {
+          task.id = newTaskId();
+          counts.renewed++;
+        }
+      } else {
+        counts.added++;
+      }
+      if (task._forces) {
+        queueStorage(`editor_forces_${task.id}`, task._forces);
+        delete task._forces;
+      }
+      const normalized = normalizeTaskMeta(task);
+      queueStorage(`editor_task_${normalized.id}`, normalized);
+      window.tasks.push(normalized);
+      touched.push(normalized.id);
+    }
+
+    markEdited('order');
+    autoSave();
+
+    // Rekkefølgen kan ha endret seg når en oppgave ble erstattet
+    const idx = window.tasks.findIndex(t => t.id === currentId);
+    if (!window.currentTask && window.tasks.length) {
+      loadTask(0); // tom editor: åpne første oppgave
+    } else if (currentReplaced && idx >= 0) {
+      loadTask(idx);
+    } else if (idx >= 0) {
+      window.currentTaskIndex = idx;
+      markEdited('index');
+    }
+
+    newlyImportedTaskIds = new Set(touched);
+    updateTaskOrderList();
+
+    const line = (n, text) => n ? `<div>${n} ${text}</div>` : '';
+    tasksetReportDiv.innerHTML = `
+      <div style="background:#fff3cd; padding:12px; border:2px solid #ffc107; border-radius:4px; margin-bottom:12px; font-size:13px; line-height:1.6;">
+        <strong>Importert fra ${escapeHtml(sourceName)}</strong> (nye og endrede oppgaver er markert grønt)
+        ${line(counts.added, 'nye oppgaver')}
+        ${line(counts.replaced, 'erstattet')}
+        ${line(counts.renewed, 'lagt til med ny id')}
+        ${line(counts.kept, 'beholdt gammel versjon')}
+        ${line(counts.invalid, 'hoppet over (mangler id)')}
+      </div>`;
+    tasksetResultDiv.style.display = 'block';
   }
 
   const taskOrderSelectAll = document.getElementById('task-order-select-all');

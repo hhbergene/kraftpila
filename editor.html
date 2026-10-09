@@ -89,8 +89,7 @@
         <div id="task-order-list"></div>
         <div id="taskset-controls" style="display:flex; gap:8px; margin-top:20px; margin-bottom:8px; align-items:center; padding-top:16px; border-top:1px solid #eee;">
           <input type="text" id="taskset-name" placeholder="Navn på oppgavesett" maxlength="50" style="flex:1; padding:6px 8px; border:1px solid #888; border-radius:4px; font-size:13px;">
-          <button id="taskset-save-btn" style="padding:6px 12px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Lagre</button>
-          <button id="taskset-open-btn" style="padding:6px 12px; background:#FF9800; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Åpne</button>
+          <button id="taskset-open-btn" title="Hent oppgavesett fra nettsiden" style="padding:6px 12px; background:#FF9800; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Åpne</button>
           <button id="taskset-export-btn" style="padding:6px 12px; background:#2196F3; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Eksporter</button>
           <button id="taskset-import-btn" style="padding:6px 12px; background:#9C27B0; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;">Importer</button>
           <input type="file" id="taskset-file-input" accept=".json" style="display:none;">
@@ -105,7 +104,7 @@
     <!-- Task set open modal -->
     <div id="taskset-open-modal" class="hidden modal">
       <div class="modal-content">
-        <h2>Åpne oppgavesett</h2>
+        <h2>Åpne oppgavesett fra nettsiden</h2>
         <div id="taskset-list" style="max-height:300px; overflow-y:auto; margin-bottom:12px;"></div>
         <button id="taskset-open-confirm" style="padding:8px 16px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer; margin-right:8px;">Åpne</button>
         <button id="taskset-open-cancel" style="padding:8px 16px; background:#888; color:white; border:none; border-radius:4px; cursor:pointer;">Avbryt</button>

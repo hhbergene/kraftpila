@@ -3394,6 +3394,61 @@ window.TASKS = [];
     });
   }
 
+  // Oppgavesett fra nettsiden (oppgavesett.json)
+  const tasksetWebSelect = document.getElementById('taskset-web-select');
+  let webTasksetsLoaded = false;
+  async function populateWebTasksets(){
+    if(!tasksetWebSelect) return;
+    tasksetWebSelect.innerHTML = '<option value="">-- Laster liste... --</option>';
+    try{
+      const res = await fetch('oppgavesett.json', {cache: 'no-store'});
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      tasksetWebSelect.innerHTML = '<option value="">-- Velg oppgavesett --</option>';
+      (Array.isArray(list) ? list : []).forEach(item => {
+        if(!item || !item.file) return;
+        const opt = document.createElement('option');
+        opt.value = item.file;
+        opt.textContent = item.name || item.file;
+        tasksetWebSelect.appendChild(opt);
+      });
+      webTasksetsLoaded = true;
+    }catch(err){
+      tasksetWebSelect.innerHTML = '<option value="">-- Ikke tilgjengelig (bruk fil) --</option>';
+      console.warn('Kunne ikke laste oppgavesett.json:', err);
+    }
+  }
+  if(tasksetUploadBtn) tasksetUploadBtn.addEventListener('click', () => { if(tasksetWebSelect){ tasksetWebSelect.value = ''; } populateWebTasksets(); });
+  if(tasksetWebSelect){
+    tasksetWebSelect.addEventListener('change', async (e) => {
+      const file = e.target.value;
+      tasksetUploadError.style.display = 'none';
+      tasksetUploadError.textContent = '';
+      tasksetFileSelected.style.display = 'none';
+      tasksetUploadInput.value = '';
+      if(tasksetSelect) tasksetSelect.value = '';
+      pendingTasksetData = null;
+      pendingTasksetName = '';
+      tasksetUploadConfirm.disabled = true;
+      if(!file) return;
+      try{
+        const res = await fetch(encodeURI(file), {cache: 'no-store'});
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const tasks = data.tasks || [];
+        if(!Array.isArray(tasks) || tasks.length === 0 || !tasks[0].id) throw new Error('Ugyldig oppgavesett: ingen oppgaver funnet');
+        const label = tasksetWebSelect.options[tasksetWebSelect.selectedIndex].textContent;
+        tasksetFileSelected.textContent = `${label} - ${tasks.length} oppgaver`;
+        tasksetFileSelected.style.display = 'block';
+        pendingTasksetData = tasks;
+        pendingTasksetName = label;
+        tasksetUploadConfirm.disabled = false;
+      }catch(err){
+        tasksetUploadError.textContent = 'Feil ved henting av oppgavesett: ' + err.message;
+        tasksetUploadError.style.display = 'block';
+      }
+    });
+  }
   // Handle file upload - shows filename with task count
   if(tasksetUploadInput){
     tasksetUploadInput.addEventListener('change', (e)=>{

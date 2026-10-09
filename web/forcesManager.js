@@ -62,6 +62,11 @@
       const activeForce = (this.activeIndex>=0? this.forces[this.activeIndex] : null);
 
       for(const f of this.forces){
+        // Elevmodus: låste krefter skal ikke fange klikk (ellers kan man ikke tegne fra samme punkt)
+        if(window.editorMode === false){
+          const exp = (f.isExpected !== undefined) ? f.isExpected : (f.moveable !== false);
+          if(!exp) continue;
+        }
         // Anchor handle
         if(f.anchor){
           const dA = geometry.distance(pos, f.anchor);

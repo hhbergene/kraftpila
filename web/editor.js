@@ -651,8 +651,23 @@ window.tasks = [];
   window.anchorCandidates = null;      // array of candidate anchor points
   window.anchorHoverIndex = -1;        // index of closest candidate to mouse
   
+  // Editor: drawing a new force is "armed" while an undrawn force's textbox (empty or named) has focus.
+  // Then canvas clicks start the force instead of selecting/editing scene objects.
+  function isDrawArmed(){
+    const ae = document.activeElement;
+    if(!ae || ae.tagName !== 'INPUT' || !inputsContainer || !inputsContainer.contains(ae)) return false;
+    const idx = parseInt(ae.dataset.index, 10);
+    const force = window.fm && window.fm.forces[idx];
+    if(!force || idx !== window.fm.activeIndex) return false;
+    return !force.anchor && !force.arrowBase && !force.arrowTip;
+  }
+
   // Helper: test proximity to all scene element points (including non-snap elements), prefer selected element within GRID_STEP
   function updateSceneElementHover(pos){
+    if(isDrawArmed()){
+      window.hoveredSceneElement = null;
+      return;
+    }
     // Build comprehensive point lookup including all elements (not just snap points)
     let pointLookup = null;
     if(window.currentTask && window.buildAllScenePoints){
@@ -3096,7 +3111,7 @@ window.tasks = [];
     const pos = getMousePos(e);
     
     // Check if clicking on scene element handle in edit mode
-    const handle = getSceneHandleAtPos(pos);
+    const handle = isDrawArmed() ? null : getSceneHandleAtPos(pos);
     if(handle){
       window.draggingHandle = handle;
         window.selectedSceneElement._handleStartPos = pos;

@@ -181,6 +181,7 @@
   </main>
 
   <!-- Shared configuration and utilities -->
+  <script src="web/version.js"></script>
   <script src="web/shared.js"></script>
   <!-- Shared utility modules -->
   <script src="web/text_render.js"></script>
@@ -194,5 +195,6 @@
   <script src="web/ui.js"></script>
   <!-- Editor entry point -->
   <script src="web/editor.js"></script>
+  <script>if(window.BUILD_TIME) document.title += " (" + window.BUILD_TIME + ")";</script>
 </body>
 </html>

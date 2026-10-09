@@ -491,7 +491,7 @@
     }
     
     const out=[];
-    const rels = task.relations || [];
+    const rels = (task.relations || []).filter(r => r && r.lhs && r.lhs.length && r.rhs && r.rhs.length); // hopp over ufullstendige relasjoner
     rels.forEach(rel=>{
       const tolRel = (typeof rel.tol_rel === 'number')? rel.tol_rel : 0.15;
       function sum(side){
@@ -868,7 +868,7 @@
       const relScores = relationResults.map(rr => rr.relScore !== undefined ? rr.relScore : (rr.missingInvolved ? 0 : rampDownLinear(rr.relError, rr.tolRel||0.15, rr.tolRel||0.15)));
       relationsScore = relScores.length? (relScores.reduce((a,b)=>a+b,0)/relScores.length) : 1.0;
     }
-    const hasRelations = (task.relations && task.relations.length)>0;
+    const hasRelations = (task.relations || []).some(r => r && r.lhs && r.lhs.length && r.rhs && r.rhs.length);
     const hasSumF = !!task.sumF && ['x','y','n'].some(k => typeof task.sumF[k] === 'number');
     
     // Sum of forces check (penalize extra forces if they break equilibrium)

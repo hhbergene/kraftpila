@@ -355,13 +355,14 @@
             {
               "name": "G",
               "component": "magnitude"
-            },
+            }
+          ],
+          "rhs": [
             {
               "name": "S",
               "component": "magnitude"
             }
           ],
-          "rhs": [],
           "ratio": 1,
           "tol_rel": 0.15
         }

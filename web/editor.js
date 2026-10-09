@@ -1844,6 +1844,14 @@ window.tasks = [];
     let state;
     try { state = captureState(); } catch { return; }
     if(!force && undoPos >= 0 && sameState(undoStack[undoPos], state)) return;
+    // Tilbake til tilstanden to steg bak (A→B→A, f.eks. skrive R og slette den igjen):
+    // da er mellomsteget meningsløst, så fjern det i stedet for å legge til et nytt
+    if(!force && undoPos >= 1 && sameState(undoStack[undoPos - 1], state)){
+      undoStack.length = undoPos;
+      undoPos--;
+      updateUndoButtons();
+      return;
+    }
     undoStack.length = undoPos + 1;
     undoStack.push(state);
     if(undoStack.length > UNDO_LIMIT) undoStack.shift();
@@ -1889,15 +1897,7 @@ window.tasks = [];
   window.rememberUndoSelection = rememberSelection;
   window.recordUndo = recordUndo;
   window.undo = function(){
-    const posBefore = undoPos;
     autoSave(); // ventende endring blir eget steg
-    // Feltets egen angre (f.eks. navn som ble fjernet) ga et nytt steg identisk med steget før
-    // det mellomliggende. Slå dem sammen, så ett trykk til angrer selve kraften.
-    if(undoPos === posBefore + 1 && undoPos >= 2 && sameState(undoStack[undoPos], undoStack[undoPos - 2])){
-      undoStack.splice(undoPos - 1, 2);
-      undoPos -= 2;
-      updateUndoButtons();
-    }
     rememberSelection();
     if(undoPos <= 0) return;
     undoPos--;

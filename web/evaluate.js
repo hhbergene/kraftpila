@@ -869,6 +869,7 @@
       relationsScore = relScores.length? (relScores.reduce((a,b)=>a+b,0)/relScores.length) : 1.0;
     }
     const hasRelations = (task.relations && task.relations.length)>0;
+    const hasSumF = !!task.sumF && ['x','y','n'].some(k => typeof task.sumF[k] === 'number');
     
     // Sum of forces check (penalize extra forces if they break equilibrium)
     const sumFResult = evalSumF(task, forceResults, allForces);
@@ -884,8 +885,11 @@
     if(hasRelations){
       // With relations: use base score and relations only (sumF is fallback only)
       combined = (baseScore + relationsScore) / 2;
+    } else if(!hasSumF){
+      // Verken relasjoner eller ΣF-krav: bare kraftgjennomsnittet teller
+      combined = baseScore;
     } else {
-      // Without relations: use sumF as fallback
+      // Uten relasjoner, men med ΣF-krav: bruk sumF
       combined = (baseScore + sumFWeighted) / 2;
     }
     
@@ -971,6 +975,10 @@
       if(hasRelations){
         debugOutput += `  Combined = (Base + Relations) / 2 (SumF is fallback only)\n`;
         debugOutput += `  Combined = (${baseScoreInfo} + ${(relationsScore*100).toFixed(0)}%) / 2 = ${(combined*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
+      } else if(!hasSumF){
+        debugOutput += `  Combined = Base (ingen relasjoner eller ΣF-krav) = ${(combined*100).toFixed(0)}%\n`;
         debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
         debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
       } else {

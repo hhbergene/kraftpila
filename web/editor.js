@@ -4157,6 +4157,7 @@ window.tasks = [];
   // Relations editor modal logic
   if(btnEditRelations && relationsModal && relationsList && relationsSave && relationsCancel){
     btnEditRelations.addEventListener('click', ()=>{
+      relationsList._relations = undefined; // les alltid på nytt for gjeldende oppgave
       showRelationsEditor();
     });
     relationsCancel.addEventListener('click', ()=>{

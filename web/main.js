@@ -872,7 +872,7 @@ window.TASKS = [];
     if(helpBtn && window.currentTask){
       const span = helpBtn.querySelector('span');
       if(span){
-        let btnText = 'Oppgave ' + (window.currentTask.taskTitle || window.currentTask.id);
+        let btnText = '' + (window.currentTask.taskTitle || window.currentTask.id);
         // Add score if available
         const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
         if(taskScore && typeof taskScore.score === 'number'){

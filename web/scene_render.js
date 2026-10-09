@@ -236,6 +236,19 @@
     if(task.scene.ellipses){ task.scene.ellipses.forEach(e=>drawEllipse(ctx,e)); }
     if(task.scene.arrows){ task.scene.arrows.forEach(a=>drawArrow(ctx,a)); }
     if(task.scene.texts){ task.scene.texts.forEach((t,idx)=>drawText(ctx,t,idx,task.scene.texts)); }
+    drawTaskTitle(ctx, task);
+  }
+
+  function drawTaskTitle(ctx, task){
+    const title = task.taskTitle || task.id;
+    if(!title) return;
+    ctx.save();
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(title, ctx.canvas.width/2, 10);
+    ctx.restore();
   }
 
   function buildSceneLookup(task){

@@ -1937,8 +1937,53 @@ window.tasks = [];
     window.fm.syncInputs(document.getElementById('force-inputs'));
   };
 
+  // Find the task spec (expectedForces / initialForces) that belongs to a drawn force.
+  // Expected forces keep their anchor in `anchor`; locked (initial) forces in `anchorSpec`.
+  window.getForceSpec = function(force){
+    const task = window.currentTask;
+    if(!task || !force || !force.name) return null;
+    const key = force.name.toLowerCase().trim();
+    const isExpected = force.isExpected !== false;
+    const list = task[isExpected ? 'expectedForces' : 'initialForces'];
+    if(!Array.isArray(list)) return null;
+    const spec = list.find(s => s.name && s.name.toLowerCase().trim() === key);
+    return spec ? { spec, prop: isExpected ? 'anchor' : 'anchorSpec' } : null;
+  };
+
+  // Create/update the task spec for a drawn, named force.
+  // opts.reanchor: recompute anchor from the drawn position; opts.redir: recompute direction.
+  window.syncForceSpec = function(force, opts = {}){
+    const task = window.currentTask;
+    if(!task || !force || !force.name || !force.name.trim()) return;
+    if(!force.anchor || !force.arrowBase || !force.arrowTip) return;
+    const isExpected = force.isExpected !== false;
+    const listName = isExpected ? 'expectedForces' : 'initialForces';
+    if(!Array.isArray(task[listName])) task[listName] = [];
+    let ref = window.getForceSpec(force);
+    if(!ref){
+      const created = { name: force.name };
+      task[listName].push(created);
+      ref = { spec: created, prop: isExpected ? 'anchor' : 'anchorSpec' };
+    }
+    const { spec, prop } = ref;
+    if(opts.reanchor || !spec[prop] || !spec[prop].type){
+      const best = window.findBestAnchor ? window.findBestAnchor(force.anchor, task, 40) : null;
+      if(best && best.type === 'point'){
+        spec[prop] = { type: 'point', ref: best.ref, point: best.point };
+      } else if(best && best.type === 'segment'){
+        spec[prop] = { type: 'segment', ref: best.ref, segment: best.segment };
+      } else {
+        spec[prop] = { type: 'custom', pos: [force.anchor[0], force.anchor[1]] };
+      }
+    }
+    if(isExpected && (opts.redir || !spec.dir)){
+      spec.dir = force.force_dir.map(v => Math.round(v * 1000) / 1000);
+    }
+  };
+
   window.saveTaskForces = function saveTaskForces(){
     if(!window.currentTask || !window.fm) return;
+    window.fm.forces.forEach(ff => window.syncForceSpec(ff));
     const taskKey = `editor_forces_${window.currentTask.id}`;
     
     // Filter out blank forces (only save forces with actual data)
@@ -2519,14 +2564,11 @@ window.tasks = [];
     
     // For hver kraft, sjekk om ankeret er knyttet til det flytta scene-elementet
     window.fm.forces.forEach(force => {
-      // Finn tilhørende expectedForce for å sjekke anker-binding
-      const expectedForce = window.currentTask.expectedForces?.find(ef =>
-        ef.name && ef.name.toLowerCase().trim() === force.name.toLowerCase().trim()
-      );
+      // Finn tilhørende spesifikasjon (fasitkraft eller låst kraft) for å sjekke anker-binding
+      const ref = window.getForceSpec(force);
+      const anchor = ref && ref.spec[ref.prop];
       
-      if (!expectedForce || !expectedForce.anchor) return;
-      
-      const anchor = expectedForce.anchor;
+      if (!anchor || !anchor.type) return;
       
       // Sjekk om ankeret er knyttet til det flytta scene-elementet
       const isLinkedToElement = (
@@ -2535,6 +2577,12 @@ window.tasks = [];
       );
       
       if (isLinkedToElement) {
+        // Låste krefter lagrer også koordinater i oppgaven
+        if(force.isExpected === false && ref.spec.anchor && Array.isArray(ref.spec.anchor)){
+          ['anchor', 'arrowBase', 'arrowTip'].forEach(k => {
+            if(Array.isArray(ref.spec[k])){ ref.spec[k][0] += dx; ref.spec[k][1] += dy; }
+          });
+        }
         // Parallelforskyve ankeret, base og tip
         if (force.anchor) {
           force.anchor[0] += dx;
@@ -3272,22 +3320,14 @@ window.tasks = [];
     const f = window.fm.forces[window.fm.activeIndex];
     if(f){
       const wasDrawing = f.drawing;
-      const wasDraggingAnchor = (f.dragging === 'anchor');
+      const wasDragging = f.dragging;
       f.handleMouseUp(pos);
-      // Anchor was moved (drawn or dragged): attach it to the nearest scene point/segment
-      if((wasDrawing || wasDraggingAnchor) && f.anchor && window.currentTask && window.findBestAnchor){
-        const exp = (window.currentTask.expectedForces || []).find(ef =>
-          ef.name && f.name && ef.name.toLowerCase().trim() === f.name.toLowerCase().trim());
-        if(exp){
-          const best = window.findBestAnchor(f.anchor, window.currentTask, 40);
-          if(best && best.type === 'point'){
-            exp.anchor = { type: 'point', ref: best.ref, point: best.point };
-          } else if(best && best.type === 'segment'){
-            exp.anchor = { type: 'segment', ref: best.ref, segment: best.segment };
-          } else {
-            exp.anchor = { type: 'custom', pos: [f.anchor[0], f.anchor[1]] };
-          }
-        }
+      // Keep the task spec (anchor + direction) in step with what was drawn or dragged
+      if(wasDrawing || wasDragging === 'anchor' || wasDragging === 'arrowTip'){
+        window.syncForceSpec(f, {
+          reanchor: wasDrawing || wasDragging === 'anchor',
+          redir: wasDrawing || wasDragging === 'arrowTip'
+        });
       }
       if(wasDrawing && !f.drawing){
         // Add a new blank force after finishing a draw
@@ -3805,18 +3845,22 @@ window.tasks = [];
         window.fm.forces.forEach(f => {
           // Only include forces with actual geometry and a name (skip blank forces)
           if(f.anchor && (f.arrowBase || f.arrowTip) && f.name){
-            const forceSpec = {
-              anchor: [f.anchor[0], f.anchor[1]],
-              arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
-              arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
-              name: f.name || '',
-              moveable: f.moveable !== false
-            };
+            window.syncForceSpec(f);
+            const ref = window.getForceSpec(f);
+            const isExpected = f.isExpected !== false;
             
-            // Sort by isExpected flag
-            if(f.isExpected){
-              expectedForcesFromUI.push(forceSpec);
+            if(isExpected){
+              // Expected forces are exported as specs (anchor object + dir), not coordinates
+              if(ref){ expectedForcesFromUI.push(JSON.parse(JSON.stringify(ref.spec))); }
             } else {
+              const forceSpec = {
+                anchor: [f.anchor[0], f.anchor[1]],
+                arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
+                arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
+                name: f.name || '',
+                moveable: false
+              };
+              if(ref && ref.spec.anchorSpec){ forceSpec.anchorSpec = JSON.parse(JSON.stringify(ref.spec.anchorSpec)); }
               initialForcesFromUI.push(forceSpec);
             }
           }

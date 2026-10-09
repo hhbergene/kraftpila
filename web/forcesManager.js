@@ -330,17 +330,11 @@
                 force.anchor = anchorPos.slice();
                 console.log(`📌 Force "${force.name}" anchor moved to custom pos:`, anchorPos);
                 
-                // Update expectedForce anchor in task
-                if(window.currentTask.expectedForces){
-                  const idx_expected = window.currentTask.expectedForces.findIndex(ef => 
-                    ef.name && ef.name.toLowerCase().trim() === force.name.toLowerCase().trim()
-                  );
-                  
-                  if(idx_expected >= 0){
-                    const exp = window.currentTask.expectedForces[idx_expected];
-                    exp.anchor = { type: 'custom', pos: anchorPos };
-                    if(window.saveTaskForces) window.saveTaskForces();
-                  }
+                // Update the task spec (expected or locked force)
+                const ref = window.getForceSpec ? window.getForceSpec(force) : null;
+                if(ref){
+                  ref.spec[ref.prop] = { type: 'custom', pos: anchorPos };
+                  if(window.saveTaskForces) window.saveTaskForces();
                 }
               }
             } else {
@@ -366,21 +360,15 @@
                 console.log(`📌 Force "${force.name}" anchor moved to:`, anchorPos);
               }
               
-              // Update force's expectedForce anchor in task
-              if(window.currentTask.expectedForces){
-                const idx_expected = window.currentTask.expectedForces.findIndex(ef => 
-                  ef.name && ef.name.toLowerCase().trim() === force.name.toLowerCase().trim()
-                );
-                
-                if(idx_expected >= 0){
-                  const exp = window.currentTask.expectedForces[idx_expected];
-                  if(type === 'point'){
-                    exp.anchor = { type: 'point', ref: ref, point: name };
-                  } else if(type === 'segment'){
-                    exp.anchor = { type: 'segment', ref: ref, segment: name };
-                  }
-                  if(window.saveTaskForces) window.saveTaskForces();
+              // Update force's task spec (expected or locked force)
+              const ref2 = window.getForceSpec ? window.getForceSpec(force) : null;
+              if(ref2){
+                if(type === 'point'){
+                  ref2.spec[ref2.prop] = { type: 'point', ref: ref, point: name };
+                } else if(type === 'segment'){
+                  ref2.spec[ref2.prop] = { type: 'segment', ref: ref, segment: name };
                 }
+                if(window.saveTaskForces) window.saveTaskForces();
               }
             }
             
@@ -471,8 +459,7 @@
         // Anchor dropdown: show only for active expected force in editor mode
         if(anchorDropdownContainer){
           const isActive = (i === this.activeIndex);
-          const isExpectedForce = isExpected; // expected forces show anchor dropdown
-          const shouldShowDropdown = isEditorMode && isActive && isExpectedForce;
+          const shouldShowDropdown = isEditorMode && isActive;
           
           // Always update visibility (show/hide)
           if(shouldShowDropdown){
@@ -499,21 +486,18 @@
                 // Get current anchor from expectedForce if available
                 let currentAnchorValue = '';
                 let currentCustomPos = null;
-                if(window.currentTask && window.currentTask.expectedForces){
-                  const expForce = window.currentTask.expectedForces.find(ef => 
-                    ef.name && ef.name.toLowerCase().trim() === (f.name || '').toLowerCase().trim()
-                  );
-                  if(expForce && expForce.anchor){
-                    const a = expForce.anchor;
-                    if(a.type === 'point'){
-                      currentAnchorValue = `point:${a.ref}:${a.point}`;
-                    } else if(a.type === 'segment'){
-                      currentAnchorValue = `segment:${a.ref}:${a.segment}`;
-                    } else if(a.type === 'custom' && a.pos){
-                      // Custom position [x, y]
-                      currentCustomPos = a.pos;
-                      currentAnchorValue = `custom:${Math.round(a.pos[0])},${Math.round(a.pos[1])}`;
-                    }
+                const specRef = window.getForceSpec ? window.getForceSpec(f) : null;
+                const storedAnchor = specRef ? specRef.spec[specRef.prop] : null;
+                if(storedAnchor){
+                  const a = storedAnchor;
+                  if(a.type === 'point'){
+                    currentAnchorValue = `point:${a.ref}:${a.point}`;
+                  } else if(a.type === 'segment'){
+                    currentAnchorValue = `segment:${a.ref}:${a.segment}`;
+                  } else if(a.type === 'custom' && a.pos){
+                    // Custom position [x, y]
+                    currentCustomPos = a.pos;
+                    currentAnchorValue = `custom:${Math.round(a.pos[0])},${Math.round(a.pos[1])}`;
                   }
                 }
                 // No stored spec (e.g. freshly drawn force): derive from the drawn anchor position

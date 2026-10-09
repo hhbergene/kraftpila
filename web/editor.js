@@ -1626,8 +1626,14 @@ window.tasks = [];
   }
 
   function loadTask(index){
+    // Slipp fokus (utløser change på feltet i oppgaven vi forlater) og fjern valgt scene-element
+    const ae = document.activeElement;
+    if(ae && ae !== document.body && typeof ae.blur === 'function' && ae.closest && !ae.closest('#task-order-modal')) ae.blur();
     // Flush pending edits to the task we are leaving
     autoSave();
+    window.selectedSceneElement = null;
+    window.hoveredSceneElement = null;
+    document.querySelectorAll('#scene-items .scene-item.selected').forEach(el => el.classList.remove('selected'));
     if(!window.tasks || !window.tasks.length) {
       return;
     }

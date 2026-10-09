@@ -4187,6 +4187,7 @@ window.tasks = [];
   if(btnEditRelations && relationsModal && relationsList && relationsSave && relationsCancel){
     btnEditRelations.addEventListener('click', ()=>{
       relationsList._relations = undefined; // les alltid på nytt for gjeldende oppgave
+      relationsList._sumF = undefined;
       showRelationsEditor();
     });
     relationsCancel.addEventListener('click', ()=>{
@@ -4211,6 +4212,14 @@ window.tasks = [];
       } else if(window.currentTask.relations){
         relations = JSON.parse(JSON.stringify(window.currentTask.relations));
       }
+    }
+    if(relationsList._sumF === undefined){
+      const sfKey = `editor_sumF_${window.currentTask.id}`;
+      let sf = null;
+      try{ const raw = localStorage.getItem(sfKey); if(raw) sf = JSON.parse(raw); }catch{}
+      if(pendingStorage.has(sfKey)) sf = pendingStorage.get(sfKey);
+      if(!sf) sf = window.currentTask.sumF || {};
+      relationsList._sumF = Object.assign({}, sf);
     }
     // List all forces
     const forces = window.fm.forces.filter(f=>f.name);
@@ -4271,7 +4280,23 @@ window.tasks = [];
       html += '</div>';
     });
     html += '<button id="add-relation" style="margin-top:8px;">+ Ny relasjon</button>';
+    const sfv = relationsList._sumF || {};
+    html += '<div style="margin-top:14px; padding:8px; border:1px solid #ddd; border-radius:4px;">';
+    html += '<div style="font-weight:bold;">Sum av krefter (ΣF)</div>';
+    html += '<div style="color:#888; font-size:12px; margin-bottom:6px;">Tom = ingen krav. Brukes bare når oppgaven ikke har relasjoner.</div>';
+    [['x','ΣF_x'],['y','ΣF_y'],['n','ΣF_n (normal)'],['t','ΣF_t (tangent)']].forEach(([k,label]) => {
+      const v = (typeof sfv[k] === 'number') ? sfv[k] : '';
+      html += `<label style="margin-right:10px;">${label} = <input type="number" step="any" class="sumf-input" data-key="${k}" value="${v}" style="width:55px;" /></label>`;
+    });
+    html += '</div>';
     relationsList.innerHTML = html;
+    relationsList.querySelectorAll('.sumf-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const v = parseFloat(inp.value);
+        if(Number.isFinite(v)) relationsList._sumF[inp.dataset.key] = v;
+        else delete relationsList._sumF[inp.dataset.key];
+      });
+    });
     
     // Wire up remove/add buttons for relations
     relationsList.querySelectorAll('.remove-relation').forEach(btn=>{
@@ -4373,6 +4398,11 @@ window.tasks = [];
     const relations = relationsList._relations;
     window.currentTask.relations = JSON.parse(JSON.stringify(relations));
     queueStorage(`editor_relations_${window.currentTask.id}`, relations);
+    if(relationsList._sumF){
+      const sf = Object.assign({}, relationsList._sumF);
+      window.currentTask.sumF = sf;
+      queueStorage(`editor_sumF_${window.currentTask.id}`, sf);
+    }
   }
 
   function autoRelationValue(rel, forces){

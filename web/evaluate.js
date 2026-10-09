@@ -441,6 +441,14 @@
       if(err > TOL_SUM) result.errors.push(`ΣF_y = ${sumY.toFixed(0)}, should be ${sumF.y}`);
     }
     
+    // Check T component
+    if(typeof sumF.t === 'number'){
+      result.t = sumT;
+      const err = Math.abs(sumT - sumF.t);
+      scores.push(rampDownLinear(err, TOL_SUM, SPAN_SUM));
+      if(err > TOL_SUM) result.errors.push(`ΣF_t = ${sumT.toFixed(0)}, should be ${sumF.t}`);
+    }
+
     // Check N component
     if(typeof sumF.n === 'number'){
       result.n = sumN;
@@ -872,7 +880,7 @@
       relationsScore = relScores.length? (relScores.reduce((a,b)=>a+b,0)/relScores.length) : 1.0;
     }
     const hasRelations = (task.relations || []).some(r => r && r.lhs && r.lhs.length && r.rhs && r.rhs.length);
-    const hasSumF = !!task.sumF && ['x','y','n'].some(k => typeof task.sumF[k] === 'number');
+    const hasSumF = !!task.sumF && ['x','y','n','t'].some(k => typeof task.sumF[k] === 'number');
     
     // Sum of forces check (penalize extra forces if they break equilibrium)
     const sumFResult = evalSumF(task, forceResults, allForces);
@@ -977,7 +985,7 @@
 
       if(hasSumF){
         debugOutput += `Σ SUM AV KREFTER:\n`;
-        ['x','y','n'].forEach(k => {
+        ['x','y','n','t'].forEach(k => {
           if(typeof task.sumF[k] === 'number') debugOutput += `  ΣF_${k} = ${sumFResult[k] === null ? '?' : sumFResult[k].toFixed(1)} (krav ${task.sumF[k]})\n`;
         });
         (sumFResult.errors || []).forEach(e => { debugOutput += `  ⚠️ ${e}\n`; });

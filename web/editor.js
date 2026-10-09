@@ -510,7 +510,7 @@ window.tasks = [];
 
   function applyIcons() {
     const mapping = [
-      ['btn-snap','snap'], ['btn-guidelines','guidelines'], ['btn-prev','prev'], ['btn-next','next'],
+      ['btn-snap','snap'], ['btn-guidelines','guidelines'], ['btn-undo','undo'], ['btn-redo','redo'], ['btn-prev','prev'], ['btn-next','next'],
       ['btn-help','help'], ['btn-check','check'], ['btn-reset','reset'], ['btn-settings','settings']
     ];
     // Ikoner uten grid først
@@ -1729,8 +1729,134 @@ window.tasks = [];
     if(f.index) try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
     if(f.settings) try { localStorage.setItem('editor_settings', JSON.stringify(window.settings)); } catch {}
     if(f.scores) try { localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
+    if(f.task || f.help || f.forces || f.order || f.storage) recordUndo();
   }
   window.autoSave = autoSave;
+
+  // ===== Angre / gjør om =====
+  // Et steg er et øyeblikksbilde av hele oppgavesettet slik det ligger i localStorage
+  // (oppgaver, krefter, relasjoner, sumF og rekkefølge), tatt etter hver autoSave.
+  // Uendrede strenger deles mellom stegene, så minnebruken er lav.
+  const UNDO_LIMIT = 50;
+  const UNDO_PREFIXES = ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'];
+  const undoStack = [];
+  let undoPos = -1;
+  let restoringUndo = false;
+
+  function captureState(){
+    const prev = undoStack[undoPos];
+    const items = {};
+    (window.tasks || []).forEach(t => {
+      UNDO_PREFIXES.forEach(prefix => {
+        const key = prefix + t.id;
+        let val = localStorage.getItem(key);
+        if(val === null && prefix === 'editor_task_') val = JSON.stringify(t);
+        if(val === null) return;
+        items[key] = (prev && prev.items[key] === val) ? prev.items[key] : val;
+      });
+    });
+    return {
+      order: (window.tasks || []).map(t => t.id),
+      items,
+      currentId: window.currentTask ? window.currentTask.id : null
+    };
+  }
+
+  function sameState(a, b){
+    if(!a || !b || a.order.join('\n') !== b.order.join('\n')) return false;
+    const ka = Object.keys(a.items), kb = Object.keys(b.items);
+    return ka.length === kb.length && ka.every(k => a.items[k] === b.items[k]);
+  }
+
+  function updateUndoButtons(){
+    const u = document.getElementById('btn-undo');
+    const r = document.getElementById('btn-redo');
+    if(u) u.disabled = undoPos <= 0;
+    if(r) r.disabled = undoPos >= undoStack.length - 1;
+  }
+
+  function recordUndo(force){
+    if(restoringUndo) return;
+    let state;
+    try { state = captureState(); } catch { return; }
+    if(!force && undoPos >= 0 && sameState(undoStack[undoPos], state)) return;
+    undoStack.length = undoPos + 1;
+    undoStack.push(state);
+    if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+    undoPos = undoStack.length - 1;
+    updateUndoButtons();
+  }
+
+  function resetUndo(){
+    undoStack.length = 0;
+    undoPos = -1;
+    recordUndo();
+  }
+
+  function restoreState(state){
+    restoringUndo = true;
+    try {
+      cancelAutoSave();
+      const ids = new Set(state.order);
+      (window.tasks || []).forEach(t => ids.add(t.id));
+      ids.forEach(id => UNDO_PREFIXES.forEach(prefix => { try { localStorage.removeItem(prefix + id); } catch {} }));
+      Object.keys(state.items).forEach(k => { try { localStorage.setItem(k, state.items[k]); } catch {} });
+      try {
+        localStorage.setItem('editor_taskOrder', JSON.stringify(state.order));
+        localStorage.setItem('editor_savedTasks', JSON.stringify(state.order));
+      } catch {}
+      window.tasks = state.order.map(id => normalizeTaskMeta(JSON.parse(state.items['editor_task_' + id])));
+      let idx = state.order.indexOf(state.currentId);
+      if(idx < 0) idx = Math.min(window.currentTaskIndex || 0, window.tasks.length - 1);
+      if(window.tasks.length) loadTask(idx);
+      // loadTask legger 'index' i kø; skriv det med en gang mens vi fortsatt gjenoppretter
+      autoSave();
+    } finally {
+      restoringUndo = false;
+    }
+    updateUndoButtons();
+  }
+
+  // Husk hvilken oppgave som er valgt i gjeldende steg, så angre/gjør om havner på riktig oppgave
+  function rememberSelection(){
+    if(undoPos >= 0 && window.currentTask) undoStack[undoPos].currentId = window.currentTask.id;
+  }
+  window.rememberUndoSelection = rememberSelection;
+  window.recordUndo = recordUndo;
+  window.undo = function(){
+    autoSave(); // ventende endring blir eget steg
+    rememberSelection();
+    if(undoPos <= 0) return;
+    undoPos--;
+    restoreState(undoStack[undoPos]);
+  };
+
+  window.redo = function(){
+    autoSave();
+    rememberSelection();
+    if(undoPos >= undoStack.length - 1) return;
+    undoPos++;
+    restoreState(undoStack[undoPos]);
+  };
+
+  (function setupUndoUI(){
+    const u = document.getElementById('btn-undo');
+    const r = document.getElementById('btn-redo');
+    if(u) u.addEventListener('click', () => window.undo());
+    if(r) r.addEventListener('click', () => window.redo());
+    document.addEventListener('keydown', (e) => {
+      if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const isUndo = k === 'z' && !e.shiftKey;
+      const isRedo = k === 'y' || (k === 'z' && e.shiftKey);
+      if(!isUndo && !isRedo) return;
+      // Tekstfelt har sin egen angre-funksjon
+      const el = e.target;
+      if(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      e.preventDefault();
+      if(isUndo) window.undo(); else window.redo();
+    });
+  })();
 
   window.addEventListener('beforeunload', autoSave);
   window.addEventListener('pagehide', autoSave);
@@ -2478,6 +2604,7 @@ window.tasks = [];
       }
     } catch {}
     loadTask(startIdx);
+    resetUndo();
   })();
 
   // ===== Mouse interaction for forces =====
@@ -4888,6 +5015,8 @@ window.tasks = [];
           // Comments are now restored from task.comment in localStorage keys
           
           // Restore all localStorage keys
+          autoSave(); // gjeldende tilstand blir steget det angres til
+          window.rememberUndoSelection();
           cancelAutoSave();
           if(backup.localStorage){
             for(const key in backup.localStorage){
@@ -4925,6 +5054,7 @@ window.tasks = [];
           if(typeof window.currentTaskIndex === 'number'){
             loadTask(window.currentTaskIndex);
           }
+          recordUndo(true);
         } catch (err) {
           alert('Feil ved lesing av backup: ' + err.message);
         }
@@ -4962,6 +5092,8 @@ window.tasks = [];
   function performFullReset(){
     if(!window.tasks) return;
     if(!confirm('Slette alle lokale data og starte på nytt?')) return;
+    autoSave(); // gjeldende tilstand blir steget det angres til
+    window.rememberUndoSelection();
     cancelAutoSave();
     // Remove ALL editor_* localStorage keys (comprehensive cleanup)
     const keysToRemove = [];
@@ -4983,6 +5115,7 @@ window.tasks = [];
     window.currentGuidelines = null;
     // Reload first task
     loadTask(0);
+    recordUndo(true);
     updateUserDisplay();
     // Hide settings panel
     const pnl = document.getElementById('settings-panel');

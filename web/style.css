@@ -98,6 +98,10 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 #btn-snap       { left:20px;  top:20px; }
 #btn-guidelines { left:62px;  top:20px; }
 #btn-grid       { left:104px; top:20px; }
+#btn-undo       { left:146px; top:20px; }
+#btn-redo       { left:188px; top:20px; }
+.btn-icon:disabled { opacity:0.35; cursor:default; }
+.btn-icon:disabled:hover { background:#fafafa; }
 /* Navigasjonsrad */
 #btn-prev   { left:250px; top:20px; }
 #btn-help   { left:292px; top:20px; width:144px; }

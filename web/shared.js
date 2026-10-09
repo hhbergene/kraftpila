@@ -67,6 +67,8 @@ window.ICONS = {
   guidelines: '📐',
   grid_off: '⊞',
   grid_on: '◻',
+  undo: '↶',
+  redo: '↷',
   prev: '⬅',
   next: '➡',
   help: '❓',

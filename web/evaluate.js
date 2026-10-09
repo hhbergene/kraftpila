@@ -681,12 +681,10 @@
         // Position wrong - use anchor type for message (NEW)
         let anchorDesc = 'angrepspunktet';
         const sp = r.anchorSpec || {};
-        const POINT_NAMES = { center: 'massemidtpunktet', top_center: 'toppunktet', bottom_center: 'bunnpunktet', left_middle: 'venstre side', right_middle: 'høyre side' };
-        const SEGMENT_NAMES = { top: 'toppflaten', bottom: 'bunnflaten', left: 'venstre side', right: 'høyre side', plane: 'underlaget' };
-        if(r.anchorType === 'point'){
-          anchorDesc = POINT_NAMES[sp.point] || 'angitt punkt';
+if(r.anchorType === 'point'){
+          anchorDesc = (sp.point === 'center') ? 'massesenteret' : 'kontaktpunktet';
         } else if(r.anchorType === 'segment'){
-          anchorDesc = SEGMENT_NAMES[sp.segment] || 'kontaktflaten/segmentet';
+          anchorDesc = 'kontaktflaten';
         } else if(r.anchorType === 'custom'){
           anchorDesc = 'markert punkt';
         }

@@ -3751,6 +3751,7 @@ window.tasks = [];
           window.validateSolutionForces();
           window.saveSolutionForces();
         }
+        try{ const rr=localStorage.getItem(`editor_relations_${window.currentTask.id}`); if(rr) window.currentTask.relations=JSON.parse(rr); }catch{}
         // Save current forces before evaluating
         markEdited('forces');
         autoSave();
@@ -4370,6 +4371,7 @@ window.tasks = [];
     if(!window.currentTask || !relationsList._relations) return;
     // Use the cached relations array that's been updated by event listeners
     const relations = relationsList._relations;
+    window.currentTask.relations = JSON.parse(JSON.stringify(relations));
     queueStorage(`editor_relations_${window.currentTask.id}`, relations);
   }
 

@@ -2251,6 +2251,12 @@ window.TASKS = [];
       }
     }
     
+    // Valgt tom krafttekstboks: klikk starter alltid ny tegning, selv over en eksisterende kraft
+    const activeF = window.fm && window.fm.forces[window.fm.activeIndex];
+    if(activeF && !activeF.anchor && !activeF.arrowBase && !activeF.arrowTip){
+      hoveredForceIndex = -1;
+    }
+    
     // Player mode: no scene element interaction
     
     // If click is outside draw area, ignore force creation logic

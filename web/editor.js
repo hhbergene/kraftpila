@@ -4739,6 +4739,11 @@ window.tasks = [];
                   return spec;
                 });
               }
+              // Fjern gamle spesifikasjoner uten tilhørende tegnet kraft (rester fra navn skrevet bokstav for bokstav)
+              const nameKey = n => (n || '').toLowerCase().trim();
+              const drawnNames = isExp => new Set(drawn.filter(f => f.name && (f.isExpected !== false) === isExp).map(f => nameKey(f.name)));
+              const expNames = drawnNames(true);
+              if (expNames.size) taskClone.expectedForces = (taskClone.expectedForces || []).filter(s => expNames.has(nameKey(s.name)));
               // Den tegnede fasitkraften lagres ved siden av spesifikasjonen (index.html ignorerer feltet)
               (taskClone.expectedForces || []).forEach(spec => {
                 const d = drawn.find(f => f.isExpected !== false && f.name && spec.name && f.name.toLowerCase().trim() === spec.name.toLowerCase().trim() && f.anchor && f.arrowBase && f.arrowTip);

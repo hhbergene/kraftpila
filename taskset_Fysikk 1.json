@@ -9,9 +9,8 @@
         360
       ],
       "help_lines": [
-        "En bil kjører mot oss med konstant banefart",
-        "i en dossert sving uten friksjon uten å skli.",
-        "Tegn kreftene som virker på bilen."
+        "En kloss ligger i ro på et horisontalt underlag.",
+        "Tegn kreftene som virker på klossen."
       ],
       "scene": {
         "plane": {
@@ -201,9 +200,8 @@
       "title": "Vi drar en kloss med kraften F",
       "category": "Fysikk 1",
       "help_lines": [
-        "En bil kjører mot oss med konstant banefart",
-        "i en dossert sving uten friksjon uten å skli.",
-        "Tegn kreftene som virker på bilen."
+        "Vi trekker en kloss på et horisontalt underlag med friksjon med en kraft F horisontalt mot høyre.",
+        "Tegn de andre kreftene som virker på klossen."
       ],
       "scene": {
         "plane": {
@@ -468,9 +466,9 @@
       "title": "To klosser oppå hverandre i ro",
       "category": "Fysikk 1",
       "help_lines": [
-        "En bil kjører mot oss med konstant banefart",
-        "i en dossert sving uten friksjon uten å skli.",
-        "Tegn kreftene som virker på bilen."
+        "En kloss B ligger oppå kloss A på et horisontalt underlag. Begge klossene ligger i ro. ",
+        "Tyngden til A er dobbelt så stor som tyngden til B. ",
+        "Tegn kreftene som virker på kloss A."
       ],
       "scene": {
         "plane": {
@@ -577,55 +575,36 @@
           {
             "txt": "A",
             "pos": [
-              442,
-              338
+              440,
+              260
             ],
             "size": 14,
             "align": "center",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              442,
-              338
+              440,
+              260
             ]
           },
           {
             "txt": "B",
             "pos": [
-              462,
-              218
+              460,
+              180
             ],
             "size": 14,
             "align": "center",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              462,
-              218
+              460,
+              180
             ]
           }
         ]
       },
       "expectedForces": [
-        {
-          "name": "N",
-          "aliases": [
-            "n",
-            "na",
-            "fn",
-            "normalkraft",
-            "r"
-          ],
-          "dir": [
-            0,
-            -1
-          ],
-          "anchor": {
-            "type": "segment",
-            "ref": "rect0",
-            "segment": "bottom"
-          }
-        },
         {
           "name": "G_A",
           "anchor": {
@@ -675,6 +654,32 @@
             "arrowTip": [
               500,
               280
+            ]
+          }
+        },
+        {
+          "name": "N_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "bottom_center"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              540,
+              360
+            ],
+            "arrowTip": [
+              540,
+              240
             ]
           }
         }
@@ -741,7 +746,7 @@
           ],
           "rhs": [
             {
-              "name": "N_B",
+              "name": "N_A",
               "component": "magnitude"
             }
           ],
@@ -751,233 +756,11 @@
       ],
       "taskTitle": "3",
       "taskSubTitle": ""
-    },
-    {
-      "id": "task_1791480987576_eelkdk5w6",
-      "title": "Bil i dossert sving uten friksjon",
-      "category": "Fysikk 2",
-      "help_lines": [
-        "En bil kjører mot oss med konstant banefart",
-        "i en dossert sving uten friksjon uten å skli.",
-        "Tegn kreftene som virker på bilen."
-      ],
-      "scene": {
-        "plane": {
-          "n_vec": [
-            -0.31622776601683794,
-            -0.9486832980505138
-          ],
-          "through": [
-            700,
-            360
-          ],
-          "draw": false,
-          "snapping": false,
-          "t_vec": [
-            0.9486832980505138,
-            -0.31622776601683794
-          ]
-        },
-        "rects": [
-          {
-            "width": 252.98221281347037,
-            "height": 126.49110640673518,
-            "bottomCenter": [
-              700,
-              360
-            ],
-            "n_vec": [
-              -0.3162277660168379,
-              -0.9486832980505138
-            ],
-            "snapping": true,
-            "t_vec": [
-              0.9486832980505138,
-              -0.3162277660168379
-            ]
-          }
-        ],
-        "segments": [
-          {
-            "a": [
-              -327.6839915321233,
-              435.89466384404113
-            ],
-            "b": [
-              472.3160084678767,
-              435.89466384404113
-            ],
-            "snapping": false
-          },
-          {
-            "a": [
-              472.3160084678767,
-              435.89466384404113
-            ],
-            "b": [
-              927.6839915321233,
-              284.10533615595887
-            ],
-            "snapping": false
-          }
-        ],
-        "arrows": [
-          {
-            "a": [
-              660,
-              540
-            ],
-            "b": [
-              300,
-              540
-            ],
-            "body": "dashed",
-            "snapping": false
-          }
-        ],
-        "texts": [
-          {
-            "txt": "Tegn kreftene som virker på bilen.",
-            "pos": [
-              375,
-              80
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              80
-            ]
-          },
-          {
-            "txt": "|v| = konstant",
-            "pos": [
-              375,
-              102
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              102
-            ]
-          },
-          {
-            "txt": "μ = 0",
-            "pos": [
-              375,
-              124
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              124
-            ]
-          },
-          {
-            "txt": "Til sentrum av sirkelbevegelsen",
-            "pos": [
-              500,
-              550
-            ],
-            "size": 12,
-            "align": "center",
-            "color": "#00f",
-            "snapping": false,
-            "_renderedPos": [
-              500,
-              550
-            ]
-          }
-        ]
-      },
-      "expectedForces": [
-        {
-          "name": "G",
-          "aliases": [
-            "g",
-            "ga",
-            "tyngde",
-            "fg",
-            "G"
-          ],
-          "dir": [
-            0,
-            1
-          ],
-          "anchor": {
-            "type": "point",
-            "ref": "rect0",
-            "point": "center"
-          },
-          "drawn": {
-            "anchor": [
-              680,
-              300
-            ],
-            "arrowBase": [
-              680,
-              300
-            ],
-            "arrowTip": [
-              680,
-              440
-            ]
-          }
-        },
-        {
-          "name": "N",
-          "aliases": [
-            "n",
-            "na",
-            "normalkraft",
-            "r",
-            "fn",
-            "N"
-          ],
-          "dir": "planeNormal",
-          "anchor": {
-            "type": "segment",
-            "ref": "rect0",
-            "segment": "bottom"
-          }
-        }
-      ],
-      "initialForces": [],
-      "sumF": {
-        "y": 0
-      },
-      "relations": [
-        {
-          "lhs": [
-            {
-              "name": "N",
-              "component": "vertical"
-            }
-          ],
-          "rhs": [
-            {
-              "name": "G"
-            }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
-        }
-      ],
-      "taskTitle": "7",
-      "taskSubTitle": ""
     }
   ],
   "metadata": {
-    "name": "Fysikk 1",
-    "exported": "2026-10-09T17:26:29.846Z",
-    "count": 4
+    "name": "taskset",
+    "exported": "2026-10-09T17:57:51.893Z",
+    "count": 3
   }
 }

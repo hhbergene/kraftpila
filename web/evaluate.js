@@ -952,6 +952,33 @@
       const baseScoreInfo = baseScore > 0 ? `${(baseScore*100).toFixed(0)}%` : `0%`;
       const sumFScoreInfo = `${(sumFScore*100).toFixed(0)}%`;
       const coverageFactorVal = Math.pow(coverage, 1.5);
+
+      debugOutput += `📏 ALLE KRAFTER (navn, lengde, retning, type):\n`;
+      allForces.forEach(f => {
+        if(!f.anchor || !f.arrowBase || !f.arrowTip) return;
+        const len = typeof f.force_len === 'number' ? f.force_len.toFixed(0) : '?';
+        const dirV = Array.isArray(f.force_dir) ? `(${f.force_dir[0].toFixed(2)}, ${f.force_dir[1].toFixed(2)})` : '?';
+        const kind = f.isExpected === false || f.moveable === false ? 'låst' : 'tegnet';
+        debugOutput += `  ${f.name || '(uten navn)'}: ${len}px, dir ${dirV}, ${kind}\n`;
+      });
+
+      if(relationResults && relationResults.length){
+        debugOutput += `⚖️ RELASJONER:\n`;
+        relationResults.forEach(r => {
+          const status = r.ok ? '✓' : '✗';
+          debugOutput += `  ${status} ${r.lhs} = ${r.rhs}: målt forhold ${r.measuredRatio.toFixed(2)}, forventet ${r.expectedRatio}, avvik ${(r.relError*100).toFixed(0)}% (tol ${(r.tolRel*100).toFixed(0)}%), score ${(r.relScore*100).toFixed(0)}%`;
+          if(r.missingNames && r.missingNames.length) debugOutput += `, mangler: ${r.missingNames.join(', ')}`;
+          debugOutput += `\n`;
+        });
+      }
+
+      if(hasSumF){
+        debugOutput += `Σ SUM AV KREFTER:\n`;
+        ['x','y','n'].forEach(k => {
+          if(typeof task.sumF[k] === 'number') debugOutput += `  ΣF_${k} = ${sumFResult[k] === null ? '?' : sumFResult[k].toFixed(1)} (krav ${task.sumF[k]})\n`;
+        });
+        (sumFResult.errors || []).forEach(e => { debugOutput += `  ⚠️ ${e}\n`; });
+      }
       
       debugOutput += `📈 SCORE COMPONENTS:\n`;
       debugOutput += `  Base score (kraft-gjennomsnitt): ${baseScoreInfo}\n`;

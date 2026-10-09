@@ -9,10 +9,10 @@
         240
       ],
       "help_lines": [
-        "På en ball som faller fritt mot bakken virker det bare en kraft:",
+        "På en ball som ligger i ro på bakken virker det to krefter:",
         "G - Tyngdekraften",
-        "Tyngdekraften er en fjernkraft, og angrepspunktet skal tegnes i massemidtpunktet til ballen.",
-        "Tegn tyngdekraften."
+        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
+        "Tegn snordraget. "
       ],
       "scene": {
         "plane": {
@@ -169,6 +169,20 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              520,
+              240
+            ],
+            "arrowBase": [
+              520,
+              240
+            ],
+            "arrowTip": [
+              520,
+              320
+            ]
           }
         }
       ],
@@ -189,10 +203,8 @@
       "help_lines": [
         "På en ball som ligger i ro på bakken virker det to krefter:",
         "G - Tyngdekraften",
-        "N - Normalkraften fra underlaget",
-        "Normalkraften er en kontaktkraft som angriper i kontaktpunktet med bakken.",
-        "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
-        "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
+        "Tegn snordraget. "
       ],
       "scene": {
         "plane": {
@@ -296,12 +308,39 @@
           "dir": [
             0,
             -1
-          ]
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              180
+            ],
+            "arrowBase": [
+              520,
+              180
+            ],
+            "arrowTip": [
+              520,
+              100
+            ]
+          }
         }
       ],
       "initialForces": [
         {
           "name": "G",
+          "anchor": [
+            500,
+            240
+          ],
+          "arrowBase": [
+            500,
+            240
+          ],
+          "arrowTip": [
+            500,
+            320
+          ],
+          "moveable": false,
           "anchorSpec": {
             "type": "point",
             "ref": "origin",
@@ -314,14 +353,15 @@
         {
           "lhs": [
             {
-              "name": "G"
-            }
-          ],
-          "rhs": [
+              "name": "G",
+              "component": "magnitude"
+            },
             {
-              "name": "S"
+              "name": "S",
+              "component": "magnitude"
             }
           ],
+          "rhs": [],
           "ratio": 1,
           "tol_rel": 0.15
         }
@@ -446,12 +486,39 @@
           "dir": [
             0,
             -1
-          ]
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              340
+            ],
+            "arrowBase": [
+              520,
+              340
+            ],
+            "arrowTip": [
+              520,
+              240
+            ]
+          }
         }
       ],
       "initialForces": [
         {
           "name": "G",
+          "anchor": [
+            500,
+            280
+          ],
+          "arrowBase": [
+            480,
+            280
+          ],
+          "arrowTip": [
+            480,
+            380
+          ],
+          "moveable": false,
           "anchorSpec": {
             "type": "point",
             "ref": "ellipse0",
@@ -482,7 +549,7 @@
   ],
   "metadata": {
     "name": "Intro",
-    "exported": "2026-10-09T15:34:36.587Z",
+    "exported": "2026-10-09T17:21:02.272Z",
     "count": 3
   }
 }

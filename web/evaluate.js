@@ -1019,6 +1019,11 @@
     if(!window.currentTask || !window.fm){
       return;
     }
+    const t = window.currentTask;
+    if(Array.isArray(t.expectedForces) && Array.isArray(t.initialForces) && t.initialForces.length){
+      const locked = new Set(t.initialForces.map(f => f && f.name).filter(Boolean));
+      t.expectedForces = t.expectedForces.filter(f => !(f && locked.has(f.name)));
+    }
     const forceResults = evalForces(window.currentTask, window.fm.forces);
     const relationResults = evalRelations(window.currentTask, forceResults);
     const summary = computeScores(window.currentTask, forceResults, relationResults, window.fm.forces);

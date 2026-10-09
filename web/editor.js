@@ -3751,7 +3751,7 @@ window.tasks = [];
           window.validateSolutionForces();
           window.saveSolutionForces();
         }
-        try{ const rr=localStorage.getItem(`editor_relations_${window.currentTask.id}`); if(rr) window.currentTask.relations=JSON.parse(rr); }catch{}
+        try{ const rk=`editor_relations_${window.currentTask.id}`; if(pendingStorage.has(rk)){ const pv=pendingStorage.get(rk); if(pv) window.currentTask.relations=JSON.parse(JSON.stringify(pv)); } else { const rr=localStorage.getItem(rk); if(rr) window.currentTask.relations=JSON.parse(rr); } }catch{}
         // Save current forces before evaluating
         markEdited('forces');
         autoSave();

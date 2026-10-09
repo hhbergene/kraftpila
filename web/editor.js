@@ -1,4 +1,4 @@
-﻿/**
+/**
  * editor.js - Editor mode entry point (full copy of main.js with editor features)
  * 
  * Separates localStorage namespace from player mode using 'editor_' prefix
@@ -1571,13 +1571,15 @@ window.tasks = [];
   }
 
   function loadTask(index){
+    // Flush pending edits to the task we are leaving
+    autoSave();
     if(!window.tasks || !window.tasks.length) {
       return;
     }
     window.currentTaskIndex = (index + window.tasks.length) % window.tasks.length;
     const task = normalizeTaskMeta(window.tasks[window.currentTaskIndex]);
     // NEW: persist current task index
-    try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
+    markEdited('index');
     
     // Check if task already exists in localStorage - if so, load ONLY from localStorage
     const taskId = window.tasks[window.currentTaskIndex].id;
@@ -1670,15 +1672,76 @@ window.tasks = [];
     window.updateAppState();
   }
   
-  // Save current task to localStorage
-  function saveTask(){
+  // ===== Autolagring =====
+  // Redigeringer kaller markEdited(...) med hva som er endret. Selve lagringen
+  // gjøres samlet i autoSave() etter en kort pause (eller med en gang når den kalles direkte).
+  //   'task'   – gjeldende oppgave (scene, tittel, kommentar, ...)
+  //   'help'   – hjelpelinjer fra tekstfeltet (lagres sammen med oppgaven)
+  //   'forces' – tegnede krefter (og fasit/låst-spec i oppgaven)
+  //   'order'  – oppgaverekkefølgen i hele oppgavesettet
+  //   'index'  – hvilken oppgave som er åpen
+  //   'settings' / 'scores' – innstillinger og poengsummer
+  // Andre nøkler (slettede oppgaver, importerte oppgaver, relasjoner) legges i kø med
+  // queueStorage(key, verdi) (verdi null = fjern) og skrives også av autoSave().
+  const AUTOSAVE_DELAY_MS = 150;
+  const editedFlags = { task: false, help: false, forces: false, order: false, index: false, settings: false, scores: false, storage: false };
+  const pendingStorage = new Map();
+  let autoSaveTimer = null;
+
+  window.markEdited = function markEdited(...what){
+    (what.length ? what : ['task']).forEach(w => { if(w in editedFlags) editedFlags[w] = true; });
+    if(autoSaveTimer === null){
+      autoSaveTimer = setTimeout(autoSave, AUTOSAVE_DELAY_MS);
+    }
+  };
+
+  function queueStorage(key, value){
+    pendingStorage.set(key, value);
+    markEdited('storage');
+  }
+
+  // Forkast ventende lagring (brukes før en oppgave slettes)
+  function cancelAutoSave(){
+    if(autoSaveTimer !== null){ clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+    Object.keys(editedFlags).forEach(k => { editedFlags[k] = false; });
+    pendingStorage.clear();
+  }
+
+  function autoSave(){
+    if(autoSaveTimer !== null){ clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+    const f = Object.assign({}, editedFlags);
+    Object.keys(editedFlags).forEach(k => { editedFlags[k] = false; });
+
+    if(f.storage){
+      pendingStorage.forEach((value, key) => {
+        try{
+          if(value === null) localStorage.removeItem(key);
+          else localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+        } catch {}
+      });
+      pendingStorage.clear();
+    }
+    if(f.help) collectHelpLines();
+    if(f.forces) writeForces();
+    // Krefter kan endre spec i oppgaven, og hjelpelinjer ligger i oppgaven
+    if(f.task || f.help || f.forces) writeTask();
+    if(f.order) writeTaskOrder();
+    if(f.index) try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
+    if(f.settings) try { localStorage.setItem('editor_settings', JSON.stringify(window.settings)); } catch {}
+    if(f.scores) try { localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
+  }
+  window.autoSave = autoSave;
+
+  window.addEventListener('beforeunload', autoSave);
+  window.addEventListener('pagehide', autoSave);
+  document.addEventListener('visibilitychange', () => { if(document.hidden) autoSave(); });
+
+  // Write current task to localStorage
+  function writeTask(){
     if(!window.currentTask) return;
     const taskId = window.currentTask.id;
-    
-    // Save the entire task (scene, forces stored separately)
-    const taskToSave = JSON.parse(JSON.stringify(window.currentTask));
     try {
-      localStorage.setItem(`editor_task_${taskId}`, JSON.stringify(taskToSave));
+      localStorage.setItem(`editor_task_${taskId}`, JSON.stringify(window.currentTask));
       
       // Also save to tasks list so we know it exists
       const savedTasksKey = 'editor_savedTasks';
@@ -1692,6 +1755,44 @@ window.tasks = [];
         savedTasks.push(taskId);
         localStorage.setItem(savedTasksKey, JSON.stringify(savedTasks));
       }
+    } catch {}
+  }
+
+  // Copy help_lines from the editor textarea into the current task
+  function collectHelpLines(){
+    if(!window.currentTask) return;
+    const textarea = document.getElementById('help-lines-text');
+    if(!textarea) return;
+    window.currentTask.help_lines = textarea.value.split('\n').filter(line => line.trim() !== '');
+  }
+
+  // Write drawn forces of the current task to localStorage
+  function writeForces(){
+    if(!window.currentTask || !window.fm) return;
+    window.fm.forces.forEach(ff => window.syncForceSpec(ff));
+    const taskKey = `editor_forces_${window.currentTask.id}`;
+    
+    // Filter out blank forces (only save forces with actual data)
+    const nonBlankForces = window.fm.forces.filter(f => {
+      const hasAnchor = f.anchor !== null && f.anchor !== undefined;
+      const hasArrowBase = f.arrowBase !== null && f.arrowBase !== undefined;
+      const hasArrowTip = f.arrowTip !== null && f.arrowTip !== undefined;
+      const hasName = f.name && f.name.trim() !== '';
+      return hasAnchor || hasArrowBase || hasArrowTip || hasName;
+    });
+    
+    const specs = nonBlankForces.map(f=>(
+      {
+        anchor: f.anchor ? [f.anchor[0], f.anchor[1]] : null,
+        arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
+        arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
+        name: f.name || '',
+        moveable: f.moveable,
+        isExpected: f.isExpected !== false,
+      }
+    ));
+    try{ 
+      localStorage.setItem(taskKey, JSON.stringify(specs));
     } catch {}
   }
   
@@ -1722,11 +1823,18 @@ window.tasks = [];
     } catch {}
   }
 
-  // Save task order to localStorage
-  function saveTaskOrder(){
+  // Write task order to localStorage
+  function writeTaskOrder(){
     try {
       const taskOrder = window.tasks.map(t => t.id);
       localStorage.setItem('editor_taskOrder', JSON.stringify(taskOrder));
+      // Slettede oppgaver skal heller ikke stå i listen over lagrede oppgaver
+      const stored = localStorage.getItem('editor_savedTasks');
+      if(stored){
+        const ids = new Set(taskOrder);
+        const savedTasks = JSON.parse(stored).filter(id => ids.has(id));
+        localStorage.setItem('editor_savedTasks', JSON.stringify(savedTasks));
+      }
     } catch {}
   }
 
@@ -1799,7 +1907,7 @@ window.tasks = [];
         snapping: true
       });
       updateScenePanel();
-      saveTask();
+      markEdited('task');
       window.updateAppState();
     });
   }
@@ -1818,7 +1926,7 @@ window.tasks = [];
         snapping: true
       });
       updateScenePanel();
-      saveTask();
+      markEdited('task');
       window.updateAppState();
     });
   }
@@ -1834,7 +1942,7 @@ window.tasks = [];
         snapping: false
       });
       updateScenePanel();
-      saveTask();
+      markEdited('task');
       window.updateAppState();
     });
   }
@@ -1850,7 +1958,7 @@ window.tasks = [];
         snapping: false
       });
       updateScenePanel();
-      saveTask();
+      markEdited('task');
       window.updateAppState();
     });
   }
@@ -1890,7 +1998,7 @@ window.tasks = [];
         snapping: false
       });
       updateScenePanel();
-      saveTask();
+      markEdited('task');
       window.updateAppState();
     });
   }
@@ -1948,7 +2056,7 @@ window.tasks = [];
     }
     
     // Save and refresh
-    saveTaskForces();
+    markEdited('forces');
     window.fm.syncInputs(document.getElementById('force-inputs'));
   };
 
@@ -1996,35 +2104,6 @@ window.tasks = [];
     }
   };
 
-  window.saveTaskForces = function saveTaskForces(){
-    if(!window.currentTask || !window.fm) return;
-    window.fm.forces.forEach(ff => window.syncForceSpec(ff));
-    const taskKey = `editor_forces_${window.currentTask.id}`;
-    
-    // Filter out blank forces (only save forces with actual data)
-    const nonBlankForces = window.fm.forces.filter(f => {
-      const hasAnchor = f.anchor !== null && f.anchor !== undefined;
-      const hasArrowBase = f.arrowBase !== null && f.arrowBase !== undefined;
-      const hasArrowTip = f.arrowTip !== null && f.arrowTip !== undefined;
-      const hasName = f.name && f.name.trim() !== '';
-      return hasAnchor || hasArrowBase || hasArrowTip || hasName;
-    });
-    
-    const specs = nonBlankForces.map(f=>(
-      {
-        anchor: f.anchor ? [f.anchor[0], f.anchor[1]] : null,
-        arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
-        arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
-        name: f.name || '',
-        moveable: f.moveable,
-        isExpected: f.isExpected !== false,
-      }
-    ));
-    try{ 
-      localStorage.setItem(taskKey, JSON.stringify(specs));
-    } catch {}
-  }
-
   // Setup editor for help_lines text
   window.setupHelpLinesEditor = function setupHelpLinesEditor(){
     const textarea = document.getElementById('help-lines-text');
@@ -2032,37 +2111,16 @@ window.tasks = [];
     
     // Auto-save on input
     textarea.addEventListener('input', () => {
-      saveHelpLines();
+      markEdited('help');
     });
     
     // Auto-save on blur
     textarea.addEventListener('blur', () => {
-      saveHelpLines();
+      markEdited('help');
     });
     
     // Focus on textarea
     textarea.focus();
-  };
-
-  // Save help_lines from editor textarea
-  window.saveHelpLines = function saveHelpLines(){
-    if(!window.currentTask) return;
-    
-    const textarea = document.getElementById('help-lines-text');
-    if(!textarea) return;
-    
-    // Split by newlines and filter out empty lines
-    const lines = textarea.value.split('\n').filter(line => line.trim() !== '');
-    window.currentTask.help_lines = lines;
-    
-    // Save task to localStorage
-    const taskKey = `editor_task_${window.currentTask.id}`;
-    try {
-      localStorage.setItem(taskKey, JSON.stringify(window.currentTask));
-      console.log(`✓ Saved help_lines to localStorage (${taskKey}):`, lines);
-    } catch (err) {
-      console.warn(`Could not save help_lines for task ${window.currentTask.id}:`, err);
-    }
   };
 
   // Solution forces removed - use editor.js for editor mode
@@ -2760,7 +2818,7 @@ window.tasks = [];
           scene.plane.dirPoint[1] += snappedDy;
         }
         // Save updated task to localStorage
-        saveTask();
+        markEdited('task');
         window.selectedSceneElement._handleStartPos = clampedPos;
       }
       else if(handleType === 'direction'){
@@ -2778,7 +2836,7 @@ window.tasks = [];
           scene.plane.t_vec = geometry.tangentFromNormal(scene.plane.n_vec);
           
           // Save updated task to localStorage (plane change invalidates old expectedForces)
-          saveTask();
+          markEdited('task');
         }
         window.selectedSceneElement._handleStartPos = clampedPos;
       }
@@ -2948,7 +3006,7 @@ window.tasks = [];
     }
     
     // Save and sync after any scene element change
-    saveTask();
+    markEdited('task');
     if(window.fm){
       window.fm.syncInputs(document.getElementById('force-inputs'));
     }
@@ -3164,7 +3222,7 @@ window.tasks = [];
         index: window.hoveredSceneElement.index
       };
       // Auto-save task
-      if(window.currentTask) saveTask();
+      markEdited('task');
       
       // Expand the scene panel for this element (close others)
       const scenePanel = document.getElementById('scene-items');
@@ -3323,7 +3381,7 @@ window.tasks = [];
       // Update scene panel to reflect changes
       updateScenePanel();
       // Save task when scene element handle is released
-      saveTask();
+      markEdited('task');
       // Update snap points and guidelines after scene element change
       if(window.updateAppState && typeof window.updateAppState === 'function'){
         window.updateAppState();
@@ -3374,7 +3432,7 @@ window.tasks = [];
     window.fm.syncInputs(inputsContainer);
     ensureInputMeta();
     // Save forces on mouseup (always, not just editor mode)
-    saveTaskForces();
+    markEdited('forces');
     // Update derived state after force interaction
     window.updateAppState();
   });
@@ -3408,8 +3466,7 @@ window.tasks = [];
       }
       if(action === 'next'){
         // Save current help_lines if in editor mode
-        saveHelpLines();
-        saveTask();
+        markEdited('help', 'task');
         loadTask(window.currentTaskIndex+1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -3443,8 +3500,7 @@ window.tasks = [];
       }
       if(action === 'prev'){
         // Save current help_lines if in editor mode
-        saveHelpLines();
-        saveTask();
+        markEdited('help', 'task');
         loadTask(window.currentTaskIndex-1);
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
@@ -3490,7 +3546,8 @@ window.tasks = [];
           window.saveSolutionForces();
         }
         // Save current forces before evaluating
-        saveTaskForces();
+        markEdited('forces');
+        autoSave();
         if(typeof window.runEvaluation === 'function'){
           window.runEvaluation();
         }
@@ -3499,7 +3556,7 @@ window.tasks = [];
           const taskId = window.currentTask.id;
           const score = window.lastEvaluation.summary.finalScore;
           window.taskScores[taskId] = { score, feedback: window.lastEvaluation.lines.map(l=>l.text).join(' | ') };
-          try{ localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
+          markEdited('scores');
           updateUserDisplay();
           updateHelpButton();
         }
@@ -3511,6 +3568,7 @@ window.tasks = [];
       }
       if(action === 'reset'){
         // Reload current task to restore initial state (keep initial forces, clear expected forces)
+        autoSave();
         window.snapIndicator = null;
         window.currentGuidelines = null;
         clearFeedback();
@@ -3528,9 +3586,9 @@ window.tasks = [];
                 return !isExpected;
               });
               if(initialForces.length){
-                localStorage.setItem(taskKey, JSON.stringify(initialForces));
+                queueStorage(taskKey, initialForces);
               } else {
-                localStorage.removeItem(taskKey);
+                queueStorage(taskKey, null);
               }
             }
           }
@@ -3538,7 +3596,7 @@ window.tasks = [];
         // Clear score for this task
         if(window.currentTask && window.taskScores){
           delete window.taskScores[window.currentTask.id];
-          try{ localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
+          markEdited('scores');
         }
         // Now reload, which will use defaults for expected forces and keep initial forces
         loadTask(window.currentTaskIndex || 0);
@@ -3650,7 +3708,7 @@ window.tasks = [];
   const sShowForceCoords = document.getElementById('settings-show-force-coordinates');
   const sShowSceneCoords = document.getElementById('settings-show-scene-coordinates');
   const sEditor = document.getElementById('settings-editor');
-  function persist(){ try{ localStorage.setItem('editor_settings', JSON.stringify(window.settings)); }catch{} }
+  function persist(){ markEdited('settings'); }
   
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
   if(usr){ usr.addEventListener('change', ()=>{ window.settings.username = usr.value || 'Isaac Newton'; persist(); updateUserDisplay(); }); }
@@ -3678,11 +3736,7 @@ window.tasks = [];
       window.currentTask.comment = commentText;
       
       // Persist task to localStorage
-      try{
-        localStorage.setItem(`editor_task_${window.currentTask.id}`, JSON.stringify(window.currentTask));
-      } catch(err){
-        console.warn('Could not save comment:', err);
-      }
+      markEdited('task');
     });
   }
   
@@ -3709,29 +3763,9 @@ window.tasks = [];
       const currentIdx = window.currentTaskIndex !== undefined ? window.currentTaskIndex : 0;
       window.tasks.splice(currentIdx + 1, 0, newTask);
       
-      // Save the new task to localStorage
-      const taskKey = `editor_task_${newTask.id}`;
-      try{
-        localStorage.setItem(taskKey, JSON.stringify(newTask));
-      } catch {}
-      
-      // Update savedTasks list in localStorage
-      const savedTasksKey = 'editor_savedTasks';
-      let savedTasks = [];
-      try{
-        const stored = localStorage.getItem(savedTasksKey);
-        if(stored) savedTasks = JSON.parse(stored);
-      } catch {}
-      if(!savedTasks.includes(newTask.id)){
-        savedTasks.push(newTask.id);
-        try{ localStorage.setItem(savedTasksKey, JSON.stringify(savedTasks)); } catch {}
-      }
-      
-      // Update task order
-      saveTaskOrder();
-      
-      // Load the new task
+      // Load the new task (flushes pending edits of the old one first), then save the copy
       loadTask(currentIdx + 1);
+      markEdited('task', 'order');
       
       alert(`Oppgave duplikert: "${newTask.title}"`);
     });
@@ -3769,22 +3803,10 @@ window.tasks = [];
       if(!window.tasks) window.tasks = [];
       window.tasks.push(newTask);
       
-      // Update taskOrder to include new task
-      try {
-        const taskOrderKey = 'editor_taskOrder';
-        let taskOrder = JSON.parse(localStorage.getItem(taskOrderKey) || '[]');
-        if(!taskOrder.includes(newTask.id)) {
-          taskOrder.push(newTask.id);
-          localStorage.setItem(taskOrderKey, JSON.stringify(taskOrder));
-        }
-      } catch {}
-      
-      // Load the new task
+      // Load the new task, then save it and the updated order
       const newIndex = window.tasks.length - 1;
       loadTask(newIndex);
-      
-      // Save the new task to localStorage
-      saveTask();
+      markEdited('task', 'order');
       
       alert(`Ny oppgave "${title}" opprettet. Du kan nå redigere scenen og definere krefter.`);
     });
@@ -3800,40 +3822,17 @@ window.tasks = [];
       
       if(!confirm(`Slett oppgave "${window.currentTask.title}"?`)) return;
       
-      // Remove from TASKS array
-      window.TASKS.splice(taskIndex, 1);
+      // Ventende lagring gjelder den slettede oppgaven og må ikke gjenopprette den
+      cancelAutoSave();
       
-      // Remove from localStorage
-      try {
-        localStorage.removeItem(`editor_task_${taskId}`);
-        localStorage.removeItem(`editor_forces_${taskId}`);
-        localStorage.removeItem(`editor_relations_${taskId}`);
-        localStorage.removeItem(`editor_sumF_${taskId}`);
-        
-        // Update saved tasks list
-        const savedTasksKey = 'editor_savedTasks';
-        let savedTasks = [];
-        try {
-          const stored = localStorage.getItem(savedTasksKey);
-          if(stored) savedTasks = JSON.parse(stored);
-        } catch {}
-        savedTasks = savedTasks.filter(id => id !== taskId);
-        localStorage.setItem(savedTasksKey, JSON.stringify(savedTasks));
-        
-        // Update task order - remove deleted task ID
-        try {
-          const taskOrderKey = 'editor_taskOrder';
-          let taskOrder = [];
-          const stored = localStorage.getItem(taskOrderKey);
-          if(stored) taskOrder = JSON.parse(stored);
-          taskOrder = taskOrder.filter(id => id !== taskId);
-          localStorage.setItem(taskOrderKey, JSON.stringify(taskOrder));
-        } catch {}
-      } catch {}
+      // Remove from task list; autoSave() removes the stored data and updates the order
+      window.tasks.splice(taskIndex, 1);
+      ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(prefix => queueStorage(prefix + taskId, null));
+      markEdited('order');
       
       // Load next task or last task
       let nextIdx = taskIndex;
-      if(nextIdx >= window.TASKS.length) nextIdx = window.TASKS.length - 1;
+      if(nextIdx >= window.tasks.length) nextIdx = window.tasks.length - 1;
       
       if(nextIdx >= 0){
         loadTask(nextIdx);
@@ -4164,9 +4163,7 @@ window.tasks = [];
     if(!window.currentTask || !relationsList._relations) return;
     // Use the cached relations array that's been updated by event listeners
     const relations = relationsList._relations;
-    // Save to localStorage
-    const relKey = `editor_relations_${window.currentTask.id}`;
-    try{ localStorage.setItem(relKey, JSON.stringify(relations)); }catch{}
+    queueStorage(`editor_relations_${window.currentTask.id}`, relations);
   }
 
   function autoRelationValue(rel, forces){
@@ -4262,7 +4259,7 @@ window.tasks = [];
           }
         }
         
-        saveTaskOrder();
+        markEdited('order');
       });
 
       item.addEventListener('dragover', (e) => {
@@ -4531,7 +4528,7 @@ window.tasks = [];
 
         // Navigate to first task in set
         if (selectedIds.length > 0) {
-          const firstTaskIdx = window.TASKS.findIndex(t => t.id === selectedIds[0]);
+          const firstTaskIdx = window.tasks.findIndex(t => t.id === selectedIds[0]);
           if (firstTaskIdx >= 0) {
             loadTask(firstTaskIdx);
           }
@@ -4543,7 +4540,7 @@ window.tasks = [];
         tasksetReportDiv.innerHTML = `<div class="taskset-report-item imported">✅ Oppgavesett "${setName}" åpnet (${selectedIds.length} oppgaver valgt)</div>`;
         
         // Auto-save new selection
-        saveTaskOrder();
+        markEdited('order');
       } catch (err) {
         console.error('Error opening taskset:', err);
         tasksetErrorDiv.textContent = 'Feil ved åpning av sett: ' + err.message;
@@ -4562,6 +4559,7 @@ window.tasks = [];
   // ===== EKSPORTER: Export full task objects to JSON file =====
   if (tasksetExportBtn) {
     tasksetExportBtn.addEventListener('click', () => {
+      autoSave();
       const selectedIds = getSelectedTaskIds();
       if (selectedIds.length === 0) {
         tasksetResultDiv.style.display = 'block';
@@ -4572,7 +4570,7 @@ window.tasks = [];
       // Build full task objects WITHOUT forces (only task structure and initialForces)
       const tasksToExport = [];
       selectedIds.forEach(taskId => {
-        const task = window.TASKS.find(t => t.id === taskId);
+        const task = window.tasks.find(t => t.id === taskId);
         if (task) {
           // Deep clone task - do NOT include any drawn forces
           const taskClone = JSON.parse(JSON.stringify(task));
@@ -4673,20 +4671,16 @@ window.tasks = [];
               // Add new task
               imported.push({ id: taskId, title: task.title || taskId });
               
-              // Save full task to localStorage
-              const taskKey = `editor_task_${taskId}`;
-              localStorage.setItem(taskKey, JSON.stringify(task));
-              console.log(`  → Lagret task: ${taskKey}`);
-              
-              // Save forces if available
+              // Save full task (and forces if available) via autoSave
+              queueStorage(`editor_task_${taskId}`, task);
               if (task._forces) {
-                localStorage.setItem(forcesKey, JSON.stringify(task._forces));
-                console.log(`  → Lagret forces: ${forcesKey}`);
+                queueStorage(forcesKey, task._forces);
               }
+              markEdited('order');
               
-              // Add to TASKS array
-              window.TASKS.push(task);
-              console.log(`  → Lagt til i TASKS array`);
+              // Add to tasks array
+              window.tasks.push(task);
+              console.log(`  → Lagt til i tasks array`);
               
               const itemHtml = `<div style="padding:8px 10px; border-bottom:1px solid #eee; color:#2e7d32; background:#f1f8f4;">✅ <strong>${task.title || taskId}</strong> – importert</div>`;
               reportItems.push(itemHtml);
@@ -4728,7 +4722,7 @@ window.tasks = [];
           updateTaskOrderList();
           
           // Auto-save new order immediately
-          saveTaskOrder();
+          markEdited('order');
           
           // Scroll to result so user sees it
           setTimeout(() => {
@@ -4835,6 +4829,7 @@ window.tasks = [];
   const fileInput = document.getElementById('settings-file-input');
   if(downloadBtn){
     downloadBtn.addEventListener('click', ()=>{
+      autoSave();
       const backup = {
         settings: window.settings,
         taskScores: window.taskScores,
@@ -4893,6 +4888,7 @@ window.tasks = [];
           // Comments are now restored from task.comment in localStorage keys
           
           // Restore all localStorage keys
+          cancelAutoSave();
           if(backup.localStorage){
             for(const key in backup.localStorage){
               try{
@@ -4964,8 +4960,9 @@ window.tasks = [];
 
   // Full reset helper
   function performFullReset(){
-    if(!window.TASKS) return;
+    if(!window.tasks) return;
     if(!confirm('Slette alle lokale data og starte på nytt?')) return;
+    cancelAutoSave();
     // Remove ALL editor_* localStorage keys (comprehensive cleanup)
     const keysToRemove = [];
     for(let i = 0; i < localStorage.length; i++){

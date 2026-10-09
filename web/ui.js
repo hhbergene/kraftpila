@@ -193,13 +193,13 @@ function updateScenePanel(){
           // Swap with previous
           [array[index - 1], array[index]] = [array[index], array[index - 1]];
           updateScenePanel();
-          saveTask();
+          window.markEdited && window.markEdited('task');
           window.updateAppState();
         } else if(direction === 'down' && index < array.length - 1) {
           // Swap with next
           [array[index], array[index + 1]] = [array[index + 1], array[index]];
           updateScenePanel();
-          saveTask();
+          window.markEdited && window.markEdited('task');
           window.updateAppState();
         }
       });
@@ -394,7 +394,7 @@ function updateScenePanel(){
           } else if(input.type !== 'checkbox') {
             currentScene.texts[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         }
       });
       
@@ -417,7 +417,7 @@ function updateScenePanel(){
           } else {
             currentScene.texts[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'rect' && currentScene?.rects?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.rects[idx][field] = input.checked;
@@ -428,7 +428,7 @@ function updateScenePanel(){
           } else if(input.tagName === 'SELECT') {
             currentScene.rects[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'ellipse' && currentScene?.ellipses?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.ellipses[idx][field] = input.checked;
@@ -439,12 +439,12 @@ function updateScenePanel(){
           } else if(input.tagName === 'SELECT') {
             currentScene.ellipses[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'circle' && currentScene?.circles?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.circles[idx][field] = input.checked;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'segment' && currentScene?.segments?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.segments[idx][field] = input.checked;
@@ -455,7 +455,7 @@ function updateScenePanel(){
           } else if(input.tagName === 'SELECT') {
             currentScene.segments[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'arrow' && currentScene?.arrows?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.arrows[idx][field] = input.checked;
@@ -466,7 +466,7 @@ function updateScenePanel(){
           } else if(input.tagName === 'SELECT') {
             currentScene.arrows[idx][field] = input.value;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         } else if(fieldType === 'plane' && currentScene?.plane) {
           if(input.type === 'checkbox') {
             currentScene.plane[field] = input.checked;
@@ -475,7 +475,7 @@ function updateScenePanel(){
           } else if(input.type === 'number') {
             currentScene.plane[field] = parseFloat(input.value) || 4;
           }
-          saveTask();
+          window.markEdited && window.markEdited('task');
         }
       });
     });
@@ -506,7 +506,7 @@ function updateScenePanel(){
         // Clear selection since element is deleted
         window.selectedSceneElement = null;
         
-        saveTask();
+        window.markEdited && window.markEdited('task');
         updateScenePanel();
         window.updateAppState();
         
@@ -557,7 +557,7 @@ function updateScenePanel(){
             task.title = titleInput.value;
           }
         }
-        saveTask();
+        window.markEdited && window.markEdited('task');
         updateHelpButton();
         // Update task order list if it exists
         if(window.updateTaskOrderList){
@@ -578,7 +578,7 @@ function updateScenePanel(){
             task.subTitle = subtitleInput.value;
           }
         }
-        saveTask();
+        window.markEdited && window.markEdited('task');
         // Update task order list if it exists
         if(window.updateTaskOrderList){
           window.updateTaskOrderList();
@@ -594,7 +594,7 @@ function updateScenePanel(){
           const task = window.tasks.find(t => t.id === window.currentTask.id);
           if(task) task.category = categoryInput.value;
         }
-        saveTask();
+        window.markEdited && window.markEdited('task');
         // Update task order list if it exists
         if(window.updateTaskOrderList){
           window.updateTaskOrderList();
@@ -698,7 +698,7 @@ function setupHelpLinesEditor(){
   if(textarea){
     // Auto-save on input
     textarea.addEventListener('input', ()=>{
-      saveHelpLines();
+      window.markEdited && window.markEdited('help');
     });
     // Focus on textarea
     textarea.focus();

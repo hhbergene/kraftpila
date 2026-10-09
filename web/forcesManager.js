@@ -137,7 +137,7 @@
           if(window.fm && i>=0 && i<window.fm.forces.length){
             window.fm.forces[i].name = e.target.value;
             // Save forces when force name changes
-            if(window.saveTaskForces) window.saveTaskForces();
+            if(window.markEdited) window.markEdited('forces'); else if(window.saveTaskForces) window.saveTaskForces();
           }
         });
         input.addEventListener('focus', (e)=>{
@@ -270,7 +270,7 @@
             const containerEl = container;
             // syncInputs must be called AFTER setActive to update the active highlighting
             window.fm.syncInputs(containerEl);
-            if(window.saveTaskForces) window.saveTaskForces();
+            if(window.markEdited) window.markEdited('forces'); else if(window.saveTaskForces) window.saveTaskForces();
             // Only call updateAppState if we actually deleted a force (not just cleared points)
             if(!hasPoints && window.updateAppState) window.updateAppState();
           }
@@ -334,7 +334,7 @@
                 const ref = window.getForceSpec ? window.getForceSpec(force) : null;
                 if(ref){
                   ref.spec[ref.prop] = { type: 'custom', pos: anchorPos };
-                  if(window.saveTaskForces) window.saveTaskForces();
+                  if(window.markEdited) window.markEdited('forces'); else if(window.saveTaskForces) window.saveTaskForces();
                 }
               }
             } else {
@@ -368,7 +368,7 @@
                 } else if(type === 'segment'){
                   ref2.spec[ref2.prop] = { type: 'segment', ref: ref, segment: name };
                 }
-                if(window.saveTaskForces) window.saveTaskForces();
+                if(window.markEdited) window.markEdited('forces'); else if(window.saveTaskForces) window.saveTaskForces();
               }
             }
             

@@ -9,10 +9,8 @@
         240
       ],
       "help_lines": [
-        "På en ball som ligger i ro på bakken virker det to krefter:",
-        "G - Tyngdekraften",
-        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
-        "Tegn snordraget. "
+        "En kloss ligger i ro på et horisontalt underlag.",
+        "Tegn kreftene som virker på klossen."
       ],
       "scene": {
         "plane": {
@@ -201,10 +199,8 @@
         240
       ],
       "help_lines": [
-        "På en ball som ligger i ro på bakken virker det to krefter:",
-        "G - Tyngdekraften",
-        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
-        "Tegn snordraget. "
+        "En kloss ligger i ro på et horisontalt underlag.",
+        "Tegn kreftene som virker på klossen."
       ],
       "scene": {
         "plane": {
@@ -379,12 +375,8 @@
         240
       ],
       "help_lines": [
-        "På en ball som ligger i ro på bakken virker det to krefter:",
-        "G - Tyngdekraften",
-        "N - Normalkraften fra underlaget",
-        "Normalkraften er en kontaktkraft som angriper i kontaktpunktet med bakken.",
-        "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
-        "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+        "En kloss ligger i ro på et horisontalt underlag.",
+        "Tegn kreftene som virker på klossen."
       ],
       "scene": {
         "plane": {
@@ -549,8 +541,8 @@
     }
   ],
   "metadata": {
-    "name": "Intro",
-    "exported": "2026-10-09T17:21:02.272Z",
+    "name": "taskset",
+    "exported": "2026-10-09T18:17:10.393Z",
     "count": 3
   }
 }

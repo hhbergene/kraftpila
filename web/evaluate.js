@@ -340,6 +340,9 @@
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const P = sceneObj && sceneObj.points[spec.anchor.point];
           if(P){ posErr = geometry.distance(match.anchor, P); posOk = posErr <= POS_TOL; }
+        } else if(spec.anchor.type==='custom' && spec.anchor.pos){
+          anchorType = 'custom';
+          posErr = geometry.distance(match.anchor, spec.anchor.pos); posOk = posErr <= POS_TOL;
         } else if(spec.anchor.type==='segment'){
           anchorType = 'segment';
           const sceneObj = window.sceneLookup[spec.anchor.ref];

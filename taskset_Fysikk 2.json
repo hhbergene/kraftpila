@@ -5,8 +5,9 @@
       "title": "Kloss på skråplan",
       "category": "Fysikk 2",
       "help_lines": [
-        "Kloss A sklir nedover et skråplan uten friksjon.",
-        "Tegn kreftene som virker på klossen."
+        "En bil kjører mot oss med konstant banefart",
+        "i en dossert sving uten friksjon uten å skli.",
+        "Tegn kreftene som virker på bilen."
       ],
       "scene": {
         "plane": {
@@ -142,6 +143,20 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              480,
+              320
+            ],
+            "arrowBase": [
+              480,
+              320
+            ],
+            "arrowTip": [
+              480,
+              420
+            ]
           }
         },
         {
@@ -162,6 +177,20 @@
             "type": "segment",
             "ref": "rect0",
             "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              520,
+              350
+            ],
+            "arrowTip": [
+              480,
+              270
+            ]
           }
         }
       ],
@@ -316,6 +345,20 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              480,
+              320
+            ],
+            "arrowBase": [
+              479.8328157299975,
+              319.6656314599949
+            ],
+            "arrowTip": [
+              480,
+              420
+            ]
           }
         },
         {
@@ -336,6 +379,20 @@
             "type": "segment",
             "ref": "rect0",
             "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              520,
+              350
+            ],
+            "arrowTip": [
+              480,
+              270
+            ]
           }
         },
         {
@@ -355,6 +412,20 @@
             "pos": [
               580,
               320
+            ]
+          },
+          "drawn": {
+            "anchor": [
+              580,
+              320
+            ],
+            "arrowBase": [
+              570,
+              300
+            ],
+            "arrowTip": [
+              610,
+              280
             ]
           }
         }
@@ -538,6 +609,20 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              660,
+              420
+            ],
+            "arrowBase": [
+              660,
+              420
+            ],
+            "arrowTip": [
+              660,
+              500
+            ]
           }
         },
         {
@@ -558,6 +643,20 @@
             "type": "segment",
             "ref": "rect0",
             "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              660,
+              480
+            ],
+            "arrowBase": [
+              680,
+              480
+            ],
+            "arrowTip": [
+              680,
+              400
+            ]
           }
         },
         {
@@ -577,6 +676,20 @@
             "pos": [
               580,
               480
+            ]
+          },
+          "drawn": {
+            "anchor": [
+              580,
+              480
+            ],
+            "arrowBase": [
+              580,
+              460
+            ],
+            "arrowTip": [
+              500,
+              460
             ]
           }
         }
@@ -609,7 +722,7 @@
   ],
   "metadata": {
     "name": "Fysikk 2",
-    "exported": "2026-10-09T15:36:09.597Z",
+    "exported": "2026-10-09T18:20:36.651Z",
     "count": 3
   }
 }

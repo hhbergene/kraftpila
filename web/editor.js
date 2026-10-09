@@ -1947,13 +1947,27 @@ window.tasks = [];
     if(!window.currentTask) return;
     const textarea = document.getElementById('help-lines-text');
     if(!textarea) return;
+    // Tekstfeltet kan vise en annen oppgave enn den gjeldende (f.eks. rett etter bytte); da skal det ikke kopieres inn.
+    if(textarea.dataset.taskId !== String(window.currentTask.id)) return;
     window.currentTask.help_lines = textarea.value.split('\n').filter(line => line.trim() !== '');
   }
+
+  // Remove task specs that no longer match any drawn force (e.g. leftovers from typing a name letter by letter)
+  window.pruneForceSpecs = function(){
+    const task = window.currentTask;
+    if(!task || !window.fm) return;
+    const keyOf = n => (n || '').toLowerCase().trim();
+    const names = { true: new Set(), false: new Set() };
+    window.fm.forces.forEach(f => { if(f.name && f.name.trim()) names[f.isExpected !== false].add(keyOf(f.name)); });
+    if(Array.isArray(task.expectedForces)) task.expectedForces = task.expectedForces.filter(s => names[true].has(keyOf(s.name)));
+    if(Array.isArray(task.initialForces)) task.initialForces = task.initialForces.filter(s => names[false].has(keyOf(s.name)));
+  };
 
   // Write drawn forces of the current task to localStorage
   function writeForces(){
     if(!window.currentTask || !window.fm) return;
     window.fm.forces.forEach(ff => window.syncForceSpec(ff));
+    window.pruneForceSpecs();
     const taskKey = `editor_forces_${window.currentTask.id}`;
     
     // Filter out blank forces (only save forces with actual data)
@@ -2288,6 +2302,7 @@ window.tasks = [];
   window.setupHelpLinesEditor = function setupHelpLinesEditor(){
     const textarea = document.getElementById('help-lines-text');
     if(!textarea) return;
+    textarea.dataset.taskId = String(window.currentTask.id);
     
     // Auto-save on input
     textarea.addEventListener('input', () => {
@@ -3668,12 +3683,17 @@ window.tasks = [];
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && helpCanvas && window.currentTask.help_lines){
+          if(helpContent && helpCanvas){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
             helpCanvas.style.display = 'none';
-            const text = window.currentTask.help_lines.join('\n');
-            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+            helpContent.innerHTML = '';
+            const ta = document.createElement('textarea');
+            ta.id = 'help-lines-text';
+            ta.className = 'help-lines-editor';
+            ta.placeholder = 'Skriv hver linje på en ny rad...';
+            ta.value = (window.currentTask.help_lines || []).join('\n');
+            helpContent.appendChild(ta);
             setupHelpLinesEditor();
           }
         }
@@ -3702,12 +3722,17 @@ window.tasks = [];
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && helpCanvas && window.currentTask.help_lines){
+          if(helpContent && helpCanvas){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
             helpCanvas.style.display = 'none';
-            const text = window.currentTask.help_lines.join('\n');
-            helpContent.innerHTML = `<textarea id="help-lines-text" class="help-lines-editor" placeholder="Skriv hver linje på en ny rad...">${text}</textarea>`;
+            helpContent.innerHTML = '';
+            const ta = document.createElement('textarea');
+            ta.id = 'help-lines-text';
+            ta.className = 'help-lines-editor';
+            ta.placeholder = 'Skriv hver linje på en ny rad...';
+            ta.value = (window.currentTask.help_lines || []).join('\n');
+            helpContent.appendChild(ta);
             setupHelpLinesEditor();
           }
         }

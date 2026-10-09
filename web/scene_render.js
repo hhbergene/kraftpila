@@ -294,7 +294,11 @@
         lookup[id]={
           snapping: snappingEnabled,
           points: snappingEnabled ? {
-            center: c.center
+            center: c.center,
+            top_center: [c.center[0], c.center[1] - (c.radius || 0)],
+            bottom_center: [c.center[0], c.center[1] + (c.radius || 0)],
+            left_middle: [c.center[0] - (c.radius || 0), c.center[1]],
+            right_middle: [c.center[0] + (c.radius || 0), c.center[1]]
           } : {},
           segments: {}
         };
@@ -389,7 +393,13 @@
       scene.circles.forEach((c, i)=>{
         if(!c || !c.center) return;
         lookup[`circle${i}`] = {
-          points: { center: [c.center[0], c.center[1]] },
+          points: {
+            center: [c.center[0], c.center[1]],
+            top_center: [c.center[0], c.center[1] - (c.radius || 0)],
+            bottom_center: [c.center[0], c.center[1] + (c.radius || 0)],
+            left_middle: [c.center[0] - (c.radius || 0), c.center[1]],
+            right_middle: [c.center[0] + (c.radius || 0), c.center[1]]
+          },
           segments: {}
         };
       });

@@ -1116,15 +1116,20 @@ window.tasks = [];
       });
     }
     
-    // Circles - only center point
+    // Circles - center plus cardinal points on the circumference
     if(Array.isArray(scene.circles)){
       scene.circles.forEach((c, i) => {
         if(!c || !c.center) return;
-        candidates.push({
-          ref: `circle${i}`,
-          type: 'point',
-          point: 'center',
-          pos: [c.center[0], c.center[1]]
+        const [cx, cy] = c.center;
+        const r = c.radius || 0;
+        [
+          { name: 'center', pos: [cx, cy] },
+          { name: 'top_center', pos: [cx, cy - r] },
+          { name: 'bottom_center', pos: [cx, cy + r] },
+          { name: 'left_middle', pos: [cx - r, cy] },
+          { name: 'right_middle', pos: [cx + r, cy] }
+        ].forEach(p => {
+          candidates.push({ ref: `circle${i}`, type: 'point', point: p.name, pos: p.pos });
         });
       });
     }
@@ -1170,6 +1175,22 @@ window.tasks = [];
           candidates.push({
             ref, type: 'segment', segment: s.name, pos: s.pos
           });
+        });
+      });
+    }
+    
+    // Plane, segments and arrows: take points/segments from the shared scene lookup
+    if(window.buildAllScenePoints){
+      const lookup = window.buildAllScenePoints(task);
+      Object.keys(lookup).forEach(ref => {
+        if(!/^(plane|segment|arrow)/.test(ref)) return;
+        const entry = lookup[ref];
+        Object.keys(entry.points || {}).forEach(name => {
+          candidates.push({ ref, type: 'point', point: name, pos: entry.points[name] });
+        });
+        Object.keys(entry.segments || {}).forEach(name => {
+          const [p, q] = entry.segments[name];
+          candidates.push({ ref, type: 'segment', segment: name, pos: [(p[0]+q[0])/2, (p[1]+q[1])/2] });
         });
       });
     }
@@ -2912,7 +2933,7 @@ window.tasks = [];
       
       // Live update anchor-select dropdown to show the hovered candidate
       const forceIdx = window.fm.activeIndex;
-      const anchorSelect = document.querySelector(`#force-inputs [data-index="${forceIdx}"].anchor-select`);
+      const anchorSelect = document.querySelector(`#force-inputs .force-anchor-select[data-index="${forceIdx}"]`);
       if(anchorSelect){
         if(closestIdx >= 0 && window.anchorCandidates[closestIdx]){
           // Update dropdown to show hovered candidate
@@ -3251,7 +3272,23 @@ window.tasks = [];
     const f = window.fm.forces[window.fm.activeIndex];
     if(f){
       const wasDrawing = f.drawing;
+      const wasDraggingAnchor = (f.dragging === 'anchor');
       f.handleMouseUp(pos);
+      // Anchor was moved (drawn or dragged): attach it to the nearest scene point/segment
+      if((wasDrawing || wasDraggingAnchor) && f.anchor && window.currentTask && window.findBestAnchor){
+        const exp = (window.currentTask.expectedForces || []).find(ef =>
+          ef.name && f.name && ef.name.toLowerCase().trim() === f.name.toLowerCase().trim());
+        if(exp){
+          const best = window.findBestAnchor(f.anchor, window.currentTask, 40);
+          if(best && best.type === 'point'){
+            exp.anchor = { type: 'point', ref: best.ref, point: best.point };
+          } else if(best && best.type === 'segment'){
+            exp.anchor = { type: 'segment', ref: best.ref, segment: best.segment };
+          } else {
+            exp.anchor = { type: 'custom', pos: [f.anchor[0], f.anchor[1]] };
+          }
+        }
+      }
       if(wasDrawing && !f.drawing){
         // Add a new blank force after finishing a draw
         window.fm.ensureTrailingBlank();

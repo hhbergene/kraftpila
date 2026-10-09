@@ -898,7 +898,8 @@
     if(coverage < 0.50) cap = Math.min(cap, 0.35);    // mangler halvparten → maks 35%
     
     // Check for missing essential forces (G and N)
-    const missing = name => !forceResults.find(r=>r.name === name && r.found);
+    // Only forces the task actually expects count as essential
+    const missing = name => expectedNames.includes(name) && !forceResults.find(r=>r.name === name && r.found);
     if(missing("G") || missing("N")) cap = Math.min(cap, 0.75);
     
     finalScore = Math.min(finalScore, cap);

@@ -303,6 +303,11 @@
         anchorSelect.dataset.index = idx;
         anchorSelect.style.fontSize = '12px';
         anchorSelect.style.padding = '4px';
+        // Rebuild options right before the list opens, so it always reflects the current scene and force position
+        anchorSelect.addEventListener('mousedown', ()=>{
+          const container = anchorSelect.closest('#force-inputs');
+          if(window.fm && container) window.fm.syncInputs(container, true);
+        });
         anchorSelect.addEventListener('change', (e)=>{
           const forceIdx = parseInt(e.target.dataset.index, 10);
           if(!window.currentTask || !window.fm || forceIdx < 0 || forceIdx >= window.fm.forces.length) return;
@@ -471,10 +476,17 @@
           
           // Always update visibility (show/hide)
           if(shouldShowDropdown){
-            // Only rebuild dropdown content if forceDropdownRebuild is true (activeIndex changed)
-            if(forceDropdownRebuild){
+            // Rebuild when requested, or when the force/anchor/task changed since last build
+            const sigSelect = anchorDropdownContainer.querySelector('.force-anchor-select');
+            const dropdownSig = [
+              window.currentTask ? window.currentTask.id : '',
+              i, f.name || '', f.anchor ? f.anchor.join(',') : ''
+            ].join('|');
+            const needsRebuild = forceDropdownRebuild || (sigSelect && sigSelect.dataset.sig !== dropdownSig);
+            if(needsRebuild){
               // Rebuild dropdown options from buildAnchorCandidates
-              const anchorSelect = anchorDropdownContainer.querySelector('.force-anchor-select');
+              const anchorSelect = sigSelect;
+              if(anchorSelect) anchorSelect.dataset.sig = dropdownSig;
               if(anchorSelect){
                 anchorSelect.innerHTML = ''; // Clear options
                 
@@ -489,7 +501,7 @@
                 let currentCustomPos = null;
                 if(window.currentTask && window.currentTask.expectedForces){
                   const expForce = window.currentTask.expectedForces.find(ef => 
-                    ef.name && ef.name.toLowerCase().trim() === f.name.toLowerCase().trim()
+                    ef.name && ef.name.toLowerCase().trim() === (f.name || '').toLowerCase().trim()
                   );
                   if(expForce && expForce.anchor){
                     const a = expForce.anchor;
@@ -504,11 +516,45 @@
                     }
                   }
                 }
+                // No stored spec (e.g. freshly drawn force): derive from the drawn anchor position
+                if(!currentAnchorValue && f.anchor && window.findBestAnchor){
+                  const best = window.findBestAnchor(f.anchor, window.currentTask, 40);
+                  if(best && best.type === 'point'){
+                    currentAnchorValue = `point:${best.ref}:${best.point}`;
+                  } else if(best && best.type === 'segment'){
+                    currentAnchorValue = `segment:${best.ref}:${best.segment}`;
+                  } else {
+                    currentCustomPos = f.anchor;
+                    currentAnchorValue = `custom:${Math.round(f.anchor[0])},${Math.round(f.anchor[1])}`;
+                  }
+                }
                 
                 // Build candidates and add to dropdown
                 if(window.buildAnchorCandidates && window.currentTask){
                   const candidates = window.buildAnchorCandidates(window.currentTask);
                   console.log(`🎯 Dropdown for force "${f.name}" (index ${i}): building with ${candidates.length} candidates`);
+                  
+                  // Nearest candidates first, based on the drawn force's anchor (or arrow base)
+                  const refPos = f.anchor || f.arrowBase;
+                  if(refPos){
+                    const nearest = candidates
+                      .filter(c => c.pos)
+                      .map(c => ({ c, d: Math.hypot(c.pos[0]-refPos[0], c.pos[1]-refPos[1]) }))
+                      .sort((a, b) => a.d - b.d)
+                      .slice(0, 5);
+                    if(nearest.length){
+                      const nearGroup = document.createElement('optgroup');
+                      nearGroup.label = 'Nærmest';
+                      nearest.forEach(({c, d}) => {
+                        const option = document.createElement('option');
+                        const key = c.type === 'point' ? c.point : c.segment;
+                        option.value = `${c.type}:${c.ref}:${key}`;
+                        option.textContent = `${c.ref} ${c.type}: ${key} (${Math.round(d)}px)`;
+                        nearGroup.appendChild(option);
+                      });
+                      anchorSelect.appendChild(nearGroup);
+                    }
+                  }
                   
                   // Group by ref for better UI
                   const groupedByRef = {};

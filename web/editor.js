@@ -1873,6 +1873,7 @@ window.tasks = [];
       restoringUndo = false;
     }
     updateUndoButtons();
+    if(typeof window.updateTaskOrderList === 'function') window.updateTaskOrderList();
   }
 
   // Husk hvilken oppgave som er valgt i gjeldende steg, så angre/gjør om havner på riktig oppgave
@@ -4963,6 +4964,42 @@ window.tasks = [];
     tasksetResultDiv.style.display = 'block';
   }
 
+  // Slett valgte oppgaver (bekreftelse + angre via Ctrl+Z / angre-knappen)
+  const tasksetDeleteBtn = document.getElementById('taskset-delete-btn');
+  if(tasksetDeleteBtn){
+    tasksetDeleteBtn.addEventListener('click', () => {
+      tasksetErrorDiv.style.display = 'none';
+      const ids = new Set(getSelectedTaskIds());
+      if(ids.size === 0){
+        showTasksetError('Velg oppgavene du vil slette først.');
+        return;
+      }
+      if(!confirm(`Er du sikker på at du vil slette ${ids.size} oppgave${ids.size === 1 ? '' : 'r'}?\n\nDu kan angre med Ctrl+Z.`)) return;
+
+      autoSave(); // ventende redigeringer blir eget steg som angre kan gå tilbake til
+      rememberSelection();
+      cancelAutoSave();
+      const currentId = window.currentTask && window.currentTask.id;
+      const oldIdx = window.currentTaskIndex || 0;
+      window.tasks = window.tasks.filter(t => !ids.has(t.id));
+      ids.forEach(id => ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(p => queueStorage(p + id, null)));
+      markEdited('order');
+
+      if(window.tasks.length === 0){
+        window.currentTask = null;
+        window.currentTaskIndex = 0;
+        autoSave();
+      } else if(ids.has(currentId)){
+        loadTask(Math.min(oldIdx, window.tasks.length - 1));
+        autoSave();
+      } else {
+        window.currentTaskIndex = window.tasks.findIndex(t => t.id === currentId);
+        markEdited('index');
+        autoSave();
+      }
+      updateTaskOrderList();
+    });
+  }
   const taskOrderSelectAll = document.getElementById('task-order-select-all');
   if(taskOrderSelectAll){
     taskOrderSelectAll.addEventListener('click', ()=>{

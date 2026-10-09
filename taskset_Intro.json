@@ -9,8 +9,10 @@
         240
       ],
       "help_lines": [
-        "En kloss ligger i ro på et horisontalt underlag.",
-        "Tegn kreftene som virker på klossen."
+        "På en ball som faller fritt mot bakken virker det bare en kraft:",
+        "G - Tyngdekraften",
+        "Tyngdekraften er en fjernkraft, og angrepspunktet skal tegnes i massemidtpunktet til ballen.",
+        "Tegn tyngdekraften."
       ],
       "scene": {
         "plane": {
@@ -199,8 +201,11 @@
         240
       ],
       "help_lines": [
-        "En kloss ligger i ro på et horisontalt underlag.",
-        "Tegn kreftene som virker på klossen."
+        "En ball henger i ro i en snor. Det virker to krefter:",
+        "G - Tyngdekraften",
+        "S - Snordraget",
+        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
+        "Tegn snordraget."
       ],
       "scene": {
         "plane": {
@@ -375,8 +380,12 @@
         240
       ],
       "help_lines": [
-        "En kloss ligger i ro på et horisontalt underlag.",
-        "Tegn kreftene som virker på klossen."
+        "På en ball som ligger i ro på bakken virker det to krefter:",
+        "G - Tyngdekraften",
+        "N - Normalkraften fra underlaget",
+        "Normalkraften er en kontaktkraft som angriper i kontaktpunktet med bakken.",
+        "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
+        "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
       ],
       "scene": {
         "plane": {

@@ -490,6 +490,14 @@ function updateScenePanel(){
         const currentScene = window.currentTask?.scene;
         
         if(btnType === 'text' && currentScene?.texts?.[btnIdx]) {
+          // Tekster uten pos henger etter forrige tekst. Når første tekst slettes, 
+          // fryses neste teksts nåværende posisjon så den ikke mister plasseringen.
+          const next = currentScene.texts[btnIdx + 1];
+          if(btnIdx === 0 && next && !next.pos){
+            const rp = next._renderedPos;
+            next.pos = Array.isArray(rp) && rp.length >= 2 ? [rp[0], rp[1]] : [...(currentScene.texts[0].pos || [20, 20])];
+            next.linked = false;
+          }
           currentScene.texts.splice(btnIdx, 1);
         } else if(btnType === 'rect' && currentScene?.rects?.[btnIdx]) {
           currentScene.rects.splice(btnIdx, 1);

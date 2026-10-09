@@ -4112,7 +4112,7 @@ window.tasks = [];
       
       // Remove rendering artifacts and linked flags from texts
       if(task.scene && Array.isArray(task.scene.texts)){
-        task.scene.texts = task.scene.texts.map(text => {
+        task.scene.texts = task.scene.texts.map((text, idx) => {
           const clean = {
             txt: text.txt,
             pos: text.pos,
@@ -4123,6 +4123,8 @@ window.tasks = [];
           };
           // Only include pos if text is not linked
           if(text.linked) delete clean.pos;
+          // Første tekst har ingen forrige å henge etter, så den trenger alltid absolutt pos
+          if(!clean.pos && idx === 0 && Array.isArray(text._renderedPos)) clean.pos = text._renderedPos.slice(0, 2);
           return clean;
         });
       }

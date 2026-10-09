@@ -363,7 +363,8 @@
         posOk,
         index:matchIndex,
         drawnName: match.name || '',
-        anchorType
+        anchorType,
+        anchorSpec: spec.anchor || null
       });
     });
     return results;
@@ -679,15 +680,15 @@
       if(!posOk && r.posErr !== null){
         // Position wrong - use anchor type for message (NEW)
         let anchorDesc = 'angrepspunktet';
+        const sp = r.anchorSpec || {};
+        const POINT_NAMES = { center: 'massemidtpunktet', top_center: 'toppunktet', bottom_center: 'bunnpunktet', left_middle: 'venstre side', right_middle: 'høyre side' };
+        const SEGMENT_NAMES = { top: 'toppflaten', bottom: 'bunnflaten', left: 'venstre side', right: 'høyre side', plane: 'underlaget' };
         if(r.anchorType === 'point'){
-          anchorDesc = 'massemidtpunktet';
+          anchorDesc = POINT_NAMES[sp.point] || 'angitt punkt';
         } else if(r.anchorType === 'segment'){
-          // Determine based on force type (G=gravity, others=friction/normal)
-          if(label.toUpperCase().includes('G')){
-            anchorDesc = 'massemidtpunktet';
-          } else {
-            anchorDesc = 'kontaktflaten/segmentet';
-          }
+          anchorDesc = SEGMENT_NAMES[sp.segment] || 'kontaktflaten/segmentet';
+        } else if(r.anchorType === 'custom'){
+          anchorDesc = 'markert punkt';
         }
         let msg = `Angrepspunkt til ${label} bør ligge i ${anchorDesc}`;
         if(debugMode && typeof r.posErr === 'number') msg += ` (${r.posErr.toFixed(1)}px)`;

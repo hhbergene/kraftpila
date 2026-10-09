@@ -1570,6 +1570,58 @@ window.tasks = [];
     console.groupEnd();
   }
 
+  // Tegner fasitkreftene (expectedForces) som ekte piler når oppgaven ikke har lagrede tegnede krefter (f.eks. etter import).
+  function seedExpectedForces(task){
+    if(!task || !Array.isArray(task.expectedForces) || !task.expectedForces.length || !window.fm) return;
+    const lookup = window.sceneLookup || {};
+    const len = 3 * GRID_STEP;
+    const isBlank = f => f.anchor === null && f.arrowBase === null && f.arrowTip === null && !f.name;
+    const added = [];
+    task.expectedForces.forEach(spec => {
+      const a = spec.anchor;
+      const dr = spec.drawn;
+      if(dr && dr.anchor && dr.arrowBase && dr.arrowTip){
+        const f = new Force();
+        f.anchor = dr.anchor.slice();
+        f.arrowBase = dr.arrowBase.slice();
+        f.arrowTip = dr.arrowTip.slice();
+        f.name = spec.name || '';
+        f.moveable = true;
+        f.isExpected = true;
+        f.updateDirectionAndLength();
+        added.push(f);
+        return;
+      }
+      let P = null;
+      if(Array.isArray(a)) P = a;
+      else if(a && a.type === 'point'){
+        const o = lookup[a.ref];
+        P = o && o.points && o.points[a.point];
+      } else if(a && a.type === 'segment'){
+        const o = lookup[a.ref];
+        const seg = o && o.segments && o.segments[a.segment];
+        if(seg) P = [(seg[0][0]+seg[1][0])/2, (seg[0][1]+seg[1][1])/2];
+      } else if(a && a.type === 'custom' && a.pos) P = a.pos;
+      if(!P) return;
+      const dir = spec.dir || [0, 1];
+      const f = new Force();
+      f.anchor = [P[0], P[1]];
+      f.arrowBase = [P[0], P[1]];
+      f.arrowTip = [P[0] + dir[0]*len, P[1] + dir[1]*len];
+      f.name = spec.name || '';
+      f.moveable = true;
+      f.isExpected = true;
+      f.updateDirectionAndLength();
+      added.push(f);
+    });
+    if(!added.length) return;
+    window.fm.forces = window.fm.forces.filter(f => !isBlank(f)).concat(added);
+    const blank = new Force();
+    blank.isExpected = true;
+    window.fm.forces.push(blank);
+    window.fm.setActive(window.fm.forces.length - 1);
+  }
+
   function loadTask(index){
     // Flush pending edits to the task we are leaving
     autoSave();
@@ -1658,13 +1710,16 @@ window.tasks = [];
           }
         } else {
           seedInitialForces(window.currentTask);
+          seedExpectedForces(window.currentTask);
         }
       } catch(err) {
         seedInitialForces(window.currentTask);
+        seedExpectedForces(window.currentTask);
       }
     } else {
       // No saved forces, use defaults
       seedInitialForces(window.currentTask);
+      seedExpectedForces(window.currentTask);
     }
     window.fm.syncInputs(inputsContainer);
     ensureInputMeta();
@@ -4634,6 +4689,32 @@ window.tasks = [];
               if (Array.isArray(parsed.help_lines)) {
                 taskClone.help_lines = parsed.help_lines;
               }
+            }
+          } catch {}
+
+          // Relasjoner og ΣF redigeres i egne nøkler; tegnede låste krefter (med lengde) ligger i editor_forces_
+          try {
+            const rel = localStorage.getItem(`editor_relations_${taskId}`);
+            if (rel) taskClone.relations = JSON.parse(rel);
+            const sf = localStorage.getItem(`editor_sumF_${taskId}`);
+            if (sf) taskClone.sumF = JSON.parse(sf);
+            const drawn = JSON.parse(localStorage.getItem(`editor_forces_${taskId}`) || 'null');
+            if (Array.isArray(drawn)) {
+              const oldInitial = Array.isArray(taskClone.initialForces) ? taskClone.initialForces : [];
+              const locked = drawn.filter(f => f.isExpected === false && f.name && f.anchor && f.arrowBase && f.arrowTip);
+              if (locked.length || oldInitial.length === 0) {
+                taskClone.initialForces = locked.map(f => {
+                  const old = oldInitial.find(o => o.name && o.name.toLowerCase().trim() === f.name.toLowerCase().trim());
+                  const spec = { name: f.name, anchor: f.anchor, arrowBase: f.arrowBase, arrowTip: f.arrowTip, moveable: false };
+                  if (old && old.anchorSpec) spec.anchorSpec = old.anchorSpec;
+                  return spec;
+                });
+              }
+              // Den tegnede fasitkraften lagres ved siden av spesifikasjonen (index.html ignorerer feltet)
+              (taskClone.expectedForces || []).forEach(spec => {
+                const d = drawn.find(f => f.isExpected !== false && f.name && spec.name && f.name.toLowerCase().trim() === spec.name.toLowerCase().trim() && f.anchor && f.arrowBase && f.arrowTip);
+                if (d) spec.drawn = { anchor: d.anchor, arrowBase: d.arrowBase, arrowTip: d.arrowTip };
+              });
             }
           } catch {}
           

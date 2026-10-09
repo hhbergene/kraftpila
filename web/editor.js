@@ -1915,11 +1915,19 @@ window.tasks = [];
       const isUndo = k === 'z' && !e.shiftKey;
       const isRedo = k === 'y' || (k === 'z' && e.shiftKey);
       if(!isUndo && !isRedo) return;
-      // Tekstfelt har sin egen angre-funksjon
+      // Tekstfelt har sin egen angre-funksjon, men bare når brukeren har endret feltet siden fokus
       const el = e.target;
-      if(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      const isField = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+      if(isField){
+        const untouched = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el._valAtFocus === el.value;
+        if(!untouched) return;
+      }
       e.preventDefault();
       if(isUndo) window.undo(); else window.redo();
+    });
+    document.addEventListener('focusin', (e) => {
+      const el = e.target;
+      if(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) el._valAtFocus = el.value;
     });
   })();
 

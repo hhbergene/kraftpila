@@ -1,0 +1,682 @@
+{
+  "tasks": [
+    {
+      "id": "task_1791480987570_9dzqpjzzk",
+      "title": "Kloss på flatt plan uten friksjon",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        360
+      ],
+      "help_lines": [
+        "En kloss ligger i ro på et horisontalt underlag. Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "dirPoint": [
+            500,
+            300
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v=0 (konstant)",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              442,
+              338
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              442,
+              338
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "1",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987571_i2kw1klmh",
+      "title": "Vi drar en kloss med kraften F",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "En kloss A ligger på et flatt underlag med friksjon og trekkes av en kraft F,",
+        "slik at den beveger seg mot høyre med konstant fart.",
+        "Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              460,
+              144
+            ],
+            "b": [
+              540,
+              144
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn de andre kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              500,
+              122
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              122
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              442,
+              338
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              442,
+              338
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "F",
+          "aliases": [
+            "f",
+            "fa",
+            "kraft",
+            "applied"
+          ],
+          "dir": [
+            1,
+            0
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "right"
+          }
+        },
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjon",
+            "fr"
+          ],
+          "dir": [
+            -1,
+            0
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "F",
+          "anchorFrom": "rect0",
+          "point": "right_middle",
+          "len": 60,
+          "dir": [
+            1,
+            0
+          ],
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "right_middle"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "F"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "R"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "2",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987572_yjio90r9e",
+      "title": "To klosser oppå hverandre i ro",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "Kloss A ligger i ro på horisontalt underlag, og kloss B ligger i ro oppå kloss A.",
+        "Kloss A er dobbelt så tung som kloss B (m_A = 2 · m_B).",
+        "Tegn kreftene som virker på kloss A.   (Kreftene som virker på kloss B er allerede tegnet.)"
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          },
+          {
+            "width": 120,
+            "height": 80,
+            "bottomCenter": [
+              500,
+              240
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "m_A = 2 · m_B",
+            "pos": [
+              375,
+              124
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              124
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              442,
+              338
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              442,
+              338
+            ]
+          },
+          {
+            "txt": "B",
+            "pos": [
+              462,
+              218
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              462,
+              218
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "fn",
+            "normalkraft",
+            "r"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        },
+        {
+          "name": "G_",
+          "anchor": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ]
+        },
+        {
+          "name": "G_B",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "dir": [
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "G_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ]
+        },
+        {
+          "name": "N_AB",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "top"
+          },
+          "dir": [
+            0,
+            1
+          ]
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G_B",
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N_B",
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect1",
+            "segment": "bottom"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            },
+            {
+              "name": "N_B"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N_B"
+            }
+          ],
+          "ratio": 2,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "3",
+      "taskSubTitle": ""
+    }
+  ],
+  "metadata": {
+    "name": "Fysikk 1",
+    "exported": "2026-10-09T15:35:50.187Z",
+    "count": 3
+  }
+}

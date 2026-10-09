@@ -1,3 +1,5 @@
 [
-  { "name": "Eksempeloppgaver", "file": "eksempeloppgaver.json" }
+  { "name": "Intro", "file": "taskset_Intro.json" },
+  { "name": "Fysikk 1", "file": "taskset_Fysikk 1.json" },
+  { "name": "Fysikk 2", "file": "taskset_Fysikk 2.json" }
 ]

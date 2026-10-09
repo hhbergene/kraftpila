@@ -1,0 +1,615 @@
+{
+  "tasks": [
+    {
+      "id": "task_1791480987573_3k1992zvk",
+      "title": "Kloss på skråplan",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "Kloss A sklir nedover et skråplan uten friksjon.",
+        "Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "n_vec": [
+            -0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "t_vec": [
+            0.8944271909999159,
+            -0.4472135954999579
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "snapping": true,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              455.27864045000416,
+              181.11456180001684
+            ],
+            "b": [
+              383.72446517001094,
+              216.89164944001342
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "μ = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "v",
+            "pos": [
+              409.6628537090085,
+              179.325707418017
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "_renderedPos": [
+              409.6628537090085,
+              179.325707418017
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              438.2845238210058,
+              366.26099033699944
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              438.2845238210058,
+              366.26099033699944
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            -0.447,
+            -0.894
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "n": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "4",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987574_yqapzukcp",
+      "title": "Kloss på skråplan med friksjon",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En kloss A sklir nedover et skråplan med konstant fart.",
+        "Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "n_vec": [
+            -0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "t_vec": [
+            0.8944271909999159,
+            -0.4472135954999579
+          ]
+        },
+        "rects": [
+          {
+            "width": 178.88543819998318,
+            "height": 89.44271909999159,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "snapping": true,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              455.27864045000416,
+              181.11456180001684
+            ],
+            "b": [
+              383.72446517001094,
+              216.89164944001342
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              409.6628537090085,
+              179.325707418017
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "_renderedPos": [
+              409.6628537090085,
+              179.325707418017
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              438.2845238210058,
+              366.26099033699944
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              438.2845238210058,
+              366.26099033699944
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0.002,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            -0.447,
+            -0.894
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjonskraft",
+            "R"
+          ],
+          "dir": [
+            0.894,
+            -0.447
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              580,
+              320
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "tangent"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "R"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {
+        "n": 0,
+        "t": 0
+      },
+      "taskTitle": "5",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987575_d5vxa3521",
+      "title": "Bil i sving med friksjon",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En bil kjører mot oss med konstant banefart i en sving med sentrum mot venstre.",
+        "Tegn kreftene som virker på bilen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            480
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              660,
+              480
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              482
+            ],
+            "b": [
+              820,
+              482
+            ],
+            "snapping": false
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              660,
+              540
+            ],
+            "b": [
+              300,
+              540
+            ],
+            "body": "dashed",
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på bilen.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "|v| = konstant",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "Til sentrum av sirkelbevegelsen",
+            "pos": [
+              500,
+              550
+            ],
+            "size": 12,
+            "align": "center",
+            "color": "#00f",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              550
+            ]
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjonskraft",
+            "R"
+          ],
+          "dir": [
+            -1,
+            0
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              580,
+              480
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N",
+              "component": "normal"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "6",
+      "taskSubTitle": ""
+    }
+  ],
+  "metadata": {
+    "name": "Fysikk 2",
+    "exported": "2026-10-09T15:36:09.597Z",
+    "count": 3
+  }
+}

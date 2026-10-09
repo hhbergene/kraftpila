@@ -3406,6 +3406,12 @@ window.tasks = [];
       }
     }
     
+    // Valgt tom krafttekstboks: klikk starter alltid ny tegning, selv over en eksisterende kraft
+    const activeBlank = window.fm && window.fm.forces[window.fm.activeIndex];
+    if(activeBlank && !activeBlank.anchor && !activeBlank.arrowBase && !activeBlank.arrowTip){
+      hoveredForceIndex = -1;
+    }
+    
     // In task mode: forces only (no scene element interaction)
     // In editor mode: scene elements take priority when hovered and no force is hovered
     updateSceneElementHover(pos);

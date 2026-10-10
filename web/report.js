@@ -6,7 +6,6 @@
 (function(){
   const PAGE_W = 595, PAGE_H = 842, MARGIN = 40;
   const CONTENT_W = PAGE_W - 2 * MARGIN;
-  const IMAGE_W = CONTENT_W;
 
   // Characters outside Latin-1 that exist in WinAnsi, otherwise replaced by '?'
   const WIN_ANSI = { '–': 0x96, '—': 0x97, '•': 0x95, '’': 0x92, '‘': 0x91, '“': 0x93, '”': 0x94, '…': 0x85 };
@@ -83,9 +82,9 @@
       this.page.ops.push(`0.7 G 0.5 w ${MARGIN} ${this.y - 2} m ${PAGE_W - MARGIN} ${this.y - 2} l S`);
       this.y -= 6;
     }
-    // jpegBytes: Uint8Array of a JPEG; drawn at IMAGE_W width
+    // jpegBytes: Uint8Array of a JPEG; draws it at full content width
     image(jpegBytes, w, h){
-      const drawW = IMAGE_W, drawH = IMAGE_W * h / w;
+      const drawW = CONTENT_W, drawH = CONTENT_W * h / w;
       this.ensureSpace(drawH);
       this.images.push({ bytes: jpegBytes, w, h });
       const id = this.images.length;
@@ -154,27 +153,15 @@
     setTimeout(finish, 300); // rAF is throttled in background tabs
   });
 
-  const REPORT_SCALE = 1;
-
-  // Renders the grid area (no margins) with the normal scene renderer on a separate
-  // canvas at REPORT_SCALE resolution; line widths are compensated so strokes keep their pixel thickness.
+  // Crops the visible grid area (no margins) of the main canvas to a JPEG
   function captureCanvas(){
+    const src = document.getElementById('app-canvas');
     const c = document.createElement('canvas');
-    c.width = Math.round(window.WIDTH * REPORT_SCALE);
-    c.height = Math.round(window.HEIGHT * REPORT_SCALE);
+    c.width = window.WIDTH; c.height = window.HEIGHT;
     const g = c.getContext('2d');
-    const lw = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'lineWidth');
-    Object.defineProperty(g, 'lineWidth', {
-      get(){ return lw.get.call(g) * REPORT_SCALE; },
-      set(v){ lw.set.call(g, v / REPORT_SCALE); }
-    });
     g.fillStyle = '#fff';
     g.fillRect(0, 0, c.width, c.height);
-    g.scale(REPORT_SCALE, REPORT_SCALE);
-    g.translate(-window.offsetX, -window.offsetY);
-    const guides = window.currentGuidelines;
-    window.currentGuidelines = null; // interactive snap guides do not belong in the report
-    try { window.renderTo(g); } finally { window.currentGuidelines = guides; }
+    g.drawImage(src, window.offsetX, window.offsetY, window.WIDTH, window.HEIGHT, 0, 0, c.width, c.height);
     return { bytes: dataUrlToBytes(c.toDataURL('image/jpeg', 0.85)), w: c.width, h: c.height };
   }
 
@@ -235,7 +222,7 @@
 
     entries.forEach(e => {
       // Keep the heading and picture together on one page
-      pdf.ensureSpace(IMAGE_W * e.image.h / e.image.w + 90);
+      pdf.ensureSpace(CONTENT_W * e.image.h / e.image.w + 90);
       pdf.rule();
       pdf.paragraph(e.title, 13, { bold: true });
       pdf.gap(2);

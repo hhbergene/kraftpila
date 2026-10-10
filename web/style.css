@@ -147,22 +147,24 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 .settings-buttons button { flex:1; padding:8px 12px; font-size:13px; background:#fafafa; border:1px solid #777; border-radius:4px; cursor:pointer; }
 .settings-buttons button:hover { background:#e6ffe6; }
 
-/* Help panel (bottom half) */
-#help-panel { position:fixed; bottom:0; left:0; right:240px; height:45%; background:#ffffff; border-top:1px solid #ccc; box-shadow:0 -2px 6px rgba(0,0,0,0.15); display:flex; flex-direction:column; z-index:1100; }
+/* Movable/resizable task window, positioned and bounded to the visible canvas by ui.js */
+#help-panel { position:fixed; left:0; top:var(--top-bar-height); width:max-content; max-width:50vw; max-height:calc(100% - var(--top-bar-height) - 36px); background:rgba(255,255,255,0.5); border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display:flex; flex-direction:column; z-index:1100; overflow:hidden; }
 #help-panel.hidden { display:none; }
-.help-header { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #ddd; padding:10px 15px; background:#ffffff; }
-.help-header h3 { margin:0; font-size:14px; font-weight:600; }
+.help-header { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid rgba(0,0,0,0.2); padding:8px 10px; background:rgba(255,255,255,0.5); cursor:move; touch-action:none; user-select:none; }
+.help-header h3 { min-width:0; margin:0; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
 #help-close { border:1px solid #777; background:#fafafa; border-radius:4px; height:24px; width:24px; cursor:pointer; font-size:12px; }
 #help-close:hover { background:#ffecec; }
-#help-content { flex:1; padding:12px 15px; overflow-y:auto; font-size:13px; line-height:1.5; color:#333; }
+#help-content-container, #help-content { flex:1 1 auto; min-width:0; min-height:0; max-width:100%; max-height:var(--help-content-max-height); overflow:auto; background:rgba(255,255,255,0.5); }
+#help-content { padding:8px 10px; font-size:13px; line-height:1.5; color:#333; }
 
 /* Help canvas and editor */
-#help-canvas { display:block; width:100%; height:100%; border:none; background:#f9f9f9; }
+#help-canvas { display:block; border:none; background:transparent; }
 #help-canvas.hidden { display:none; }
 
 /* Help lines editor styles */
-.help-lines-editor { width:100%; height:100%; padding:8px; font-size:13px; border:1px solid #ddd; border-radius:4px; resize:none; font-family:inherit; background:#ffffff; }
+.help-lines-editor { display:block; width:100%; min-width:0; height:100%; min-height:60px; max-height:none; padding:8px; font-size:13px; line-height:1.4; border:1px solid #ddd; border-radius:4px; resize:none; font-family:inherit; background:rgba(255,255,255,0.75); }
 .help-lines-editor:focus { outline:2px solid #4caf50; border-color:#4caf50; }
+.help-resize-handle { position:absolute; right:1px; bottom:1px; width:18px; height:18px; cursor:nwse-resize; touch-action:none; background:linear-gradient(135deg, transparent 50%, rgba(40,40,40,0.25) 50%, rgba(40,40,40,0.25) 58%, transparent 58%, transparent 68%, rgba(40,40,40,0.4) 68%, rgba(40,40,40,0.4) 76%, transparent 76%); }
 
 /* Force row styles */
 .force-row { display:flex; gap:4px; align-items:center; padding:4px 4px; }

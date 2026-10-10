@@ -62,10 +62,11 @@
         <h3 id="help-title">Hjelp</h3>
         <button id="help-close" title="Lukk">✖</button>
       </div>
-      <div id="help-content-container" style="flex:1; overflow-y:auto; background:#ffffff;">
-        <canvas id="help-canvas" style="display:block; background:#ffffff;"></canvas>
+      <div id="help-content-container">
+        <canvas id="help-canvas"></canvas>
       </div>
       <div id="help-content" style="display:none;"></div>
+      <div class="help-resize-handle" aria-hidden="true"></div>
     </div>
     <!-- Settings panel overlay (right half) -->
     <div id="settings-panel" class="hidden">
@@ -106,6 +107,7 @@
           <button id="settings-download" title="Download innstillinger">Last ned backup</button>
           <button id="settings-restore" title="Last opp innstillinger">Gjenopprett fra backup</button>
           <button id="settings-upload-taskset" title="Last opp oppgavesett">Last opp oppgavesett fra lærer</button>
+          <button id="settings-report" title="Lag PDF-rapport med alle oppgaver">Generer rapport</button>
           <input type="file" id="settings-file-input" accept=".json" style="display:none;" />
           <input type="file" id="taskset-upload-input" accept=".json" style="display:none;" />
         </div>
@@ -159,6 +161,7 @@
   <script src="web/forcesManager.js"></script>
   <script src="web/snapping.js"></script>
   <script src="web/ui.js"></script>
+  <script src="web/report.js"></script>
   <script src="web/main.js"></script>
 </body>
 </html>

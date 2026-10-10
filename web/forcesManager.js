@@ -49,7 +49,10 @@
       this.setActive(newActive);
     }
     setActive(i, forceDropdownRebuild = false){
-      if(i>=0 && i<this.forces.length) this.activeIndex = i;
+      if(i>=0 && i<this.forces.length){
+        this.activeIndex = i;
+        if(window.setActivePanel && !window.draggingHandle) window.setActivePanel('force');
+      }
     }
     updateHover(pos){
       const TH_HANDLE = 14; // tighter handle radius
@@ -159,6 +162,7 @@
           // Update activeIndex synchronously FIRST
           if(window.fm) {
             window.fm.activeIndex = i;
+            if(window.setActivePanel) window.setActivePanel('force');
             const container = input.closest('#force-inputs');
             if(container) {
               // Sync DOM immediately to apply active styling

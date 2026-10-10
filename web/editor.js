@@ -982,6 +982,8 @@ window.tasks = [];
   }
 
   // Editor mode state management
+  window.updateEditorPanelHeights = () => updatePanelHeights();
+
   function updateEditorMode(){
     const scenePanel = document.getElementById('scene-panel');
     const editorButtons = document.getElementById('editor-buttons');
@@ -1028,17 +1030,9 @@ window.tasks = [];
                           (scene.texts?.length || 0);
     }
     
-    // Calculate space needed for each panel
-    // Force panel: header (60px with padding + title) + per-force height (32px each)
-    const forceHeaderHeight = window.FORCE_HEADER_HEIGHT;
-    const forceItemHeight = 32; // input + gap + margin
-    const forceMinHeight = 120; // Minimum space for at least 1-2 items
-    const forceHeightNeeded = forceHeaderHeight + (forceCount * forceItemHeight);
-    const forcePanelHeight = Math.max(forceMinHeight, Math.min(availableHeight * 0.4, forceHeightNeeded + 10));
-    
-    // Scene panel: takes remaining space, extends to bottom
-    const sceneMinHeight = 120;
-    const scenePanelHeight = Math.max(sceneMinHeight, availableHeight - forcePanelHeight);
+    // The most recently used panel (force or scene element) gets 2/3 of the height
+    const forceActive = window.activePanel !== 'scene';
+    const forcePanelHeight = Math.round(availableHeight * (forceActive ? 2 / 3 : 1 / 3));
     
     // Set force panel height and top position
     if(forcePanel){
@@ -3392,6 +3386,7 @@ window.tasks = [];
     if(handle){
       window.draggingHandle = handle;
         window.selectedSceneElement._handleStartPos = pos;
+        window.setActivePanel('scene');
         
         // Store the original element origin at drag start (to prevent self-snapping during editing)
         const { type, index } = handle;
@@ -3446,6 +3441,7 @@ window.tasks = [];
         type: window.hoveredSceneElement.type,
         index: window.hoveredSceneElement.index
       };
+      window.setActivePanel('scene');
       // Auto-save task
       markEdited('task');
       
@@ -3842,6 +3838,10 @@ window.tasks = [];
         const helpPanel = document.getElementById('help-panel');
         if(!helpPanel) { console.warn('❌ helpPanel not found'); return; }
         if(!window.currentTask) { console.warn('❌ currentTask not found'); return; }
+        if(!helpPanel.classList.contains('hidden')){
+          helpPanel.classList.add('hidden');
+          return;
+        }
         // Show help lines editor in editor mode
         const helpContent = document.getElementById('help-content');
         const helpCanvas = document.getElementById('help-canvas');
@@ -3872,6 +3872,7 @@ window.tasks = [];
           console.warn('❌ Skipping textarea setup because helpContent or helpCanvas missing');
         }
         helpPanel.classList.remove('hidden');
+        window.updateHelpPanelLayout();
         return;
       }
       if(action === 'settings'){
@@ -5294,4 +5295,3 @@ window.tasks = [];
     window.updateAppState();
   }
 })();
-

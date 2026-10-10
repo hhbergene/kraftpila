@@ -50,15 +50,23 @@ window.TASKS = [];
   }
 
   function frame() {
-    clear();
+    renderOnce();
+    requestAnimationFrame(frame);
+  }
+  // Synchronous redraw, also used by the report generator (rAF is throttled in hidden tabs)
+  window.renderNow = () => renderOnce();
+  window.renderTo = (g) => renderOnce(g);
+
+  function renderOnce(g = ctx) {
+    window.clearCanvas(g);
     
     // Save context and translate so grid area (0,0 to 1000,640) starts at top-left
     // Canvas extends from -200,-200 to 1000,640 (1200x800 total)
-    ctx.save();
-    ctx.translate(window.offsetX, window.offsetY);
+    g.save();
+    g.translate(window.offsetX, window.offsetY);
     
     if (gridOn) {
-      drawGrid(ctx);
+      drawGrid(g);
     }
     // Collect texts that should be rotated and temporarily hide them before drawScene
     let rotatedTexts = [];
@@ -73,23 +81,23 @@ window.TASKS = [];
 
     // Draw current task scene (before user forces)
     if(window.currentTask){
-      drawScene(ctx, window.currentTask, false);
+      drawScene(g, window.currentTask, false);
     }
 
     // Debug: Draw snap points if debug mode is on
     if(window.drawSnapPoints){
-      drawSnapPoints(ctx);
+      drawSnapPoints(g);
     }
 
     // Restore colors and draw rotated overlays on top
     if(rotatedTexts.length){
       rotatedTexts.forEach(t=>{ t.color = t._origColor; delete t._origColor; });
-      rotatedTexts.forEach(t=> drawRotatedText(ctx, t));
+      rotatedTexts.forEach(t=> drawRotatedText(g, t));
     }
 
     // Guidelines (before forces for visibility)
     if(window.drawGuidelines){
-      drawGuidelines(ctx);
+      drawGuidelines(g);
     }
     
     // Step 5: Draw scene element hover/selection highlights (editor mode only - skip in player mode)
@@ -98,15 +106,14 @@ window.TASKS = [];
     
     // Draw test forces
     if(window.fm){
-      window.fm.drawAll(ctx);
+      window.fm.drawAll(g);
     }
     
     // Draw expected direction guides in editor mode (editor only - skip in player mode)
     
     // Draw selection handles for selected scene element (editor only - skip in player mode)
     
-    ctx.restore();
-    requestAnimationFrame(frame);
+    g.restore();
   }
   
   // Step 5: Draw scene element hover/selection highlights
@@ -1297,6 +1304,8 @@ window.TASKS = [];
       // First time loading this task - use default from tasks
       window.currentTask = window.tasks[window.currentTaskIndex];
     }
+
+    window.sceneLookup = window.buildAllScenePoints(window.currentTask);
     
     // Use snap-enabled lookup for snapping
     const snapLookup = buildSceneLookup(window.currentTask);
@@ -1542,6 +1551,25 @@ window.TASKS = [];
 
   // Solution forces removed - use editor.js for editor mode
 
+  // API used by the toolbar check button and by report.js
+  window.reportApi = {
+    loadTask: (i) => loadTask(i),
+    clearFeedback: () => clearFeedback(),
+    // Runs the normal "Sjekk" for the current task and stores score + feedback
+    checkCurrent: function(){
+      saveTaskForces();
+      runEvaluation();
+      if(window.lastEvaluation && window.lastEvaluation.summary){
+        const taskId = window.currentTask.id;
+        const score = window.lastEvaluation.summary.finalScore;
+        window.taskScores[taskId] = { score, feedback: window.lastEvaluation.lines.map(l=>l.text).join(' | ') };
+        try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
+        updateUserDisplay();
+        updateHelpButton();
+      }
+    }
+  };
+
   // Load saved tasks from localStorage before loading initial task
   loadSavedTasks();
   
@@ -1560,6 +1588,34 @@ window.TASKS = [];
     } catch {}
     loadTask(startIdx);
   })();
+
+  // No tasks stored in the browser: fetch the Intro taskset automatically
+  if(!window.tasks.length){
+    (async function(){
+      try{
+        const res = await fetch('taskset_Intro.json', {cache: 'no-store'});
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : data.tasks || []).filter(t => t && t.id);
+        if(!list.length) return;
+        window.TASKS = [];
+        list.forEach(task => {
+          if(!Array.isArray(task.help_lines)) task.help_lines = [];
+          delete task.comment;
+          window.TASKS.push(task);
+          try{ localStorage.setItem(`tk_task_${task.id}`, JSON.stringify(task)); }catch{}
+        });
+        window.tasks = window.TASKS;
+        try{
+          localStorage.setItem('tk_taskOrder', JSON.stringify(window.tasks.map(t => t.id)));
+          localStorage.setItem('tk_currentTaskIndex', '0');
+        }catch{}
+        loadTask(0);
+      }catch(err){
+        console.warn('Kunne ikke laste Intro-oppgavene automatisk:', err);
+      }
+    })();
+  }
 
   // ===== Task Set Selection from localStorage =====
   function populateTasksetSelect() {
@@ -2460,7 +2516,7 @@ window.TASKS = [];
             const taskId = window.currentTask.id;
             const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
-            if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
+            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
           }
         }
         // Update help panel if it's open
@@ -2470,10 +2526,11 @@ window.TASKS = [];
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && helpCanvas && window.currentTask.help_lines){
+          if(helpContent && helpCanvas){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
             helpCanvas.style.display = 'block';
+            window.updateHelpPanelLayout();
             drawHelpLinesCanvas();
           }
         }
@@ -2491,7 +2548,7 @@ window.TASKS = [];
             const taskId = window.currentTask.id;
             const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
-            if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
+            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
           }
         }
         // Update help panel if it's open
@@ -2501,29 +2558,18 @@ window.TASKS = [];
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
           if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
-          if(helpContent && helpCanvas && window.currentTask.help_lines){
+          if(helpContent && helpCanvas){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
             helpCanvas.style.display = 'block';
+            window.updateHelpPanelLayout();
             drawHelpLinesCanvas();
           }
         }
         return;
       }
       if(action === 'check'){
-        // Player mode: skip validation and cleanup
-        // Save current forces before evaluating
-        saveTaskForces();
-        runEvaluation();
-        // Update level and user display after evaluation if score is available
-        if(window.lastEvaluation && window.lastEvaluation.summary){
-          const taskId = window.currentTask.id;
-          const score = window.lastEvaluation.summary.finalScore;
-          window.taskScores[taskId] = { score, feedback: window.lastEvaluation.lines.map(l=>l.text).join(' | ') };
-          try{ localStorage.setItem('tk_taskScores', JSON.stringify(window.taskScores)); } catch {}
-          updateUserDisplay();
-          updateHelpButton();
-        }
+        window.reportApi.checkCurrent();
         return;
       }
       // Clear feedback for any other toolbar action
@@ -2553,27 +2599,31 @@ window.TASKS = [];
         const helpPanel = document.getElementById('help-panel');
         if(!helpPanel) return;
         if(!window.currentTask) return;
+        if(!helpPanel.classList.contains('hidden')){
+          helpPanel.classList.add('hidden');
+          return;
+        }
         // Show help lines
         const helpCanvas = document.getElementById('help-canvas');
         const helpTitle = document.getElementById('help-title');
         if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
-        if(helpCanvas && window.currentTask.help_lines && window.currentTask.help_lines.length > 0){
-          // Show canvas and make panel visible
-          helpCanvas.style.display = 'block';
-          helpPanel.classList.remove('hidden');
-          // Use requestAnimationFrame to ensure canvas has rendered and has size
-          requestAnimationFrame(() => {
-            drawHelpLinesCanvas();
-          });
-        } else {
-          helpPanel.classList.remove('hidden');
-        }
+        if(helpCanvas) helpCanvas.style.display = 'block';
+        helpPanel.classList.remove('hidden');
+        window.updateHelpPanelLayout();
+        requestAnimationFrame(()=>{
+          drawHelpLinesCanvas();
+          window.updateHelpPanelLayout();
+        });
         return;
       }
       if(action === 'settings'){
         const pnl = document.getElementById('settings-panel');
         if(!pnl) return;
-        // Populate controls
+        // Settings button toggles the panel
+        if(!pnl.classList.contains('hidden')){
+          pnl.classList.add('hidden');
+          return;
+        }
         const dbg = document.getElementById('settings-debug');
         const usr = document.getElementById('settings-username');
         const sSnap = document.getElementById('settings-snap');
@@ -2592,7 +2642,7 @@ window.TASKS = [];
           const taskId = window.currentTask.id;
           const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
           taskComment.value = commentText;
-          if(commentLabel) commentLabel.textContent = `Kommentar til oppgave ${taskId}`;
+          if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
         }
         // Inject Full reset button if not present
         let resetAllBtn = document.getElementById('settings-reset-all');
@@ -2638,6 +2688,7 @@ window.TASKS = [];
   function persist(){ try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); }catch{} }
   
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
+  if(usr){ usr.addEventListener('input', ()=>{ window.settings.username = usr.value; persist(); updateUserDisplay(); }); }
   if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
   if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
   if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }

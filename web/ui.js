@@ -24,6 +24,16 @@ function updateEditorMode(){
 }
 
 /**
+ * Mark which side panel ('force' or 'scene') was last used and resize panels (editor only).
+ */
+window.activePanel = 'force';
+window.setActivePanel = function(kind){
+  if(window.activePanel === kind) return;
+  window.activePanel = kind;
+  if(window.updateEditorPanelHeights) window.updateEditorPanelHeights();
+};
+
+/**
  * Dynamically resize force and scene panels based on content.
  * Calculates size needed for each panel and distributes space proportionally,
  * with a minimum of 1/3 of total height for each panel when both are visible.
@@ -170,6 +180,7 @@ function updateScenePanel(){
       scenePanel.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
       item.classList.add('selected');
       window.selectedSceneElement = { type, index: index !== undefined ? index : 0, obj };
+      window.setActivePanel('scene');
       
       // Show arrange buttons when selected
       header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
@@ -706,77 +717,224 @@ function setupHelpLinesEditor(){
   if(textarea){
     // Auto-save on input
     textarea.addEventListener('input', ()=>{
+      textarea.rows = Math.max(2, textarea.value.split('\n').length);
       window.markEdited && window.markEdited('help');
+      window.updateHelpPanelLayout();
     });
+    textarea.rows = Math.max(2, textarea.value.split('\n').length);
     // Focus on textarea
     textarea.focus();
+    window.updateHelpPanelLayout();
   }
+}
+
+function getHelpPanelLines(){
+  const textarea = document.getElementById('help-lines-text');
+  if(textarea) return textarea.value.split('\n');
+  return Array.isArray(window.currentTask?.help_lines) ? window.currentTask.help_lines : [];
+}
+
+function splitHelpLineWords(line){
+  const words = [];
+  let word = '';
+  let braceDepth = 0;
+  for(const character of String(line)){
+    if(/\s/.test(character) && braceDepth === 0){
+      if(word) words.push(word);
+      word = '';
+      continue;
+    }
+    word += character;
+    if(character === '{') braceDepth++;
+    else if(character === '}' && braceDepth > 0) braceDepth--;
+  }
+  if(word) words.push(word);
+  return words;
+}
+
+function measureHelpPanelWidth(){
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return 220;
+  ctx.font = '14px Arial';
+  const textWidth = getHelpPanelLines().reduce((width, line)=>{
+    const plainText = String(line).replace(/\\[A-Za-z]+/g, 'x').replace(/[{}_^]/g, '');
+    return Math.max(width, ctx.measureText(plainText).width);
+  }, 0);
+  return Math.max(180, Math.ceil(textWidth + 54));
+}
+
+function setupHelpPanelPositioning(){
+  const panel = document.getElementById('help-panel');
+  const header = panel?.querySelector('.help-header');
+  const canvasContainer = document.getElementById('canvas-container');
+  if(!panel || !header || !canvasContainer) return;
+
+  const position = { x: 0, y: 0 };
+  const size = { width: null, height: null };
+  let drag = null;
+  let resize = null;
+
+  window.updateHelpPanelLayout = function(){
+    const canvasBounds = canvasContainer.getBoundingClientRect();
+    const maxWidth = Math.max(0, canvasBounds.width / 2);
+    panel.style.maxWidth = `${maxWidth}px`;
+    panel.style.maxHeight = `${Math.max(0, canvasBounds.height)}px`;
+    panel.style.setProperty('--help-content-max-height', `${Math.max(0, canvasBounds.height - header.offsetHeight)}px`);
+    panel.style.width = `${Math.min(maxWidth, size.width ?? measureHelpPanelWidth())}px`;
+    panel.style.height = size.height === null ? '' : `${Math.min(canvasBounds.height, size.height)}px`;
+
+    let panelBounds = panel.getBoundingClientRect();
+    if(size.height === null && window.editorMode && canvasBounds.height > 0){
+      const defaultEditorHeight = Math.max(panelBounds.height, canvasBounds.height * 0.65);
+      panel.style.height = `${Math.min(canvasBounds.height, defaultEditorHeight)}px`;
+      panelBounds = panel.getBoundingClientRect();
+    }
+    // Store offsets from the visible canvas viewport so hiding and task changes retain position.
+    position.x = Math.max(0, Math.min(position.x, canvasBounds.width - panelBounds.width));
+    position.y = Math.max(0, Math.min(position.y, canvasBounds.height - panelBounds.height));
+    panel.style.left = `${canvasBounds.left + position.x}px`;
+    panel.style.top = `${canvasBounds.top + position.y}px`;
+  };
+
+  header.addEventListener('pointerdown', event=>{
+    if(event.button !== 0 || event.target.closest('button') || panel.classList.contains('hidden')) return;
+    const bounds = panel.getBoundingClientRect();
+    drag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: position.x,
+      startTop: position.y,
+      width: bounds.width,
+      height: bounds.height
+    };
+    header.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  header.addEventListener('pointermove', event=>{
+    if(!drag || event.pointerId !== drag.pointerId) return;
+    const canvasBounds = canvasContainer.getBoundingClientRect();
+    position.x = Math.max(0, Math.min(
+      drag.startLeft + event.clientX - drag.startX,
+      canvasBounds.width - drag.width
+    ));
+    position.y = Math.max(0, Math.min(
+      drag.startTop + event.clientY - drag.startY,
+      canvasBounds.height - drag.height
+    ));
+    panel.style.left = `${canvasBounds.left + position.x}px`;
+    panel.style.top = `${canvasBounds.top + position.y}px`;
+  });
+
+  const finishDrag = event=>{
+    if(drag && event.pointerId === drag.pointerId){
+      drag = null;
+      if(header.hasPointerCapture(event.pointerId)) header.releasePointerCapture(event.pointerId);
+    }
+  };
+  header.addEventListener('pointerup', finishDrag);
+  header.addEventListener('pointercancel', finishDrag);
+
+  const resizeHandle = panel.querySelector('.help-resize-handle');
+  if(resizeHandle){
+    resizeHandle.addEventListener('pointerdown', event=>{
+      if(event.button !== 0 || panel.classList.contains('hidden')) return;
+      const bounds = panel.getBoundingClientRect();
+      resize = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startWidth: bounds.width,
+        startHeight: bounds.height
+      };
+      resizeHandle.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    resizeHandle.addEventListener('pointermove', event=>{
+      if(!resize || event.pointerId !== resize.pointerId) return;
+      const canvasBounds = canvasContainer.getBoundingClientRect();
+      const minWidth = Math.min(140, canvasBounds.width / 2);
+      const minHeight = Math.min(header.offsetHeight + 50, canvasBounds.height);
+      size.width = Math.max(minWidth, Math.min(
+        resize.startWidth + event.clientX - resize.startX,
+        canvasBounds.width / 2
+      ));
+      size.height = Math.max(minHeight, Math.min(
+        resize.startHeight + event.clientY - resize.startY,
+        canvasBounds.height
+      ));
+      window.updateHelpPanelLayout();
+    });
+
+    const finishResize = event=>{
+      if(resize && event.pointerId === resize.pointerId){
+        resize = null;
+        if(resizeHandle.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId);
+      }
+    };
+    resizeHandle.addEventListener('pointerup', finishResize);
+    resizeHandle.addEventListener('pointercancel', finishResize);
+  }
+
+  window.addEventListener('resize', window.updateHelpPanelLayout);
+  window.updateHelpPanelLayout();
 }
 
 // Draw help lines on canvas using formatted text
 function drawHelpLinesCanvas(){
   const canvas = document.getElementById('help-canvas');
   const container = document.getElementById('help-content-container');
-  if(!canvas || !container || !window.currentTask || !window.currentTask.help_lines) return;
+  if(!canvas || !container || !window.currentTask) return;
+  const helpLines = Array.isArray(window.currentTask.help_lines) ? window.currentTask.help_lines : [];
   
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
   
-  // Handle device pixel ratio for sharp text
   const dpr = window.devicePixelRatio || 1;
-  
-  // Set canvas display width (smaller, more readable)
-  const maxDisplayWidth = 700; // Max width for readability
-  const containerWidth = container.offsetWidth - 40; // Account for padding and scrollbar
-  const displayWidth = Math.min(containerWidth, maxDisplayWidth);
-  canvas.style.width = displayWidth + 'px';
-  
-  // Set actual canvas resolution for sharpness
-  canvas.width = displayWidth * dpr;
-  ctx.scale(dpr, dpr);
-  
-  // Background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, displayWidth, canvas.height);
-  
-  // Calculate height needed for all help lines
-  let y = 20;
+  const displayWidth = Math.max(1, container.clientWidth);
+  const textWidth = Math.max(1, displayWidth - 30);
   const lineHeight = 24;
   const startX = 15;
   const padding = 20;
-  
-  // First pass: draw to calculate needed height
-  let maxY = y;
-  for(const line of window.currentTask.help_lines){
-    if(window.drawFormattedText){
-      window.drawFormattedText(ctx, line, startX, y, {
-        size: 14,
-        color: '#000000',
-        align: 'left'
-      });
-    } else {
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(line, startX, y);
+  ctx.font = '14px Arial';
+  const rows = [];
+  let canvasTextWidth = displayWidth;
+  for(const line of helpLines){
+    const words = splitHelpLineWords(line);
+    if(words.length === 0){
+      rows.push('');
+      continue;
     }
-    y += lineHeight;
-    maxY = y;
+    let row = '';
+    for(const word of words){
+      const candidate = row ? `${row} ${word}` : word;
+      const measured = ctx.measureText(candidate.replace(/[{}_^]/g, '')).width;
+      if(row && measured > textWidth){
+        rows.push(row);
+        canvasTextWidth = Math.max(canvasTextWidth, ctx.measureText(row.replace(/[{}_^]/g, '')).width + 30);
+        canvasTextWidth = Math.max(canvasTextWidth, ctx.measureText(word.replace(/[{}_^]/g, '')).width + 30);
+        row = word;
+      } else {
+        row = candidate;
+      }
+    }
+    if(row) rows.push(row);
+    canvasTextWidth = Math.max(canvasTextWidth, ctx.measureText(row.replace(/[{}_^]/g, '')).width + 30);
   }
-  
-  // Set canvas height based on content
-  canvas.height = (maxY + padding) * dpr;
-  canvas.style.height = (maxY + padding) + 'px';
-  
-  // Reset scale after height change
+
+  const canvasHeight = rows.length * lineHeight + padding;
+  canvas.width = Math.ceil(canvasTextWidth * dpr);
+  canvas.height = Math.ceil(canvasHeight * dpr);
+  canvas.style.width = `${canvasTextWidth}px`;
+  canvas.style.height = `${canvasHeight}px`;
   ctx.scale(dpr, dpr);
-  
-  // Clear with white background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, displayWidth, maxY + padding);
-  
-  // Redraw all lines
-  y = 20;
-  for(const line of window.currentTask.help_lines){
+
+  let y = 20;
+  for(const line of rows){
     if(window.drawFormattedText){
       window.drawFormattedText(ctx, line, startX, y, {
         size: 14,
@@ -791,3 +949,5 @@ function drawHelpLinesCanvas(){
     y += lineHeight;
   }
 }
+
+setupHelpPanelPositioning();

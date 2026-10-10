@@ -173,6 +173,25 @@
   }
 
   /**
+   * Does a drawn name fit a spec's optional nameBase? Base + at most two letters, digits, star or apostrophe as suffix
+   * (S, S_A, Sa, S_1, S*). Only used for specs that opt in with nameBase.
+   */
+  function matchesNameBase(rawName, base){
+    const b = normalizeName(base);
+    const d = normalizeName(rawName);
+    if(!b || !d.startsWith(b)) return false;
+    return /^[a-z0-9*'æøå]{0,2}$/.test(d.slice(b.length));
+  }
+
+  function nameMatchesSpec(rawName, spec, aliasMap){
+    if(!rawName) return false;
+    const drawn = normalizeName(rawName);
+    if(drawn === normalizeName(spec.name)) return true;
+    if(aliasMap[drawn] === spec.name) return true;
+    return !!spec.nameBase && matchesNameBase(rawName, spec.nameBase);
+  }
+
+  /**
    * Get expected direction vector for a force
    * @param {Object} spec - Force spec with dir (array or string reference)
    * @param {Object} task - Task object with scene/plane data
@@ -225,13 +244,7 @@
         if(!hasGeom) continue;
         
         // Name match?
-        let nameOk = false;
-        if(drawnF.name){
-          const drawn = normalizeName(drawnF.name);
-          const canon = normalizeName(taskName);
-          if(drawn === canon) nameOk = true;
-          else if(aliasMap[drawn] === taskName) nameOk = true;
-        }
+        let nameOk = nameMatchesSpec(drawnF.name, spec, aliasMap);
         
         // Direction match
         let dirScore = 0;
@@ -324,13 +337,7 @@
       const dirOk = dirErr <= dirTolDeg;
       
       // Name check
-      let nameOk = false;
-      if(match.name){
-        const drawn = normalizeName(match.name);
-        const canon = normalizeName(spec.name); // canoncialal name
-        if(drawn === canon) nameOk = true; // or alias match
-        else if(aliasMap[drawn] === spec.name) nameOk = true;
-      }
+      let nameOk = nameMatchesSpec(match.name, spec, aliasMap);
       
       // Position error (and store anchor type for feedback)
       let posErr = null; let posOk=false; let anchorType=null;
@@ -364,7 +371,21 @@
         index:matchIndex,
         drawnName: match.name || '',
         anchorType,
-        anchorSpec: spec.anchor || null
+        anchorSpec: spec.anchor || null,
+        nameBase: spec.nameBase || null
+      });
+    });
+
+    // Forces that share a nameBase but got identical names cannot be told apart by the student
+    const byBase = {};
+    results.forEach(r => {
+      if(r.found && r.nameBase) (byBase[normalizeName(r.nameBase)] = byBase[normalizeName(r.nameBase)] || []).push(r);
+    });
+    Object.values(byBase).forEach(group => {
+      const counts = {};
+      group.forEach(r => { const k = normalizeName(r.drawnName); counts[k] = (counts[k] || 0) + 1; });
+      group.forEach(r => {
+        if(r.nameOk && counts[normalizeName(r.drawnName)] > 1){ r.nameOk = false; r.nameDuplicate = true; }
       });
     });
     return results;
@@ -610,8 +631,16 @@
     const lines=[];
     
     // Separate forces with missing names from those with wrong names
-    const missingNames = forceResults.filter(r => r.found && !r.nameOk && !r.drawnName);
-    const wrongNames = forceResults.filter(r => r.found && !r.nameOk && r.drawnName);
+    const missingNames = forceResults.filter(r => r.found && !r.nameOk && !r.nameDuplicate && !r.drawnName);
+    const wrongNames = forceResults.filter(r => r.found && !r.nameOk && !r.nameDuplicate && r.drawnName);
+    const duplicateNames = forceResults.filter(r => r.found && r.nameDuplicate);
+
+    if(duplicateNames.length > 0){
+      lines.push({
+        text: 'Krefter som ikke er identiske må ha ulikt navn',
+        indices: duplicateNames.map(r => r.index).filter(idx => typeof idx === 'number')
+      });
+    }
     
     // Feedback for missing names
     if(missingNames.length > 0){

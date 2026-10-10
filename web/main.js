@@ -2922,7 +2922,7 @@ window.TASKS = [];
       // Add aliases for each expectedForce
       if(task.expectedForces){
         task.expectedForces.forEach(f => {
-          if(FORCE_ALIASES[f.name]) f.aliases = FORCE_ALIASES[f.name].slice();
+          if(!f.aliases && FORCE_ALIASES[f.name]) f.aliases = FORCE_ALIASES[f.name].slice();
         });
       }
       

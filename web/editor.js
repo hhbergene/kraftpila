@@ -4155,7 +4155,7 @@ window.tasks = [];
       // Add aliases for each expectedForce
       if(task.expectedForces){
         task.expectedForces.forEach(f => {
-          if(FORCE_ALIASES[f.name]) f.aliases = FORCE_ALIASES[f.name].slice();
+          if(!f.aliases && FORCE_ALIASES[f.name]) f.aliases = FORCE_ALIASES[f.name].slice();
         });
       }
       
@@ -4214,6 +4214,61 @@ window.tasks = [];
       URL.revokeObjectURL(url);
     });
   }
+
+  // Force details popup: aliases and nameBase for an expected force
+  (function setupForceDetails(){
+    const modal = document.getElementById('force-details-modal');
+    if(!modal) return;
+    const title = document.getElementById('force-details-title');
+    const aliasInput = document.getElementById('force-details-aliases');
+    const baseInput = document.getElementById('force-details-namebase');
+    const errorEl = document.getElementById('force-details-error');
+    let editing = null; // spec being edited
+
+    window.openForceDetails = function(forceIndex){
+      const force = window.fm && window.fm.forces[forceIndex];
+      if(!force || !force.name) return;
+      if(window.syncForceSpec) window.syncForceSpec(force);
+      const ref = window.getForceSpec(force);
+      if(!ref) return;
+      editing = ref.spec;
+      title.textContent = `Detaljer for kraft ${editing.name}`;
+      aliasInput.value = (editing.aliases || []).join(', ');
+      baseInput.value = editing.nameBase || '';
+      errorEl.textContent = '';
+      modal.classList.remove('hidden');
+      aliasInput.focus();
+    };
+
+    const close = () => { modal.classList.add('hidden'); editing = null; };
+    document.getElementById('force-details-cancel').addEventListener('click', close);
+    modal.addEventListener('mousedown', e => { if(e.target === modal) close(); });
+    modal.addEventListener('keydown', e => {
+      if(e.key === 'Escape') close();
+      else if(e.key === 'Enter') document.getElementById('force-details-save').click();
+    });
+
+    document.getElementById('force-details-save').addEventListener('click', () => {
+      if(!editing) return;
+      const norm = s => String(s || '').toLowerCase().replace(/[ _^{}]/g, '');
+      const base = baseInput.value.trim();
+      if(/\s/.test(base)){ errorEl.textContent = 'Grunnnavnet kan ikke inneholde mellomrom.'; return; }
+      // A base equal to another expected force's own name (outside the group) would make the two ambiguous
+      const clash = (window.currentTask.expectedForces || []).find(s => s !== editing && base && norm(s.name) === norm(base) && s.nameBase !== base);
+      if(base && clash){ errorEl.textContent = `Grunnnavnet er allerede navnet på kraften ${clash.name}.`; return; }
+      const seen = new Set();
+      const aliases = aliasInput.value.split(',').map(s => s.trim()).filter(s => {
+        const k = norm(s);
+        if(!k || seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+      if(aliases.length) editing.aliases = aliases; else delete editing.aliases;
+      if(base) editing.nameBase = base; else delete editing.nameBase;
+      close();
+      markEdited('forces');
+      if(window.fm) window.fm.syncInputs(document.getElementById('force-inputs'));
+    });
+  })();
 
   // Relations editor modal logic
   if(btnEditRelations && relationsModal && relationsList && relationsSave && relationsCancel){

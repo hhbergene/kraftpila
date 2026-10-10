@@ -123,6 +123,21 @@
       </div>
     </div>
 
+    <!-- Force details modal (aliases / nameBase) -->
+    <div id="force-details-modal" class="hidden modal">
+      <div class="modal-content">
+        <h2 id="force-details-title">Detaljer for kraft</h2>
+        <label style="display:block;margin:8px 0 2px;">Alternative navn (alias), kommaseparert</label>
+        <input id="force-details-aliases" type="text" style="width:100%;box-sizing:border-box;" placeholder="f.eks. fg, tyngde">
+        <label style="display:block;margin:10px 0 2px;">Felles grunnnavn (nameBase)</label>
+        <input id="force-details-namebase" type="text" style="width:100%;box-sizing:border-box;" placeholder="f.eks. S">
+        <p style="font-size:12px;color:#555;margin:4px 0 10px;">Brukes når like krefter kan byttes om, f.eks. S for S_1 og S_2. Eleven kan da bruke S_A/S_B, Sa/Sb, S/S* osv. Kreftene i gruppen må ha ulike navn.</p>
+        <div id="force-details-error" style="color:#c00;font-size:12px;min-height:16px;"></div>
+        <button id="force-details-save">Lagre</button>
+        <button id="force-details-cancel">Avbryt</button>
+      </div>
+    </div>
+
     <!-- Help panel for editing task help_lines -->
     <div id="help-panel" class="hidden">
       <div class="help-header">

@@ -288,7 +288,19 @@
         row.style.display = 'flex';
         row.style.gap = '4px';
         row.style.alignItems = 'center';
-        row.appendChild(input); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
+        // Detail button (aliases / nameBase), editor only, expected forces only
+        const detailBtn = document.createElement('button');
+        detailBtn.className = 'force-detail-btn';
+        detailBtn.style.cssText = 'width:24px;height:24px;padding:0;margin-left:4px;border:1px solid #999;border-radius:3px;background:#f5f5f5;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center';
+        detailBtn.title = 'Detaljer: alternative navn og felles grunnnavn';
+        detailBtn.textContent = '⚙️';
+        detailBtn.dataset.index = idx;
+        detailBtn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          if(window.openForceDetails) window.openForceDetails(parseInt(detailBtn.dataset.index, 10));
+        });
+
+        row.appendChild(input); row.appendChild(detailBtn); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
         container.appendChild(row);
         rows.push(row);
         
@@ -419,6 +431,8 @@
         if(input.dataset.index != i){ input.dataset.index = i; }
         if(toggleBtn && toggleBtn.dataset.index != i){ toggleBtn.dataset.index = i; }
         if(deleteBtn && deleteBtn.dataset.index != i){ deleteBtn.dataset.index = i; }
+        const detailBtn = row.querySelector('.force-detail-btn');
+        if(detailBtn && detailBtn.dataset.index != i){ detailBtn.dataset.index = i; }
         // Only push value from force->UI if user is not editing AND we have a non-empty name.
         // This prevents wiping a just-typed value when force.name hasn't yet updated (edge race) or is still empty.
         if(document.activeElement !== input){
@@ -455,6 +469,14 @@
           toggleBtn.textContent = isExpected ? '🔓' : '🔒';
         }
         
+        // Detail button: editor mode, expected and named forces only
+        if(detailBtn){
+          const specRef = window.getForceSpec ? window.getForceSpec(f) : null;
+          const hasDetails = !!(specRef && specRef.spec && (specRef.spec.nameBase || (specRef.spec.aliases || []).length > 1));
+          detailBtn.style.display = (isEditorMode && isExpected && f.name && f.name.trim()) ? 'flex' : 'none';
+          detailBtn.style.background = hasDetails ? '#ffe9a8' : '#f5f5f5';
+        }
+
         // Delete button visible if force has points OR has a name (so user can delete name-only forces)
         // In editor mode: can delete both expected and initial forces
         // In player mode: can only delete expected forces

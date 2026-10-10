@@ -163,10 +163,156 @@
       ],
       "taskTitle": "AI 1",
       "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000001_ai0002abc",
+      "title": "Ball i to snorer med ulik vinkel",
+      "category": "AI",
+      "origin": [400, 240],
+      "help_lines": [
+        "En ball henger i ro, festet med to snorer til taket. Snorene danner vinklene 45° og 30° med taket.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i snora til venstre (45°)",
+        "S_2 - Snordraget i snora til høyre (30°)",
+        "Snordragene er kontaktkrefter og angriper der snorene er festet til ballen. Kreftene virker langs snorene, bort fra ballen.",
+        "Ballen er i ro, så ΣF = 0. Summen av de vertikale komponentene til S_1 og S_2 må være like stor som G. De horisontale komponentene må være like store.",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [400, 540],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [0, -1],
+          "t_vec": [1, 0]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [400, 300],
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [330, 90],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false
+          },
+          {
+            "txt": "Ballen er i ro, så \\sumF=0.",
+            "pos": [330, 109],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false
+          },
+          {
+            "txt": "45°",
+            "pos": [190, 62],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false
+          },
+          {
+            "txt": "30°",
+            "pos": [790, 62],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false
+          }
+        ],
+        "arrows": [],
+        "segments": [
+          {
+            "a": [358, 258],
+            "b": [140, 40],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [452, 270],
+            "b": [850, 40],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [480, 40],
+            "angleDeg": 0,
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": { "type": "custom", "pos": [358, 258] },
+          "dir": [-0.7071, -0.7071],
+          "drawn": {
+            "anchor": [358, 258],
+            "arrowBase": [358, 258],
+            "arrowTip": [307, 207]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": { "type": "custom", "pos": [452, 270] },
+          "dir": [0.866, -0.5],
+          "drawn": {
+            "anchor": [452, 270],
+            "arrowBase": [452, 270],
+            "arrowTip": [503, 241]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [400, 300],
+          "arrowBase": [400, 300],
+          "arrowTip": [400, 380],
+          "moveable": false,
+          "anchorSpec": { "type": "point", "ref": "ellipse0", "point": "center" }
+        }
+      ],
+      "sumF": { "x": 0, "y": 0 },
+      "relations": [
+        {
+          "lhs": [
+            { "name": "S_1", "component": "vertical" },
+            { "name": "S_2", "component": "vertical" }
+          ],
+          "rhs": [{ "name": "G" }],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "AI 2",
+      "taskSubTitle": ""
     }
   ],
   "metadata": {
     "name": "taskset",
-    "count": 1
+    "count": 2
   }
 }

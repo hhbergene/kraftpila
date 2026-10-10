@@ -432,10 +432,195 @@
       ],
       "taskTitle": "AI 3",
       "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000003_ai0004abc",
+      "title": "Kasse trekkes mot venstre",
+      "category": "AI",
+      "origin": [500, 240],
+      "help_lines": [
+        "En kasse trekkes mot venstre langs et horisontalt underlag med en snor som danner vinkelen φ med horisontalen.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "N - Normalkraften fra underlaget. Den virker vinkelrett på underlaget.",
+        "R - Friksjonen fra underlaget. Den virker langs underlaget, mot bevegelsen.",
+        "S - Snordraget. Det virker langs snora, bort fra kassen.",
+        "Tegn S, N og R."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [500, 480],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [0, -1],
+          "t_vec": [1, 0]
+        },
+        "texts": [
+          {
+            "txt": "En kasse trekkes mot venstre.",
+            "pos": [150, 90],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false
+          },
+          {
+            "txt": "φ",
+            "pos": [350, 345],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false
+          }
+        ],
+        "segments": [
+          {
+            "a": [420, 380],
+            "b": [195, 250],
+            "snapping": false,
+            "color": "#555",
+            "lineWidth": 2
+          },
+          {
+            "a": [200, 380],
+            "b": [420, 380],
+            "snapping": false,
+            "color": "#999",
+            "lineWidth": 1
+          }
+        ],
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [500, 480],
+            "angleDeg": 0,
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": true,
+            "color": "#ffffff"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S",
+          "anchor": { "type": "custom", "pos": [420, 380] },
+          "dir": [-0.866, -0.5],
+          "drawn": {
+            "anchor": [420, 380],
+            "arrowBase": [420, 380],
+            "arrowTip": [351, 340]
+          }
+        },
+        {
+          "name": "N",
+          "anchor": { "type": "point", "ref": "rect0", "point": "center" },
+          "dir": [0, -1],
+          "drawn": {
+            "anchor": [500, 420],
+            "arrowBase": [500, 420],
+            "arrowTip": [500, 340]
+          }
+        },
+        {
+          "name": "R",
+          "anchor": { "type": "custom", "pos": [580, 480] },
+          "dir": [1, 0],
+          "drawn": {
+            "anchor": [580, 480],
+            "arrowBase": [580, 480],
+            "arrowTip": [630, 480]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [500, 420],
+          "arrowBase": [500, 420],
+          "arrowTip": [500, 500],
+          "moveable": false,
+          "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" }
+        }
+      ],
+      "taskTitle": "AI 4",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000004_ai0005abc",
+      "title": "Resultant av fire krefter",
+      "category": "AI",
+      "origin": [500, 240],
+      "help_lines": [
+        "Fire krefter virker på en kloss: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre (1 N tilsvarer 10 px).",
+        "F_1 - 8 N opp, F_2 - 4 N ned, F_3 - 8 N mot venstre, F_4 - 12 N mot høyre (er tegnet inn)",
+        "ΣF - Summen av kreftene (resultanten). Tegn den fra klossens tyngdepunkt.",
+        "Legg sammen kreftene i hver retning først: 4 N mot høyre og 4 N opp.",
+        "Tegn ΣF."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [500, 540],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [0, -1],
+          "t_vec": [1, 0]
+        },
+        "texts": [
+          { "txt": "Tegn resultanten \\sumF", "pos": [150, 90], "size": 14, "align": "left", "color": "#222", "snapping": false },
+          { "txt": "8 N", "pos": [520, 215], "size": 14, "align": "left", "color": "#222", "snapping": false },
+          { "txt": "4 N", "pos": [520, 375], "size": 14, "align": "left", "color": "#222", "snapping": false },
+          { "txt": "8 N", "pos": [405, 290], "size": 14, "align": "center", "color": "#222", "snapping": false },
+          { "txt": "12 N", "pos": [635, 290], "size": 14, "align": "center", "color": "#222", "snapping": false }
+        ],
+        "rects": [
+          {
+            "width": 60,
+            "height": 30,
+            "bottomCenter": [500, 315],
+            "angleDeg": 0,
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": true,
+            "color": "#ffffff"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "ΣF",
+          "aliases": ["F", "sumF", "\\sumF"],
+          "anchor": { "type": "point", "ref": "rect0", "point": "center" },
+          "dir": [0.7071, -0.7071],
+          "drawn": {
+            "anchor": [500, 300],
+            "arrowBase": [500, 300],
+            "arrowTip": [540, 260]
+          }
+        }
+      ],
+      "initialForces": [
+        { "name": "F_1", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [500, 220], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
+        { "name": "F_2", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [500, 340], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
+        { "name": "F_3", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [420, 300], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
+        { "name": "F_4", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [620, 300], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } }
+      ],
+      "relations": [
+        {
+          "lhs": [{ "name": "ΣF" }],
+          "rhs": [{ "name": "F_2" }],
+          "ratio": 1.4142,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "AI 5",
+      "taskSubTitle": ""
     }
   ],
   "metadata": {
     "name": "taskset",
-    "count": 3
+    "count": 5
   }
 }

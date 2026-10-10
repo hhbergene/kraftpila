@@ -309,10 +309,133 @@
       ],
       "taskTitle": "AI 2",
       "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000002_ai0003abc",
+      "title": "Ball i snor, resultantkraft",
+      "category": "AI",
+      "origin": [500, 240],
+      "help_lines": [
+        "En ball henger i en snor som går på skrå opp til taket. Ballen akselererer mot høyre.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S - Snordraget i snora. Det angriper der snora er festet til ballen og virker langs snora, bort fra ballen.",
+        "ΣF - Summen av kreftene (resultanten). Tegn den fra tyngdepunktet.",
+        "Den vertikale komponenten av S er like stor som G, så ΣF er lik den horisontale komponenten av S.",
+        "Tegn S og ΣF."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [500, 540],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [0, -1],
+          "t_vec": [1, 0]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [500, 300],
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn snordraget S og \\sumF",
+            "pos": [200, 80],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false
+          },
+          {
+            "txt": "θ = 60°",
+            "pos": [610, 70],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false
+          }
+        ],
+        "arrows": [],
+        "segments": [
+          {
+            "a": [530, 248],
+            "b": [650, 40],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [540, 40],
+            "angleDeg": 0,
+            "n_vec": [0, -1],
+            "t_vec": [1, 0],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S",
+          "anchor": { "type": "custom", "pos": [530, 248] },
+          "dir": [0.5, -0.866],
+          "drawn": {
+            "anchor": [530, 248],
+            "arrowBase": [530, 248],
+            "arrowTip": [576, 168]
+          }
+        },
+        {
+          "name": "ΣF",
+          "aliases": ["F", "sumF", "\\sumF"],
+          "anchor": { "type": "point", "ref": "ellipse0", "point": "center" },
+          "dir": [1, 0],
+          "drawn": {
+            "anchor": [500, 300],
+            "arrowBase": [500, 300],
+            "arrowTip": [546, 300]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [500, 300],
+          "arrowBase": [500, 300],
+          "arrowTip": [500, 380],
+          "moveable": false,
+          "anchorSpec": { "type": "point", "ref": "ellipse0", "point": "center" }
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [{ "name": "S", "component": "vertical" }],
+          "rhs": [{ "name": "G" }],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [{ "name": "ΣF" }],
+          "rhs": [{ "name": "S", "component": "tangent" }],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "AI 3",
+      "taskSubTitle": ""
     }
   ],
   "metadata": {
     "name": "taskset",
-    "count": 2
+    "count": 3
   }
 }

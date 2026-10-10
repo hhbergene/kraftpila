@@ -417,7 +417,7 @@
    */
   function evalSumF(task, forceResults, allForces){
     
-    const sumF = task.sumF;
+    const sumF = task.sumF || {};
     const result = { x: null, y: null, n: null, score: 1.0, errors: [] };
     
     // Calculate sum of all forces (including unmatched ones)

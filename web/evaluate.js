@@ -217,6 +217,7 @@
     if(component==='normal') return unit(plane.n_vec);
     if(component==='tangent') return unit(plane.t_vec);
     if(component==='vertical') return [0,-1];
+    if(component==='horizontal') return [1,0];
     return null; // magnitude
   }
 

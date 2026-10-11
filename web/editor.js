@@ -2729,6 +2729,20 @@ window.tasks = [];
       const dy = pos[1] - hy;
       return Math.sqrt(dx*dx + dy*dy) <= tolerance;
     }
+
+    function distanceToSegment(a, b){
+      const abX = b[0] - a[0];
+      const abY = b[1] - a[1];
+      const abLengthSquared = abX * abX + abY * abY;
+      if(abLengthSquared === 0) return Math.hypot(pos[0] - a[0], pos[1] - a[1]);
+
+      const apX = pos[0] - a[0];
+      const apY = pos[1] - a[1];
+      const projection = Math.max(0, Math.min(1, (apX * abX + apY * abY) / abLengthSquared));
+      const closestX = a[0] + projection * abX;
+      const closestY = a[1] + projection * abY;
+      return Math.hypot(pos[0] - closestX, pos[1] - closestY);
+    }
     
     if(type === 'origin' && scene?.origin){
       const [x, y] = scene.origin;
@@ -2817,6 +2831,9 @@ window.tasks = [];
       const clampedB = window.clampToCanvas(seg.b);
       if(isNear(clampedA[0], clampedA[1])) return {type: 'segment', index, handleType: 'a'};
       if(isNear(clampedB[0], clampedB[1])) return {type: 'segment', index, handleType: 'b'};
+      if(distanceToSegment(seg.a, seg.b) <= tolerance){
+        return {type: 'segment', index, handleType: 'body'};
+      }
     }
     else if(type === 'arrow' && scene?.arrows?.[index]){
       const arrow = scene.arrows[index];
@@ -3150,6 +3167,37 @@ window.tasks = [];
         window.selectedSceneElement._handleStartPos = clampedPos;
         // Note: only 'a' is linked to expectedForce anchors, so 'b' doesn't trigger sync
       }
+      else if(handleType === 'body'){
+        // Snap the endpoint nearest the drag start, then apply that translation to both endpoints.
+        const startA = handleInfo._segmentStartA || [segment.a[0], segment.a[1]];
+        const startB = handleInfo._segmentStartB || [segment.b[0], segment.b[1]];
+        const refStart = handleInfo._segmentSnapRef === 'b' ? startB : startA;
+        const target = [
+          refStart[0] + newPos[0] - startPos[0],
+          refStart[1] + newPos[1] - startPos[1]
+        ];
+        const snappedA = snapping.snap(target, {
+          points: [],
+          gridStep: window.GRID_STEP,
+          origin: gridOrigin,
+          axesDir: null
+        });
+        const bodyDx = snappedA.pos[0] - refStart[0];
+        const bodyDy = snappedA.pos[1] - refStart[1];
+
+        segment.a[0] = startA[0] + bodyDx;
+        segment.a[1] = startA[1] + bodyDy;
+        segment.b[0] = startB[0] + bodyDx;
+        segment.b[1] = startB[1] + bodyDy;
+
+        window.snapIndicator = snappedA.source ? {pos: snappedA.pos} : null;
+        if(oldPos){
+          syncForcesWithSceneElement('segment', index, [
+            segment.a[0] - oldPos[0],
+            segment.a[1] - oldPos[1]
+          ]);
+        }
+      }
     }
     else if(type === 'arrow' && scene.arrows?.[index]){
       const arrow = scene.arrows[index];
@@ -3401,6 +3449,13 @@ window.tasks = [];
           } else if(type === 'segment' && scene.segments?.[index]){
             const segment = scene.segments[index];
             window.draggingHandle._snapOriginAtDragStart = [segment.a[0], segment.a[1]];
+            if(handle.handleType === 'body'){
+              window.draggingHandle._segmentStartA = [segment.a[0], segment.a[1]];
+              window.draggingHandle._segmentStartB = [segment.b[0], segment.b[1]];
+              const distA = Math.hypot(pos[0] - segment.a[0], pos[1] - segment.a[1]);
+              const distB = Math.hypot(pos[0] - segment.b[0], pos[1] - segment.b[1]);
+              window.draggingHandle._segmentSnapRef = distB < distA ? 'b' : 'a';
+            }
           } else if(type === 'plane' && scene.plane){
             window.draggingHandle._snapOriginAtDragStart = [scene.plane.through[0], scene.plane.through[1]];
           } else if(type === 'origin' && scene.origin){
@@ -4331,6 +4386,7 @@ window.tasks = [];
         html += `<option value="normal" ${comp==='normal'?'selected':''}>Normal (n)</option>`;
         html += `<option value="tangent" ${comp==='tangent'?'selected':''}>Tangent (t)</option>`;
         html += `<option value="vertical" ${comp==='vertical'?'selected':''}>Vertikal</option>`;
+        html += `<option value="horizontal" ${comp==='horizontal'?'selected':''}>Horisontal</option>`;
         html += `</select>`;
         html += ` <button class="remove-lhs-term" data-term-idx="${termIdx}" style="padding:2px 6px;">Fjern</button>`;
         html += `</div>`;
@@ -4353,6 +4409,7 @@ window.tasks = [];
         html += `<option value="normal" ${comp==='normal'?'selected':''}>Normal (n)</option>`;
         html += `<option value="tangent" ${comp==='tangent'?'selected':''}>Tangent (t)</option>`;
         html += `<option value="vertical" ${comp==='vertical'?'selected':''}>Vertikal</option>`;
+        html += `<option value="horizontal" ${comp==='horizontal'?'selected':''}>Horisontal</option>`;
         html += `</select>`;
         html += ` <button class="remove-rhs-term" data-term-idx="${termIdx}" style="padding:2px 6px;">Fjern</button>`;
         html += `</div>`;

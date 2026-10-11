@@ -114,13 +114,17 @@
     </div>
 
     <!-- Relations editor modal -->
-    <div id="relations-modal" class="hidden modal">
-      <div class="modal-content">
-        <h2>Kraftforhold</h2>
+    <div id="relations-modal" class="hidden">
+      <div class="relations-header">
+        <h3>Kraftforhold</h3>
+        <button id="relations-close" title="Avbryt">✖</button>
+      </div>
+      <div class="relations-body">
         <div id="relations-list"></div>
         <button id="relations-save">Lagre</button>
         <button id="relations-cancel">Avbryt</button>
       </div>
+      <div class="help-resize-handle" aria-hidden="true"></div>
     </div>
 
     <!-- Force details modal (aliases / nameBase) -->

@@ -884,6 +884,90 @@ function setupHelpPanelPositioning(){
   window.updateHelpPanelLayout();
 }
 
+// Make the relations window movable and resizable within the canvas, like the task window
+function setupRelationsPanelPositioning(){
+  const panel = document.getElementById('relations-modal');
+  const header = panel?.querySelector('.relations-header');
+  const resizeHandle = panel?.querySelector('.help-resize-handle');
+  const canvasContainer = document.getElementById('canvas-container');
+  if(!panel || !header || !canvasContainer) return;
+
+  const position = { x: null, y: 0 };
+  const size = { width: 520, height: null };
+  let action = null;
+
+  function layout(){
+    const canvasBounds = canvasContainer.getBoundingClientRect();
+    panel.style.maxWidth = `${canvasBounds.width}px`;
+    panel.style.maxHeight = `${canvasBounds.height}px`;
+    panel.style.width = `${Math.min(canvasBounds.width, size.width)}px`;
+    panel.style.height = size.height === null ? '' : `${Math.min(canvasBounds.height, size.height)}px`;
+    const panelBounds = panel.getBoundingClientRect();
+    if(position.x === null) position.x = (canvasBounds.width - panelBounds.width) / 2;
+    position.x = Math.max(0, Math.min(position.x, canvasBounds.width - panelBounds.width));
+    position.y = Math.max(0, Math.min(position.y, canvasBounds.height - panelBounds.height));
+    panel.style.left = `${canvasBounds.left + position.x}px`;
+    panel.style.top = `${canvasBounds.top + position.y}px`;
+  }
+
+  function start(event, mode){
+    if(event.button !== 0 || panel.classList.contains('hidden')) return;
+    const bounds = panel.getBoundingClientRect();
+    action = {
+      mode, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      startLeft: position.x, startTop: position.y, width: bounds.width, height: bounds.height
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function move(event){
+    if(!action || event.pointerId !== action.pointerId) return;
+    const canvasBounds = canvasContainer.getBoundingClientRect();
+    const dx = event.clientX - action.startX;
+    const dy = event.clientY - action.startY;
+    if(action.mode === 'drag'){
+      position.x = action.startLeft + dx;
+      position.y = action.startTop + dy;
+    } else {
+      size.width = Math.max(Math.min(240, canvasBounds.width), Math.min(action.width + dx, canvasBounds.width - position.x));
+      size.height = Math.max(Math.min(header.offsetHeight + 80, canvasBounds.height), Math.min(action.height + dy, canvasBounds.height - position.y));
+    }
+    layout();
+  }
+
+  function finish(event){
+    if(action && event.pointerId === action.pointerId){
+      action = null;
+      if(event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  header.addEventListener('pointerdown', event=>{
+    if(event.target.closest('button')) return;
+    start(event, 'drag');
+  });
+  header.addEventListener('pointermove', move);
+  header.addEventListener('pointerup', finish);
+  header.addEventListener('pointercancel', finish);
+  if(resizeHandle){
+    resizeHandle.addEventListener('pointerdown', event=>start(event, 'resize'));
+    resizeHandle.addEventListener('pointermove', move);
+    resizeHandle.addEventListener('pointerup', finish);
+    resizeHandle.addEventListener('pointercancel', finish);
+  }
+
+  document.getElementById('relations-close')?.addEventListener('click', ()=>{
+    document.getElementById('relations-cancel')?.click();
+  });
+
+  // Re-apply layout whenever the window is shown, and when the viewport changes
+  new MutationObserver(()=>{ if(!panel.classList.contains('hidden')) layout(); })
+    .observe(panel, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', ()=>{ if(!panel.classList.contains('hidden')) layout(); });
+}
+
 // Draw help lines on canvas using formatted text
 function drawHelpLinesCanvas(){
   const canvas = document.getElementById('help-canvas');
@@ -951,3 +1035,4 @@ function drawHelpLinesCanvas(){
 }
 
 setupHelpPanelPositioning();
+setupRelationsPanelPositioning();

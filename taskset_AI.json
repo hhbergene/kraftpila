@@ -4,7 +4,10 @@
       "id": "task_1791600000000_ai0001abc",
       "title": "Ball i to snorer",
       "category": "AI",
-      "origin": [500, 240],
+      "origin": [
+        500,
+        240
+      ],
       "help_lines": [
         "En ball henger i ro, festet med to snorer: en som går på skrå opp til taket, og en som går vannrett til veggen.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -17,80 +20,112 @@
       "scene": {
         "plane": {
           "angleDeg": 0,
-          "through": [500, 540],
+          "through": [
+            500,
+            540
+          ],
           "draw": false,
           "snapping": false,
-          "n_vec": [0, -1],
-          "t_vec": [1, 0]
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
         },
         "ellipses": [
           {
             "width": 120,
             "height": 120,
-            "center": [500, 300],
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "center": [
+              500,
+              300
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": true
           }
         ],
         "texts": [
           {
             "txt": "Tegn snordragene S_1 og S_2",
-            "pos": [200, 80],
+            "pos": [
+              200,
+              80
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
           },
           {
-            "txt": "Ballen er i ro, så \\sumF=0.",
-            "pos": [200, 99],
+            "txt": "Ballen henger i ro",
+            "pos": [
+              200,
+              99
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
           },
           {
-            "txt": "θ = 60°",
-            "pos": [610, 70],
+            "txt": "60°",
+            "pos": [
+              617.1999969482422,
+              57
+            ],
             "size": 14,
             "align": "center",
             "color": "#222",
-            "snapping": false
-          },
-          {
-            "txt": "x",
-            "pos": [215, 158],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false
-          },
-          {
-            "txt": "y",
-            "pos": [160, 105],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              617.1999969482422,
+              57
+            ]
           }
         ],
-        "arrows": [
-          { "a": [160, 160], "b": [200, 160], "snapping": false },
-          { "a": [160, 160], "b": [160, 120], "snapping": false }
-        ],
+        "arrows": [],
         "segments": [
           {
-            "a": [530, 248],
-            "b": [650, 40],
-            "snapping": false,
+            "a": [
+              530,
+              248
+            ],
+            "b": [
+              650,
+              40
+            ],
+            "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3
           },
           {
-            "a": [440, 300],
-            "b": [100, 300],
-            "snapping": false,
+            "a": [
+              440,
+              300
+            ],
+            "b": [
+              100,
+              300
+            ],
+            "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3
           }
@@ -99,20 +134,38 @@
           {
             "width": 920,
             "height": 20,
-            "bottomCenter": [540, 40],
+            "bottomCenter": [
+              540,
+              40
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": false,
             "color": "#acadaf"
           },
           {
             "width": 20,
             "height": 500,
-            "bottomCenter": [90, 540],
+            "bottomCenter": [
+              90,
+              540
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": false,
             "color": "#acadaf"
           }
@@ -122,41 +175,100 @@
         {
           "name": "S_1",
           "nameBase": "S",
-          "anchor": { "type": "custom", "pos": [530, 248] },
-          "dir": [0.5, -0.866],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              530,
+              248
+            ]
+          },
+          "dir": [
+            0.5,
+            -0.866
+          ],
           "drawn": {
-            "anchor": [530, 248],
-            "arrowBase": [530, 248],
-            "arrowTip": [576, 168]
+            "anchor": [
+              530,
+              248
+            ],
+            "arrowBase": [
+              530,
+              248
+            ],
+            "arrowTip": [
+              576,
+              168
+            ]
           }
         },
         {
           "name": "S_2",
           "nameBase": "S",
-          "anchor": { "type": "point", "ref": "ellipse0", "point": "left_middle" },
-          "dir": [-1, 0],
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "left_middle"
+          },
+          "dir": [
+            -1,
+            0
+          ],
           "drawn": {
-            "anchor": [440, 300],
-            "arrowBase": [440, 300],
-            "arrowTip": [394, 300]
+            "anchor": [
+              440,
+              300
+            ],
+            "arrowBase": [
+              440,
+              300
+            ],
+            "arrowTip": [
+              394,
+              300
+            ]
           }
         }
       ],
       "initialForces": [
         {
           "name": "G",
-          "anchor": [500, 300],
-          "arrowBase": [500, 300],
-          "arrowTip": [500, 380],
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            380
+          ],
           "moveable": false,
-          "anchorSpec": { "type": "point", "ref": "ellipse0", "point": "center" }
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
         }
       ],
-      "sumF": { "x": 0, "y": 0 },
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
       "relations": [
         {
-          "lhs": [{ "name": "S_1", "component": "vertical" }],
-          "rhs": [{ "name": "G" }],
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
           "ratio": 1,
           "tol_rel": 0.15
         }
@@ -168,7 +280,10 @@
       "id": "task_1791600000001_ai0002abc",
       "title": "Ball i to snorer med ulik vinkel",
       "category": "AI",
-      "origin": [400, 240],
+      "origin": [
+        400,
+        240
+      ],
       "help_lines": [
         "En ball henger i ro, festet med to snorer til taket. Snorene danner vinklene 45° og 30° med taket.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -181,68 +296,188 @@
       "scene": {
         "plane": {
           "angleDeg": 0,
-          "through": [400, 540],
+          "through": [
+            400,
+            540
+          ],
           "draw": false,
           "snapping": false,
-          "n_vec": [0, -1],
-          "t_vec": [1, 0]
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
         },
         "ellipses": [
           {
             "width": 120,
             "height": 120,
-            "center": [400, 300],
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "center": [
+              400,
+              300
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": true
           }
         ],
         "texts": [
           {
             "txt": "Tegn snordragene S_1 og S_2",
-            "pos": [330, 90],
+            "pos": [
+              330,
+              90
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              90
+            ]
           },
           {
-            "txt": "Ballen er i ro, så \\sumF=0.",
-            "pos": [330, 109],
+            "txt": "Ballen henger i ro",
+            "pos": [
+              330,
+              109
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              109
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Det lønner seg å skru av snapping på denne oppgaven",
+            "pos": [
+              330,
+              128
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              128
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Og det kan være lurt å regne litt",
+            "pos": [
+              330,
+              147
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              147
+            ]
+          },
+          {
+            "txt": "Snor 1",
+            "pos": [
+              135.1999969482422,
+              89
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              135.1999969482422,
+              89
+            ]
+          },
+          {
+            "txt": "Snor 2",
+            "pos": [
+              823.1999969482422,
+              89
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              823.1999969482422,
+              89
+            ]
           },
           {
             "txt": "45°",
-            "pos": [190, 62],
+            "pos": [
+              183.1999969482422,
+              59
+            ],
             "size": 14,
             "align": "center",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              183.1999969482422,
+              59
+            ]
           },
           {
             "txt": "30°",
-            "pos": [790, 62],
+            "pos": [
+              793.1999969482422,
+              56
+            ],
             "size": 14,
             "align": "center",
             "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              793.1999969482422,
+              56
+            ]
           }
         ],
         "arrows": [],
         "segments": [
           {
-            "a": [358, 258],
-            "b": [140, 40],
+            "a": [
+              358,
+              258
+            ],
+            "b": [
+              140,
+              40
+            ],
             "snapping": false,
             "color": "#aaa7a7",
             "lineWidth": 3
           },
           {
-            "a": [452, 270],
-            "b": [850, 40],
+            "a": [
+              452,
+              270
+            ],
+            "b": [
+              850,
+              40
+            ],
             "snapping": false,
             "color": "#aaa7a7",
             "lineWidth": 3
@@ -252,10 +487,19 @@
           {
             "width": 920,
             "height": 20,
-            "bottomCenter": [480, 40],
+            "bottomCenter": [
+              480,
+              40
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": false,
             "color": "#acadaf"
           }
@@ -265,44 +509,106 @@
         {
           "name": "S_1",
           "nameBase": "S",
-          "anchor": { "type": "custom", "pos": [358, 258] },
-          "dir": [-0.7071, -0.7071],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              358,
+              258
+            ]
+          },
+          "dir": [
+            -0.706,
+            -0.708
+          ],
           "drawn": {
-            "anchor": [358, 258],
-            "arrowBase": [358, 258],
-            "arrowTip": [307, 207]
+            "anchor": [
+              358,
+              258
+            ],
+            "arrowBase": [
+              358,
+              258
+            ],
+            "arrowTip": [
+              257.1999969482422,
+              157
+            ]
           }
         },
         {
           "name": "S_2",
           "nameBase": "S",
-          "anchor": { "type": "custom", "pos": [452, 270] },
-          "dir": [0.866, -0.5],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              452,
+              270
+            ]
+          },
+          "dir": [
+            0.862,
+            -0.507
+          ],
           "drawn": {
-            "anchor": [452, 270],
-            "arrowBase": [452, 270],
-            "arrowTip": [503, 241]
+            "anchor": [
+              452,
+              270
+            ],
+            "arrowBase": [
+              452,
+              270
+            ],
+            "arrowTip": [
+              552.1999969482422,
+              211
+            ]
           }
         }
       ],
       "initialForces": [
         {
           "name": "G",
-          "anchor": [400, 300],
-          "arrowBase": [400, 300],
-          "arrowTip": [400, 380],
+          "anchor": [
+            400,
+            300
+          ],
+          "arrowBase": [
+            400,
+            300
+          ],
+          "arrowTip": [
+            400,
+            460
+          ],
           "moveable": false,
-          "anchorSpec": { "type": "point", "ref": "ellipse0", "point": "center" }
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
         }
       ],
-      "sumF": { "x": 0, "y": 0 },
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
       "relations": [
         {
           "lhs": [
-            { "name": "S_1", "component": "vertical" },
-            { "name": "S_2", "component": "vertical" }
+            {
+              "name": "S_1",
+              "component": "vertical"
+            },
+            {
+              "name": "S_2",
+              "component": "vertical"
+            }
           ],
-          "rhs": [{ "name": "G" }],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
           "ratio": 1,
           "tol_rel": 0.15
         }
@@ -314,70 +620,140 @@
       "id": "task_1791600000002_ai0003abc",
       "title": "Ball i snor, resultantkraft",
       "category": "AI",
-      "origin": [500, 240],
+      "origin": [
+        500,
+        240
+      ],
       "help_lines": [
-        "En ball henger i en snor som går på skrå opp til taket. Ballen akselererer mot høyre.",
-        "G - Tyngdekraften (er tegnet inn)",
-        "S - Snordraget i snora. Det angriper der snora er festet til ballen og virker langs snora, bort fra ballen.",
-        "ΣF - Summen av kreftene (resultanten). Tegn den fra tyngdepunktet.",
-        "Den vertikale komponenten av S er like stor som G, så ΣF er lik den horisontale komponenten av S.",
-        "Tegn S og ΣF."
+        "En ball henger i en snor festet taket. Ballen beveger seg i en sirkelbevegelse med sentrum på loddlinja fra festepunktet. ",
+        "Kreftene som virker på ballen er tegnet inn:",
+        "G - Tyngdekraften",
+        "S - Snordraget i snora. ",
+        "Tegn summen av kreftene ΣF - (sumF) med angrepspunkt i senter av ballen."
       ],
       "scene": {
         "plane": {
           "angleDeg": 0,
-          "through": [500, 540],
+          "through": [
+            640,
+            40
+          ],
           "draw": false,
           "snapping": false,
-          "n_vec": [0, -1],
-          "t_vec": [1, 0]
+          "n_vec": [
+            -0.8944271909999159,
+            -0.4472135954999579
+          ],
+          "t_vec": [
+            0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "dirPoint": [
+            560,
+            0
+          ]
         },
         "ellipses": [
           {
-            "width": 120,
-            "height": 120,
-            "center": [500, 300],
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "width": 89.44271909999159,
+            "height": 89.44271909999159,
+            "center": [
+              520,
+              280
+            ],
+            "n_vec": [
+              0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "t_vec": [
+              0.8944271909999159,
+              0.4472135954999579
+            ],
             "snapping": true
+          },
+          {
+            "width": 240,
+            "height": 40,
+            "center": [
+              640,
+              280
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "body": "dashed",
+            "color": "#6b6b6b"
           }
         ],
         "texts": [
           {
-            "txt": "Tegn snordraget S og \\sumF",
-            "pos": [200, 80],
+            "txt": "Tegn summen av kreftene \\sumF (sumF)",
+            "pos": [
+              200,
+              80
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
-          },
-          {
-            "txt": "θ = 60°",
-            "pos": [610, 70],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
           }
         ],
         "arrows": [],
         "segments": [
           {
-            "a": [530, 248],
-            "b": [650, 40],
+            "a": [
+              540,
+              240
+            ],
+            "b": [
+              640,
+              40
+            ],
             "snapping": false,
             "color": "#aaa7a7",
             "lineWidth": 3
+          },
+          {
+            "a": [
+              640,
+              40
+            ],
+            "b": [
+              640,
+              280
+            ],
+            "snapping": false,
+            "body": "dashed",
+            "color": "#6e6e6e"
           }
         ],
         "rects": [
           {
             "width": 920,
             "height": 20,
-            "bottomCenter": [540, 40],
+            "bottomCenter": [
+              540,
+              40
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": false,
             "color": "#acadaf"
           }
@@ -385,173 +761,326 @@
       },
       "expectedForces": [
         {
-          "name": "S",
-          "anchor": { "type": "custom", "pos": [530, 248] },
-          "dir": [0.5, -0.866],
-          "drawn": {
-            "anchor": [530, 248],
-            "arrowBase": [530, 248],
-            "arrowTip": [576, 168]
-          }
-        },
-        {
           "name": "ΣF",
-          "aliases": ["F", "sumF", "\\sumF"],
-          "anchor": { "type": "point", "ref": "ellipse0", "point": "center" },
-          "dir": [1, 0],
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "aliases": [
+            "sumF",
+            "F"
+          ],
           "drawn": {
-            "anchor": [500, 300],
-            "arrowBase": [500, 300],
-            "arrowTip": [546, 300]
+            "anchor": [
+              520,
+              280
+            ],
+            "arrowBase": [
+              520,
+              280
+            ],
+            "arrowTip": [
+              580,
+              280
+            ]
           }
         }
       ],
       "initialForces": [
         {
           "name": "G",
-          "anchor": [500, 300],
-          "arrowBase": [500, 300],
-          "arrowTip": [500, 380],
+          "anchor": [
+            520,
+            280
+          ],
+          "arrowBase": [
+            520,
+            280
+          ],
+          "arrowTip": [
+            520,
+            400
+          ],
           "moveable": false,
-          "anchorSpec": { "type": "point", "ref": "ellipse0", "point": "center" }
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "S",
+          "anchor": [
+            540,
+            240
+          ],
+          "arrowBase": [
+            540,
+            240
+          ],
+          "arrowTip": [
+            600,
+            120
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "top_center"
+          }
         }
       ],
       "relations": [
         {
-          "lhs": [{ "name": "S", "component": "vertical" }],
-          "rhs": [{ "name": "G" }],
-          "ratio": 1,
-          "tol_rel": 0.15
-        },
-        {
-          "lhs": [{ "name": "ΣF" }],
-          "rhs": [{ "name": "S", "component": "tangent" }],
+          "lhs": [
+            {
+              "name": "ΣF"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S",
+              "component": "tangent"
+            }
+          ],
           "ratio": 1,
           "tol_rel": 0.15
         }
       ],
       "taskTitle": "AI 3",
-      "taskSubTitle": ""
+      "taskSubTitle": "Kjeglependel",
+      "sumF": {},
+      "subTitle": "Kjeglependel"
     },
     {
       "id": "task_1791600000003_ai0004abc",
       "title": "Kasse trekkes mot venstre",
       "category": "AI",
-      "origin": [500, 240],
+      "origin": [
+        500,
+        240
+      ],
       "help_lines": [
-        "En kasse trekkes mot venstre langs et horisontalt underlag med en snor som danner vinkelen φ med horisontalen.",
-        "G - Tyngdekraften (er tegnet inn)",
-        "N - Normalkraften fra underlaget. Den virker vinkelrett på underlaget.",
-        "R - Friksjonen fra underlaget. Den virker langs underlaget, mot bevegelsen.",
-        "S - Snordraget. Det virker langs snora, bort fra kassen.",
-        "Tegn S, N og R."
+        "En kasse trekkes mot venstre langs et horisontalt underlag med en snor festet i senter av kassen slik at kassen får konstant fart",
+        "Snordraget-S og tyngdekraften-G er tegnet in. ",
+        "Tegn de andre kreftene som virker på klossen:",
+        "N - Normalkraften fra underlaget. ",
+        "R - Friksjonen fra underlaget. "
       ],
       "scene": {
         "plane": {
           "angleDeg": 0,
-          "through": [500, 480],
+          "through": [
+            500,
+            480
+          ],
           "draw": true,
           "snapping": false,
-          "n_vec": [0, -1],
-          "t_vec": [1, 0]
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
         },
         "texts": [
           {
             "txt": "En kasse trekkes mot venstre.",
-            "pos": [150, 90],
+            "pos": [
+              150,
+              90
+            ],
             "size": 14,
             "align": "left",
             "color": "#222",
-            "snapping": false
-          },
-          {
-            "txt": "φ",
-            "pos": [350, 345],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false
+            "snapping": false,
+            "_renderedPos": [
+              150,
+              90
+            ]
           }
         ],
         "segments": [
           {
-            "a": [420, 380],
-            "b": [195, 250],
-            "snapping": false,
-            "color": "#555",
-            "lineWidth": 2
-          },
-          {
-            "a": [200, 380],
-            "b": [420, 380],
-            "snapping": false,
-            "color": "#999",
-            "lineWidth": 1
+            "a": [
+              500,
+              420
+            ],
+            "b": [
+              360,
+              340
+            ],
+            "snapping": true,
+            "color": "#545454",
+            "lineWidth": 8
           }
         ],
         "rects": [
           {
             "width": 160,
             "height": 120,
-            "bottomCenter": [500, 480],
+            "bottomCenter": [
+              500,
+              480
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": true,
-            "color": "#ffffff"
+            "color": "#000000"
           }
         ]
       },
       "expectedForces": [
         {
           "name": "S",
-          "anchor": { "type": "custom", "pos": [420, 380] },
-          "dir": [-0.866, -0.5],
+          "anchor": {
+            "type": "segment",
+            "ref": "segment0",
+            "segment": "segment"
+          },
+          "dir": [
+            -0.866,
+            -0.5
+          ],
           "drawn": {
-            "anchor": [420, 380],
-            "arrowBase": [420, 380],
-            "arrowTip": [351, 340]
+            "anchor": [
+              430,
+              380
+            ],
+            "arrowBase": [
+              500,
+              420
+            ],
+            "arrowTip": [
+              431,
+              380
+            ]
           }
         },
         {
           "name": "N",
-          "anchor": { "type": "point", "ref": "rect0", "point": "center" },
-          "dir": [0, -1],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "dir": [
+            0,
+            -1
+          ],
           "drawn": {
-            "anchor": [500, 420],
-            "arrowBase": [500, 420],
-            "arrowTip": [500, 340]
+            "anchor": [
+              500,
+              480
+            ],
+            "arrowBase": [
+              520,
+              480
+            ],
+            "arrowTip": [
+              520,
+              440
+            ]
           }
         },
         {
           "name": "R",
-          "anchor": { "type": "custom", "pos": [580, 480] },
-          "dir": [1, 0],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "dir": [
+            1,
+            0
+          ],
           "drawn": {
-            "anchor": [580, 480],
-            "arrowBase": [580, 480],
-            "arrowTip": [630, 480]
+            "anchor": [
+              500,
+              480
+            ],
+            "arrowBase": [
+              580,
+              480
+            ],
+            "arrowTip": [
+              630,
+              480
+            ]
           }
         }
       ],
       "initialForces": [
         {
           "name": "G",
-          "anchor": [500, 420],
-          "arrowBase": [500, 420],
-          "arrowTip": [500, 500],
+          "anchor": [
+            500,
+            420
+          ],
+          "arrowBase": [
+            500,
+            420
+          ],
+          "arrowTip": [
+            500,
+            500
+          ],
           "moveable": false,
-          "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" }
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
         }
       ],
       "taskTitle": "AI 4",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "N",
+              "component": "magnitude"
+            },
+            {
+              "name": "S",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {}
     },
     {
       "id": "task_1791600000004_ai0005abc",
       "title": "Resultant av fire krefter",
       "category": "AI",
-      "origin": [500, 240],
+      "origin": [
+        500,
+        240
+      ],
       "help_lines": [
         "Fire krefter virker på en kloss: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre (1 N tilsvarer 10 px).",
         "F_1 - 8 N opp, F_2 - 4 N ned, F_3 - 8 N mot venstre, F_4 - 12 N mot høyre (er tegnet inn)",
@@ -562,27 +1091,115 @@
       "scene": {
         "plane": {
           "angleDeg": 0,
-          "through": [500, 540],
+          "through": [
+            500,
+            540
+          ],
           "draw": false,
           "snapping": false,
-          "n_vec": [0, -1],
-          "t_vec": [1, 0]
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
         },
         "texts": [
-          { "txt": "Tegn resultanten \\sumF", "pos": [150, 90], "size": 14, "align": "left", "color": "#222", "snapping": false },
-          { "txt": "8 N", "pos": [520, 215], "size": 14, "align": "left", "color": "#222", "snapping": false },
-          { "txt": "4 N", "pos": [520, 375], "size": 14, "align": "left", "color": "#222", "snapping": false },
-          { "txt": "8 N", "pos": [405, 290], "size": 14, "align": "center", "color": "#222", "snapping": false },
-          { "txt": "12 N", "pos": [635, 290], "size": 14, "align": "center", "color": "#222", "snapping": false }
+          {
+            "txt": "Tegn resultanten \\sumF",
+            "pos": [
+              150,
+              90
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              150,
+              90
+            ]
+          },
+          {
+            "txt": "8 N",
+            "pos": [
+              520,
+              215
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              520,
+              215
+            ]
+          },
+          {
+            "txt": "4 N",
+            "pos": [
+              520,
+              375
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              520,
+              375
+            ]
+          },
+          {
+            "txt": "8 N",
+            "pos": [
+              405,
+              290
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              405,
+              290
+            ]
+          },
+          {
+            "txt": "12 N",
+            "pos": [
+              635,
+              290
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              635,
+              290
+            ]
+          }
         ],
         "rects": [
           {
             "width": 60,
             "height": 30,
-            "bottomCenter": [500, 315],
+            "bottomCenter": [
+              500,
+              315
+            ],
             "angleDeg": 0,
-            "n_vec": [0, -1],
-            "t_vec": [1, 0],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
             "snapping": true,
             "color": "#ffffff"
           }
@@ -591,36 +1208,704 @@
       "expectedForces": [
         {
           "name": "ΣF",
-          "aliases": ["F", "sumF", "\\sumF"],
-          "anchor": { "type": "point", "ref": "rect0", "point": "center" },
-          "dir": [0.7071, -0.7071],
+          "aliases": [
+            "F",
+            "sumF",
+            "\\sumF"
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "dir": [
+            0.7071,
+            -0.7071
+          ],
           "drawn": {
-            "anchor": [500, 300],
-            "arrowBase": [500, 300],
-            "arrowTip": [540, 260]
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              500,
+              300
+            ],
+            "arrowTip": [
+              540,
+              260
+            ]
           }
         }
       ],
       "initialForces": [
-        { "name": "F_1", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [500, 220], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
-        { "name": "F_2", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [500, 340], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
-        { "name": "F_3", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [420, 300], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } },
-        { "name": "F_4", "anchor": [500, 300], "arrowBase": [500, 300], "arrowTip": [620, 300], "moveable": false, "anchorSpec": { "type": "point", "ref": "rect0", "point": "center" } }
+        {
+          "name": "F_1",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            220
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "F_2",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            340
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "F_3",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            420,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "F_4",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            620,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
       ],
       "relations": [
         {
-          "lhs": [{ "name": "ΣF" }],
-          "rhs": [{ "name": "F_2" }],
-          "ratio": 1.4142,
+          "lhs": [
+            {
+              "name": "ΣF",
+              "component": "vertical"
+            },
+            {
+              "name": "F_2",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_1",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "ΣF",
+              "component": "horizontal"
+            },
+            {
+              "name": "F_3",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_4",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
           "tol_rel": 0.15
         }
       ],
       "taskTitle": "AI 5",
+      "taskSubTitle": "",
+      "sumF": {}
+    },
+    {
+      "id": "task_1791600000005_ai0006abc",
+      "title": "Kasse i to snorer",
+      "category": "AI",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En kasse henger i ro, festet med to snorer: en som går skrått opp til taket, og en som går vannrett til veggen.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i den skrå snora",
+        "S_2 - Snordraget i den vannrette snora",
+        "Den skrå snora er festet i kassens øvre høyre hjørne, og den vannrette snora er festet midt på venstre sideflate. Kreftene virker langs snorene, bort fra kassen.",
+        "Kassen er i ro, så ΣF = 0. Den vertikale komponenten av S_1 må være like stor som G, og den horisontale komponenten av S_1 må være like stor som S_2.",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          },
+          {
+            "txt": "Kassen henger i ro",
+            "pos": [
+              200,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              560,
+              240
+            ],
+            "b": [
+              760,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              440,
+              300
+            ],
+            "b": [
+              100,
+              300
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 120,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "color": "#000000"
+          },
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          },
+          {
+            "width": 20,
+            "height": 500,
+            "bottomCenter": [
+              90,
+              540
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "top"
+          },
+          "dir": [
+            0.707,
+            -0.707
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              560,
+              240
+            ],
+            "arrowTip": [
+              640,
+              160
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "left"
+          },
+          "dir": [
+            -1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              440,
+              300
+            ],
+            "arrowBase": [
+              440,
+              300
+            ],
+            "arrowTip": [
+              360,
+              300
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            380
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "horizontal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_2"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "AI 6",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000006_ai0007abc",
+      "title": "Kasse i to skrå snorer",
+      "category": "AI",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En kasse henger i ro, festet med to snorer til taket. Snorene går i ulike retninger langs rutenettet.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i snora til venstre",
+        "S_2 - Snordraget i snora til høyre",
+        "Begge snorene er festet i samme punkt midt på kassens toppside. Kreftene virker langs snorene, bort fra kassen.",
+        "Kassen er i ro, så ΣF = 0. Summen av de vertikale komponentene til S_1 og S_2 må være like stor som G. De horisontale komponentene må være like store.",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          },
+          {
+            "txt": "Kassen henger i ro.",
+            "pos": [
+              200,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              240
+            ],
+            "b": [
+              240,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              500,
+              240
+            ],
+            "b": [
+              900,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 120,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "color": "#000000"
+          },
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_center"
+          },
+          "dir": [
+            -0.8,
+            -0.6
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              420,
+              180
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_center"
+          },
+          "dir": [
+            0.8944,
+            -0.4472
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              580,
+              200
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            400
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            },
+            {
+              "name": "S_2",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "horizontal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_2",
+              "component": "horizontal"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "taskTitle": "AI 7",
       "taskSubTitle": ""
     }
   ],
   "metadata": {
-    "name": "taskset",
-    "count": 5
+    "name": "AI",
+    "exported": "2026-10-11T08:21:24.457Z",
+    "count": 7
   }
 }

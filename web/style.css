@@ -157,6 +157,15 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 #help-content-container, #help-content { flex:1 1 auto; min-width:0; min-height:0; max-width:100%; max-height:var(--help-content-max-height); overflow:auto; background:rgba(255,255,255,0.5); }
 #help-content { padding:8px 10px; font-size:13px; line-height:1.5; color:#333; }
 
+/* Movable/resizable relations window, positioned and bounded to the visible canvas by ui.js */
+#relations-modal { position:fixed; left:0; top:var(--top-bar-height); width:520px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1100; overflow:hidden; }
+#relations-modal.hidden { display:none; }
+.relations-header { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid rgba(0,0,0,0.2); padding:8px 10px; background:#f3f3f3; cursor:move; touch-action:none; user-select:none; }
+.relations-header h3 { margin:0; font-size:14px; font-weight:600; }
+#relations-close { border:1px solid #777; background:#fafafa; border-radius:4px; height:24px; width:24px; cursor:pointer; font-size:12px; }
+#relations-close:hover { background:#ffecec; }
+.relations-body { flex:1 1 auto; min-height:0; overflow:auto; padding:10px 12px 22px; }
+
 /* Help canvas and editor */
 #help-canvas { display:block; border:none; background:transparent; }
 #help-canvas.hidden { display:none; }

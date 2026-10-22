@@ -1131,58 +1131,6 @@
       },
       "expectedForces": [
         {
-          "name": "G_A",
-          "anchor": {
-            "type": "point",
-            "ref": "rect0",
-            "point": "center"
-          },
-          "dir": [
-            0,
-            1
-          ],
-          "drawn": {
-            "anchor": [
-              500,
-              300
-            ],
-            "arrowBase": [
-              460,
-              300
-            ],
-            "arrowTip": [
-              460,
-              380
-            ]
-          }
-        },
-        {
-          "name": "N_{AB}",
-          "anchor": {
-            "type": "point",
-            "ref": "rect0",
-            "point": "top_center"
-          },
-          "dir": [
-            0,
-            1
-          ],
-          "drawn": {
-            "anchor": [
-              500,
-              240
-            ],
-            "arrowBase": [
-              500,
-              240
-            ],
-            "arrowTip": [
-              500,
-              280
-            ]
-          }
-        },
-        {
           "name": "N_A",
           "anchor": {
             "type": "point",
@@ -1205,6 +1153,66 @@
             "arrowTip": [
               540,
               240
+            ]
+          },
+          "aliases": [
+            "N"
+          ],
+          "nameBase": "N"
+        },
+        {
+          "name": "G_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "aliases": [
+            "G"
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              460,
+              300
+            ],
+            "arrowTip": [
+              460,
+              380
+            ]
+          }
+        },
+        {
+          "name": "N_B*",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "top"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "nameBase": "N",
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              500,
+              280
             ]
           }
         }
@@ -1265,13 +1273,29 @@
               "component": "magnitude"
             },
             {
-              "name": "N_{AB}",
+              "name": "G_B",
               "component": "magnitude"
             }
           ],
           "rhs": [
             {
               "name": "N_A",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "N_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N_B*",
               "component": "magnitude"
             }
           ],
@@ -1517,7 +1541,7 @@
           "angleDeg": 0,
           "through": [
             500,
-            540
+            300
           ],
           "draw": false,
           "snapping": false,
@@ -1626,8 +1650,8 @@
             ]
           },
           "dir": [
-            0.7071,
-            -0.7071
+            0.707,
+            -0.707
           ],
           "drawn": {
             "anchor": [
@@ -1662,7 +1686,9 @@
           ],
           "moveable": false,
           "anchorSpec": {
-            "type": "custom"
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane"
           }
         },
         {
@@ -1681,7 +1707,9 @@
           ],
           "moveable": false,
           "anchorSpec": {
-            "type": "custom"
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane"
           }
         },
         {
@@ -1700,7 +1728,9 @@
           ],
           "moveable": false,
           "anchorSpec": {
-            "type": "custom"
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane"
           }
         },
         {
@@ -1719,7 +1749,9 @@
           ],
           "moveable": false,
           "anchorSpec": {
-            "type": "custom"
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane"
           }
         }
       ],
@@ -2215,11 +2247,9 @@
             0
           ],
           "anchor": {
-            "type": "custom",
-            "pos": [
-              580,
-              480
-            ]
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
           },
           "drawn": {
             "anchor": [
@@ -2507,12 +2537,6 @@
           ],
           "ratio": 1,
           "tol_rel": 0.15
-        },
-        {
-          "lhs": [],
-          "rhs": [],
-          "ratio": 1,
-          "tol_rel": 0.15
         }
       ],
       "taskTitle": "task_1791480987575_d5vxa3521.",
@@ -2680,11 +2704,9 @@
           "name": "S_1",
           "nameBase": "S",
           "anchor": {
-            "type": "custom",
-            "pos": [
-              560,
-              240
-            ]
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_right"
           },
           "dir": [
             0.707,
@@ -2692,16 +2714,16 @@
           ],
           "drawn": {
             "anchor": [
-              560,
-              240
-            ],
-            "arrowBase": [
               560.0009328989005,
               240.0004664503568
             ],
+            "arrowBase": [
+              560.001865797801,
+              240.00093290071362
+            ],
             "arrowTip": [
-              640.0009328989005,
-              160.0004664503568
+              640.001865797801,
+              160.00093290071362
             ]
           }
         },
@@ -2970,8 +2992,8 @@
             "point": "top_center"
           },
           "dir": [
-            0.8944,
-            -0.4472
+            0.894,
+            -0.447
           ],
           "drawn": {
             "anchor": [
@@ -3198,11 +3220,9 @@
             1
           ],
           "anchor": {
-            "type": "custom",
-            "pos": [
-              480,
-              320
-            ]
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
           },
           "drawn": {
             "anchor": [
@@ -3470,11 +3490,9 @@
             -0.447
           ],
           "anchor": {
-            "type": "custom",
-            "pos": [
-              580,
-              320
-            ]
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
           },
           "drawn": {
             "anchor": [
@@ -3697,11 +3715,9 @@
           "name": "S_1",
           "nameBase": "S",
           "anchor": {
-            "type": "custom",
-            "pos": [
-              530,
-              248
-            ]
+            "type": "point",
+            "ref": "segment0",
+            "point": "start"
           },
           "dir": [
             0.498,
@@ -4031,11 +4047,9 @@
           "name": "S_1",
           "nameBase": "S",
           "anchor": {
-            "type": "custom",
-            "pos": [
-              358,
-              258
-            ]
+            "type": "point",
+            "ref": "segment0",
+            "point": "start"
           },
           "dir": [
             -0.706,
@@ -4060,11 +4074,9 @@
           "name": "S_2",
           "nameBase": "S",
           "anchor": {
-            "type": "custom",
-            "pos": [
-              452,
-              270
-            ]
+            "type": "point",
+            "ref": "segment1",
+            "point": "start"
           },
           "dir": [
             0.862,
@@ -4141,8 +4153,8 @@
   ],
   "metadata": {
     "name": "taskset",
-    "exported": "2026-10-22T11:39:27.061Z",
+    "exported": "2026-10-22T13:48:20.849Z",
     "count": 17,
-    "appVersion": "2026-10-22 13:18"
+    "appVersion": "2026-10-22 15:43"
   }
 }

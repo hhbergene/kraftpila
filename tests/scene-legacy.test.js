@@ -17,6 +17,34 @@ function sceneRuntime(){
   return sandbox;
 }
 
+test('task title scene text is hidden in both modes without deleting scene data',()=>{
+  const runtime=sceneRuntime();
+  const drawn=[];
+  runtime.drawFormattedText=(ctx,text)=>drawn.push(text);
+  const task={title:'Oppgavetittel',scene:{texts:[
+    {txt:'Oppgavetittel',pos:[10,10]},
+    {txt:'Annen tekst',pos:[20,20]}
+  ]}};
+  const before=JSON.stringify(task.scene.texts);
+  const ctx=new Proxy({},{
+    get:(target,key)=>key in target ? target[key] : ()=>{},
+    set(target,key,value){target[key]=value;return true;}
+  });
+  for(const editorMode of [true,false]){
+    drawn.length=0;
+    runtime.drawScene(ctx,task,editorMode);
+    assert.deepEqual(drawn,['Annen tekst']);
+    assert.equal(JSON.stringify(task.scene.texts.map(({_renderedPos,...text})=>text)),before);
+  }
+  assert.equal(runtime.isTaskTitleText({title:''},{txt:''}),false);
+  assert.equal(runtime.isTaskTitleText(task,{txt:'Annen tekst',angle_deg:30}),false);
+  for(const entry of ['editor.js','main.js']){
+    const source=fs.readFileSync(path.join(root,'web',entry),'utf8');
+    assert.match(source,/rotatedTexts = .*filter\(t => !window\.isTaskTitleText\(window\.currentTask,t\)/);
+    assert.match(source,/function updateHelpButton\(\)\{\s*window\.updateTaskHeader\(\);/);
+  }
+});
+
 test('all existing tasksets retain legacy geometry and render in both modes', () => {
   const runtime = sceneRuntime();
   const coordinateMethods = new Set(['moveTo', 'lineTo', 'translate', 'rotate', 'arc', 'ellipse']);

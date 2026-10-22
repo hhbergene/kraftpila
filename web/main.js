@@ -75,7 +75,7 @@ window.TASKS = [];
     // Collect texts that should be rotated and temporarily hide them before drawScene
     let rotatedTexts = [];
     if(window.currentTask && window.currentTask.scene && Array.isArray(window.currentTask.scene.texts)){
-      rotatedTexts = window.currentTask.scene.texts.filter(t => 'angle_deg' in t || 'n_vec' in t);
+      rotatedTexts = window.currentTask.scene.texts.filter(t => !window.isTaskTitleText(window.currentTask,t) && ('angle_deg' in t || 'n_vec' in t));
       // Hide originals by making them transparent for drawScene
       rotatedTexts.forEach(t=>{
         if(!('_origColor' in t)) t._origColor = t.color;
@@ -873,21 +873,7 @@ window.TASKS = [];
   // Save removed - use editor mode only
 
   function updateHelpButton(){
-    if(window.updateTaskHeader) window.updateTaskHeader();
-    const helpBtn = document.getElementById('btn-help');
-    if(helpBtn && window.currentTask){
-      const span = helpBtn.querySelector('span');
-      if(span){
-        let btnText = window.getTaskPositionLabel ? window.getTaskPositionLabel(window.currentTask) : `Oppgave ${(window.currentTaskIndex || 0) + 1}`;
-        // Add score if available
-        const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
-        if(taskScore && typeof taskScore.score === 'number'){
-          const scorePercent = Math.round(taskScore.score * 100);
-          btnText += ' ' + scorePercent + '%';
-        }
-        span.textContent = btnText;
-      }
-    }
+    window.updateTaskHeader();
   }
 
   // Editor mode functions removed - editor.js handles editor mode functionality

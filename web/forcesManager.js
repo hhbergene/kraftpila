@@ -150,7 +150,12 @@
           const i = parseInt(e.target.dataset.index,10);
           // Use current global manager to avoid stale closure when fm is replaced
           if(window.fm && i>=0 && i<window.fm.forces.length){
-            window.fm.forces[i].name = e.target.value;
+            const force = window.fm.forces[i];
+            if(window.editorMode && window.renameEditorForce){
+              window.renameEditorForce(force,e.target.value);
+            }else{
+              force.name = e.target.value;
+            }
             // Save forces when force name changes
             if(window.markEdited) window.markEdited('forces'); else if(window.saveTaskForces) window.saveTaskForces();
           }
@@ -522,9 +527,11 @@
             // Rebuild when requested, or when the force/anchor/task changed since last build
             const sigSelect = anchorDropdownContainer.querySelector('.force-anchor-select');
             window.sceneEditor?.bindForcePicker(sigSelect,anchorDropdownContainer);
+            const anchorRef = window.getForceSpec?.(f);
             const dropdownSig = [
               window.currentTask ? window.currentTask.id : '',
-              i, f.name || '', f.anchor ? f.anchor.join(',') : ''
+              i, f.name || '', f.anchor ? f.anchor.join(',') : '',
+              JSON.stringify(anchorRef ? anchorRef.spec[anchorRef.prop] : null)
             ].join('|');
             const needsRebuild = !window.sceneEditor?.isPicking(sigSelect) &&
               (forceDropdownRebuild || (sigSelect && sigSelect.dataset.sig !== dropdownSig));

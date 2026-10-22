@@ -200,6 +200,13 @@
           <p>Ankre: Klikk ankerfeltet for liste og scenevalg, både for vinkler og krefter. Hover i canvas eller listen og blaing med piltaster uthever kandidaten i canvas uten å lagre. Canvas-/listevalg eller Enter bekrefter, og Esc avbryter. Vinkler går automatisk til neste felt. «Frikoble» i listen bevarer geometrien og tillater fri flytting. Ledig canvas-klikk oppretter et skjult hjelpepunkt; punkt og binding angres samlet. Klikk på annet element eller knapp bekrefter aktivt forslag og avslutter sekvensen. Panelet ruller bare når aktivt felt ikke er fullt synlig.</p>
         <p>Ankerlistene bruker faktiske referanser, som rect0 bottom og point-1 center. Rektangler har også hjørneankrene top_left, top_right, bottom_left og bottom_right; disse følger rektangelets rotasjon. Når et annet vinkelanker er valgt (eller kraften har anker/base), vises 5 nærmeste først; segmentavstand måles til selve segmentet. «Alle ankrene» er alltid komplett og sortert etter elementtype og nummer, så rect2 kommer før rect10. Nærmeste ankrene finnes også i den komplette listen.</p>
         </details>
+        <details>
+          <summary>Forfatteradvarsler før publisering</summary>
+          <p>Sjekk viser advarsler om custom-ankre, manglende eller ugyldige ankre, kraftnavn og kraftgeometri, ufullstendige relasjoner og manglende tittel, oppgavebeskrivelse eller forventede krefter. Custom-koordinater kan være gyldige, men bør knyttes til et sceneanker før publisering. Ingen relasjoner gir bare en påminnelse når det finnes flere krefter og ingen krav til resultantkraft.</p>
+          <p>Advarslene endrer ikke poengsummen og vises ikke i elevmodus. Eksport av oppgave eller oppgavesett krever bekreftelse dersom det finnes advarsler; avbryt for å rette oppgaven først.</p>
+          <p>Overlappstrekk gjelder parallelle kraftpiler som dekker samme strekning. Felles angrepspunkt, kryssende piler og piler som peker fra hverandre gir ikke overlappstrekk.</p>
+          <p>Segmentanker på krefter tillater angrep langs hele segmentet. Ved valg beholdes posisjonen langs kanten ved projeksjon til nærmeste punkt, ikke til midtpunktet. Ankerfeltet oppdateres straks etter valget.</p>
+        </details>
         <div class="settings-buttons">
           <button id="settings-download" title="Download innstillinger">Last ned</button>
           <button id="settings-restore" title="Last opp innstillinger">Gjenopprett</button>
@@ -222,6 +229,7 @@
   <script src="web/scene_model.js"></script>
   <script src="web/debug_render.js"></script>
   <script src="web/evaluate.js"></script>
+  <script src="web/author_validation.js"></script>
   <script src="web/forces.js"></script>
   <script src="web/forcesManager.js"></script>
   <script src="web/snapping.js"></script>

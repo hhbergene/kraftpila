@@ -624,6 +624,11 @@
   }
   function applyForceAnchor(index,spec,pos,newPoint){
     const force=window.fm?.forces?.[index];
+    if(force && spec?.type === 'segment'){
+      const resolved=model().resolveAnchor(window.currentTask,{anchor:spec,pos:force.anchor || force.arrowBase || pos});
+      if(!resolved.valid || !finitePos(resolved.pos)) return;
+      pos=resolved.pos;
+    }
     if(!force || !finitePos(pos)) return;
     const old=force.anchor || pos, delta=[pos[0]-old[0],pos[1]-old[1]];
     force.anchor=pos.slice();
@@ -633,6 +638,8 @@
     if(ref) ref.spec[ref.prop]={...spec};
     force.updateDirectionAndLength?.();
     window.markEdited?.(...(newPoint ? ['task','forces'] : ['forces']));
+    const container=document.getElementById('force-inputs');
+    if(container) window.fm.syncInputs(container,true);
     refresh();
   }
   function drawOverlay(ctx){

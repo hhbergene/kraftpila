@@ -84,6 +84,28 @@ function setup(){
   return {window,document,nodes,select,parent,force,spec,task,edits,candidate,open};
 }
 
+test('force segment selection projects existing position and refreshes anchor controls immediately',()=>{
+  const s=setup();
+  s.nodes['force-inputs']=new Element('div');
+  let rebuilds=0;
+  s.window.fm.syncInputs=(container,forceRebuild)=>{
+    assert.equal(container,s.nodes['force-inputs']);
+    assert.equal(forceRebuild,true);
+    rebuilds++;
+  };
+  s.window.sceneModel.resolveAnchor=(task,slot)=>{
+    assert.equal(slot.anchor.type,'segment');
+    assert.deepEqual(Array.from(slot.pos),[10,20]);
+    return {valid:true,pos:[10,50]};
+  };
+  s.window.sceneEditor.applyForceAnchor(0,{type:'segment',ref:'rect0',segment:'bottom'},[50,50],false);
+  assert.deepEqual(Array.from(s.force.anchor),[10,50]);
+  assert.deepEqual(Array.from(s.force.arrowBase),[15,50]);
+  assert.deepEqual(Array.from(s.force.arrowTip),[15,110]);
+  assert.equal(s.spec.anchor.segment,'bottom');
+  assert.equal(rebuilds,1);
+});
+
 test('hover previews a candidate without edits or point creation; Esc restores selection',()=>{
   const s=setup();
   s.open();

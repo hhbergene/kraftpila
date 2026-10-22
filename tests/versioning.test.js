@@ -32,6 +32,33 @@ test('task position labels are based on current list order',()=>{
   assert.equal(window.getTaskPositionLabel(window.tasks[1]),'Oppgave 2');
 });
 
+test('help window retains task title while the toolbar shows only task number',()=>{
+  const uiSource=fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
+  const start=uiSource.indexOf('function updateHelpButton(){');
+  const end=uiSource.indexOf('window.updateTaskHeader = updateHelpButton;',start);
+  for(const editorMode of [false,true]){
+    const span={textContent:''};
+    const helpTitle={textContent:''};
+    const titleInput=editorMode ? {value:''} : null;
+    const window={currentTask:{id:'second',title:'Tittel i hjelpevinduet'},currentTaskIndex:1,
+      getTaskPositionLabel:()=> 'Oppgave 2',taskScores:{}};
+    const document={getElementById(id){
+      if(id==='btn-help') return {querySelector:()=>span};
+      if(id==='help-title') return helpTitle;
+      if(id==='help-title-input') return titleInput;
+      return null;
+    }};
+    vm.runInNewContext(`${uiSource.slice(start,end)};updateHelpButton();`,{window,document});
+    assert.equal(span.textContent,'Oppgave 2');
+    if(editorMode){
+      assert.equal(helpTitle.textContent,'Oppgave 2');
+      assert.equal(titleInput.value,window.currentTask.title);
+    }else{
+      assert.equal(helpTitle.textContent,'Oppgave 2: Tittel i hjelpevinduet');
+    }
+  }
+});
+
 test('scene-panel title editing updates only the shared title and refreshes the task UI',()=>{
   const uiSource=fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
   const start=uiSource.indexOf('  // Task metadata fields (Id, Title, Category)');

@@ -78,7 +78,7 @@ window.tasks = [];
     // Collect texts that should be rotated and temporarily hide them before drawScene
     let rotatedTexts = [];
     if(window.currentTask && window.currentTask.scene && Array.isArray(window.currentTask.scene.texts)){
-      rotatedTexts = window.currentTask.scene.texts.filter(t => 'angle_deg' in t || 'n_vec' in t);
+      rotatedTexts = window.currentTask.scene.texts.filter(t => !window.isTaskTitleText(window.currentTask,t) && ('angle_deg' in t || 'n_vec' in t));
       // Hide originals by making them transparent for drawScene
       rotatedTexts.forEach(t=>{
         if(!('_origColor' in t)) t._origColor = t.color;
@@ -970,21 +970,7 @@ window.tasks = [];
   // Save removed - use editor mode only
 
   function updateHelpButton(){
-    if(window.updateTaskHeader) window.updateTaskHeader();
-    const helpBtn = document.getElementById('btn-help');
-    if(helpBtn && window.currentTask){
-      const span = helpBtn.querySelector('span');
-      if(span){
-        let btnText = window.getTaskPositionLabel ? window.getTaskPositionLabel(window.currentTask) : `Oppgave ${(window.currentTaskIndex || 0) + 1}`;
-        // Add score if available
-        const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
-        if(taskScore && typeof taskScore.score === 'number'){
-          const scorePercent = Math.round(taskScore.score * 100);
-          btnText += ' ' + scorePercent + '%';
-        }
-        span.textContent = btnText;
-      }
-    }
+    window.updateTaskHeader();
   }
 
   // Editor mode state management
@@ -1664,6 +1650,15 @@ window.tasks = [];
       window.currentTask = task;
     }
 
+    for(const field of ['relations','sumF']){
+      const key = `editor_${field}_${taskId}`;
+      const stored = localStorage.getItem(key);
+      if(stored !== null){
+        try{window.currentTask[field] = JSON.parse(stored);}
+        catch(error){console.warn(`Kunne ikke lese ${key}:`,error);}
+      }
+    }
+
     // Keep array entry in sync after normalization
     if(window.tasks && window.currentTaskIndex !== undefined){
       window.tasks[window.currentTaskIndex] = window.currentTask;
@@ -2313,6 +2308,26 @@ window.tasks = [];
     if(!Array.isArray(list)) return null;
     const spec = list.find(s => s.name && s.name.toLowerCase().trim() === key);
     return spec ? { spec, prop: isExpected ? 'anchor' : 'anchorSpec' } : null;
+  };
+
+  window.renameEditorForce = function(force,name){
+    const oldName = force.name;
+    if(oldName === name) return;
+    const ref = window.getForceSpec(force);
+    force.name = name;
+    if(ref) ref.spec.name = name;
+    if(oldName && oldName.trim()){
+      const relations = window.currentTask.relations || [];
+      relations.forEach(relation=>{
+        [...(relation.lhs || []),...(relation.rhs || [])].forEach(term=>{
+          if(typeof term.name === 'string' && term.name.trim().toLowerCase() === oldName.trim().toLowerCase()){
+            term.name = name;
+          }
+        });
+      });
+      queueStorage(`editor_relations_${window.currentTask.id}`,JSON.parse(JSON.stringify(relations)));
+    }
+    markEdited('task','forces');
   };
 
   // Create/update the task spec for a drawn, named force.
@@ -3908,9 +3923,14 @@ window.tasks = [];
           window.validateSolutionForces();
           window.saveSolutionForces();
         }
-        try{ const rk=`editor_relations_${window.currentTask.id}`; if(pendingStorage.has(rk)){ const pv=pendingStorage.get(rk); if(pv) window.currentTask.relations=JSON.parse(JSON.stringify(pv)); } else { const rr=localStorage.getItem(rk); if(rr) window.currentTask.relations=JSON.parse(rr); } }catch{}
-        // Save current forces before evaluating
-        markEdited('forces');
+        // Commit all pending edits before running the complete evaluation pipeline.
+        window.sceneModel.update(window.currentTask);
+        window.syncSceneForceAnchors(window.currentTask,window.fm,true);
+        window.fm.forces.forEach(force=>{
+          if(force.arrowBase && force.arrowTip) force.updateDirectionAndLength();
+          window.syncForceSpec(force,{redir:true});
+        });
+        markEdited('task','forces');
         autoSave();
         if(typeof window.runEvaluation === 'function'){
           window.runEvaluation();
@@ -4215,6 +4235,8 @@ window.tasks = [];
   if(btnExportTask){
     btnExportTask.addEventListener('click', ()=>{
       if(!window.currentTask) return;
+      autoSave();
+      if(!window.confirmAuthorExport([window.currentTask])) return;
       window.sceneModel.update(window.currentTask);
       window.syncSceneForceAnchors(window.currentTask, window.fm, true);
       
@@ -4422,16 +4444,10 @@ window.tasks = [];
   function showRelationsEditor(){
     if(!window.currentTask || !window.fm) return;
     relationsModal.classList.remove('hidden');
-    // Load relations from localStorage or task
-    const relKey = `editor_relations_${window.currentTask.id}`;
+    // The current task is authoritative; the modal holds only unsaved edits.
     let relations = relationsList._relations || [];
     if(relationsList._relations === undefined){
-      const savedRelations = localStorage.getItem(relKey);
-      if(savedRelations){
-        try{ relations = JSON.parse(savedRelations); }catch{}
-      } else if(window.currentTask.relations){
-        relations = JSON.parse(JSON.stringify(window.currentTask.relations));
-      }
+      relations = JSON.parse(JSON.stringify(window.currentTask.relations || []));
     }
     if(relationsList._sumF === undefined){
       const sfKey = `editor_sumF_${window.currentTask.id}`;
@@ -4455,6 +4471,9 @@ window.tasks = [];
         const comp = term.component || 'magnitude';
         html += `<div style="margin-left:16px; margin-bottom:4px;">`;
         html += `<select class="lhs-force" data-term-idx="${termIdx}" style="width:80px;">`;
+        if(!forces.some(f=>f.name===term.name)){
+          html += `<option value="${escapeHtml(term.name || '')}" selected>Mangler: ${escapeHtml(term.name || '(uten navn)')}</option>`;
+        }
         forces.forEach(f => {
           html += `<option value="${f.name}" ${term.name===f.name ? 'selected' : ''}>${f.name}</option>`;
         });
@@ -4478,6 +4497,9 @@ window.tasks = [];
         const comp = term.component || 'magnitude';
         html += `<div style="margin-left:16px; margin-bottom:4px;">`;
         html += `<select class="rhs-force" data-term-idx="${termIdx}" style="width:80px;">`;
+        if(!forces.some(f=>f.name===term.name)){
+          html += `<option value="${escapeHtml(term.name || '')}" selected>Mangler: ${escapeHtml(term.name || '(uten navn)')}</option>`;
+        }
         forces.forEach(f => {
           html += `<option value="${f.name}" ${term.name===f.name ? 'selected' : ''}>${f.name}</option>`;
         });
@@ -4620,6 +4642,7 @@ window.tasks = [];
     const relations = relationsList._relations;
     window.currentTask.relations = JSON.parse(JSON.stringify(relations));
     queueStorage(`editor_relations_${window.currentTask.id}`, relations);
+    markEdited('task');
     if(relationsList._sumF){
       const sf = Object.assign({}, relationsList._sumF);
       window.currentTask.sumF = sf;
@@ -5012,6 +5035,8 @@ window.tasks = [];
           tasksToExport.push(taskClone);
         }
       });
+
+      if(!window.confirmAuthorExport(tasksToExport)) return;
 
       // Build export data
       const exportData = {

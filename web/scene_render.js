@@ -5,6 +5,11 @@
   const HEIGHT = window.HEIGHT || 640;
   const GRID_COLOR = window.GRID_COLOR || '#dcdcdc';
 
+  window.isTaskTitleText = function(task,text){
+    const title = typeof task?.title === 'string' ? task.title.trim() : '';
+    return !!title && typeof text?.txt === 'string' && text.txt.trim() === title;
+  };
+
   function drawGrid(ctx){
     ctx.strokeStyle = GRID_COLOR;
     ctx.lineWidth = 1;
@@ -281,7 +286,11 @@
     if(task.scene.circles){ task.scene.circles.forEach(c=>drawCircle(ctx,c)); }
     if(task.scene.ellipses){ task.scene.ellipses.forEach(e=>drawEllipse(ctx,e)); }
     if(task.scene.arrows){ task.scene.arrows.forEach(a=>drawArrow(ctx,a)); }
-    if(task.scene.texts){ task.scene.texts.forEach((t,idx)=>drawText(ctx,t,idx,task.scene.texts)); }
+    if(task.scene.texts){
+      task.scene.texts.forEach((t,idx)=>{
+        if(!window.isTaskTitleText(task,t)) drawText(ctx,t,idx,task.scene.texts);
+      });
+    }
     drawScenePoints(ctx, task, editorMode);
     drawSceneAngles(ctx, task);
   }

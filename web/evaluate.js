@@ -20,50 +20,30 @@
   function axisAlignedDirTol(dir){
     return (Math.abs(dir[0]) < 1e-3 || Math.abs(dir[1]) < 1e-3) ? (DIR_TOL_DEG/4) : DIR_TOL_DEG;
   }
-  // NEW: geometry helpers for neatness (overlap detection)
-  function segOrient(a,b,c){ return (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]); }
-  function onSeg(a,b,p){
-    return Math.min(a[0],b[0]) - 1e-6 <= p[0] && p[0] <= Math.max(a[0],b[0]) + 1e-6 &&
-           Math.min(a[1],b[1]) - 1e-6 <= p[1] && p[1] <= Math.max(a[1],b[1]) + 1e-6;
-  }
-  function segmentsIntersect(a,b,c,d){
-    const o1 = segOrient(a,b,c), o2 = segOrient(a,b,d), o3 = segOrient(c,d,a), o4 = segOrient(c,d,b);
-    if((o1>0&&o2<0 || o1<0&&o2>0) && (o3>0&&o4<0 || o3<0&&o4>0)) return true;
-    if(Math.abs(o1) < 1e-6 && onSeg(a,b,c)) return true;
-    if(Math.abs(o2) < 1e-6 && onSeg(a,b,d)) return true;
-    if(Math.abs(o3) < 1e-6 && onSeg(c,d,a)) return true;
-    if(Math.abs(o4) < 1e-6 && onSeg(c,d,b)) return true;
-    return false;
-  }
-  function minSegDistance(a,b,c,d){
-    // Uses existing point-to-seg helper
-    const d1 = distPointToSegment(a,c,d);
-    const d2 = distPointToSegment(b,c,d);
-    const d3 = distPointToSegment(c,a,b);
-    const d4 = distPointToSegment(d,a,b);
-    return Math.min(d1,d2,d3,d4);
-  }
   function computeNeatness(task, forceResults, allForces){
     // Consider only matched expected forces with complete geometry
     const matched = (forceResults||[]).filter(r=> r.found && typeof r.index==='number' && r.index>=0)
-      .map(r => window.fm.forces[r.index])
+      .map(r => allForces[r.index])
       .filter(f => f && f.arrowBase && f.arrowTip && Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip));
-    const NON_PARALLEL_DEG = 0.5; // treat angle > 0.5° as non-parallel
-    const OVERLAP_DIST_PX = 3;   // consider segments overlapping if closer than this
+    const PARALLEL_TOL_DEG = 0.5;
+    const OVERLAP_DIST_PX = 3;
     for(let i=0;i<matched.length;i++){
       const fi = matched[i];
       const vi = [fi.arrowTip[0]-fi.arrowBase[0], fi.arrowTip[1]-fi.arrowBase[1]];
+      const length = geometry.length(vi);
+      if(length < 1e-6) continue;
+      const axis = [vi[0]/length,vi[1]/length];
       for(let j=i+1;j<matched.length;j++){
         const fj = matched[j];
         const vj = [fj.arrowTip[0]-fj.arrowBase[0], fj.arrowTip[1]-fj.arrowBase[1]];
         const ang = angleBetweenDeg(vi, vj);
-        // For parallel forces (same direction), allow them to overlap
-        // For non-parallel forces (including anti-parallel), check for overlaps and penalize
-        if(ang < NON_PARALLEL_DEG) continue; // Skip only strictly parallel (same direction)
-        // overlap if they intersect or are very close
-        const inter = segmentsIntersect(fi.arrowBase, fi.arrowTip, fj.arrowBase, fj.arrowTip);
-        const near = minSegDistance(fi.arrowBase, fi.arrowTip, fj.arrowBase, fj.arrowTip) <= OVERLAP_DIST_PX;
-        if(inter || near) return 0.9;
+        if(ang > PARALLEL_TOL_DEG && Math.abs(180-ang) > PARALLEL_TOL_DEG) continue;
+        const offsets = [fj.arrowBase,fj.arrowTip].map(point=>[point[0]-fi.arrowBase[0],point[1]-fi.arrowBase[1]]);
+        if(offsets.some(offset=>Math.abs(offset[0]*axis[1]-offset[1]*axis[0]) > OVERLAP_DIST_PX)) continue;
+        const projections = offsets.map(offset=>offset[0]*axis[0]+offset[1]*axis[1]);
+        // Shared endpoints and crossing arrows are not overlapping shafts.
+        const overlap = Math.min(length,Math.max(...projections))-Math.max(0,Math.min(...projections));
+        if(overlap > OVERLAP_DIST_PX) return 0.9;
       }
     }
     return 1.0;
@@ -1110,6 +1090,10 @@ if(r.anchorType === 'point'){
     lines.push(...buildFeedbackLines(forceResults, relationResults, window.fm.forces, window.settings && window.settings.debug, window.currentTask, summary.neatness));
 
     
+    if(window.editorMode && window.collectAuthorWarnings){
+      const warnings = window.collectAuthorWarnings(t,window.fm.forces);
+      lines.push(...warnings.map(text=>({text,indices:[]})));
+    }
     window.lastEvaluation = { lines, summary };
     if(typeof window.showFeedback === 'function'){
       window.showFeedback(lines, scoreText);

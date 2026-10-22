@@ -1,0 +1,97 @@
+(function(){
+  const finitePoint = value => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+  const components = new Set(['magnitude','normal','tangent','vertical','horizontal']);
+  const nameKey = value => typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+  window.collectAuthorWarnings = function(task,drawnForces){
+    const warnings = [];
+    if(!task) return ['Advarsel: Ingen oppgave er valgt.'];
+    const warn = message => warnings.push(`Advarsel: ${message}`);
+    if(!nameKey(task.title)) warn('Oppgaven mangler tittel.');
+    if(!Array.isArray(task.help_lines) || !task.help_lines.some(line=>typeof line === 'string' && line.trim())){
+      warn('Oppgaven mangler oppgavebeskrivelse.');
+    }
+    const expected = Array.isArray(task.expectedForces) ? task.expectedForces : [];
+    const initial = Array.isArray(task.initialForces) ? task.initialForces : [];
+    if(!expected.length) warn('Oppgaven har ingen forventede krefter.');
+    const specs = [...expected,...initial];
+    const names = new Set();
+    const relationNames = new Set(specs.map(force=>force?.name).filter(name=>typeof name === 'string' && name.trim()));
+    const lookup = window.buildAllScenePoints(task);
+    specs.forEach((force,index)=>{
+      const label = force?.name || `? (${index + 1})`;
+      const key = nameKey(force?.name);
+      if(!key) warn(`Kraft ${label} mangler navn.`);
+      else if(names.has(key)) warn(`Flere krefter har samme navn: ${label}.`);
+      if(key) names.add(key);
+      const anchor = index < expected.length ? force?.anchor : force?.anchorSpec;
+      if(anchor?.type === 'custom'){
+        warn(`Kraft ${label} mangler anchor (type custom).`);
+        if(!finitePoint(anchor.pos)) warn(`Kraft ${label} har ugyldige anchor-koordinater.`);
+      }else if(anchor?.type === 'point'){
+        if(!finitePoint(lookup[anchor.ref]?.points?.[anchor.point])){
+          warn(`Kraft ${label} har anchor som viser til et manglende eller ugyldig punkt.`);
+        }
+      }else if(anchor?.type === 'segment'){
+        const segment = lookup[anchor.ref]?.segments?.[anchor.segment];
+        if(!Array.isArray(segment) || segment.length !== 2 || !segment.every(finitePoint)){
+          warn(`Kraft ${label} har anchor som viser til et manglende eller ugyldig segment.`);
+        }
+      }else{
+        warn(`Kraft ${label} mangler gyldig anchor.`);
+      }
+    });
+    const geometryForces = drawnForces || [
+      ...expected.filter(force=>force?.drawn).map(force=>({...force.drawn,name:force.name})),
+      ...initial
+    ];
+    geometryForces.forEach((force,index)=>{
+      if(!force) return;
+      const hasData = nameKey(force.name) || force.anchor || force.arrowBase || force.arrowTip;
+      if(!hasData) return;
+      const label = force.name || `? (${index + 1})`;
+      if(!nameKey(force.name)) warn(`Tegnet kraft ${label} mangler navn.`);
+      if(!finitePoint(force.anchor) || !finitePoint(force.arrowBase) || !finitePoint(force.arrowTip)){
+        warn(`Kraft ${label} har ufullstendig eller ugyldig kraftgeometri.`);
+      }else if(Math.hypot(force.arrowTip[0]-force.arrowBase[0],force.arrowTip[1]-force.arrowBase[1]) === 0){
+        warn(`Kraft ${label} har null lengde.`);
+      }
+    });
+    const relations = Array.isArray(task.relations) ? task.relations : [];
+    const hasSum = ['x','y','t','n'].some(key=>Number.isFinite(task.sumF?.[key]));
+    if(!relations.length && specs.length >= 2 && !hasSum){
+      warn('Ingen relasjoner eller krav til resultantkraft er definert. Kontroller om dette er tilsiktet.');
+    }
+    relations.forEach((relation,index)=>{
+      const label = `Relasjon ${index + 1}`;
+      for(const [side,text] of [['lhs','venstre'],['rhs','høyre']]){
+        const terms = relation?.[side];
+        if(!Array.isArray(terms) || !terms.length){
+          warn(`${label} mangler ${text} side.`);
+          continue;
+        }
+        terms.forEach(term=>{
+          if(!relationNames.has(term?.name)) warn(`${label} viser til en manglende kraft: ${term?.name || '?'}.`);
+          if(term?.component !== undefined && !components.has(term.component)){
+            warn(`${label} har ugyldig komponent: ${term.component}.`);
+          }
+        });
+      }
+      if(relation?.ratio !== undefined && (!Number.isFinite(relation.ratio) || relation.ratio <= 0)){
+        warn(`${label} har ugyldig forholdstall (må være større enn 0).`);
+      }
+      if(relation?.tol_rel !== undefined && (!Number.isFinite(relation.tol_rel) || relation.tol_rel < 0 || relation.tol_rel > 1)){
+        warn(`${label} har ugyldig toleranse (må være mellom 0 og 1).`);
+      }
+    });
+    return [...new Set(warnings)];
+  };
+
+  window.confirmAuthorExport = function(tasks){
+    const messages = tasks.flatMap(task=>{
+      const drawn = task.id === window.currentTask?.id ? window.fm?.forces : undefined;
+      return window.collectAuthorWarnings(task,drawn).map(message=>`${task.title || task.id || 'Oppgave'}: ${message}`);
+    });
+    return !messages.length || confirm(`Oppgavene har forfatteradvarsler:\n\n${messages.join('\n')}\n\nDisse bør rettes før publisering. Eksporter likevel?`);
+  };
+})();

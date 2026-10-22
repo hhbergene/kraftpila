@@ -527,37 +527,15 @@
       const rhsNames = rel.rhs.map(t=>t.name);
       const allNames = [...lhsNames, ...rhsNames];
       
-      // Build detailed component info for logging
-      const lhsDetails = rel.lhs.map(term => {
-        const f = forceByName[term.name];
-        const comp = term.component || 'magnitude';
-        let val = 0;
-        if(f){
-          if(term.component){
-            const dir = getComponentDir(term.component, task);
-            if(dir) val = componentMagnitude(f, dir);
-            else val = magnitude(f);
-          } else {
-            val = magnitude(f);
-          }
-        }
-        return `${term.name}[${comp}]=${val.toFixed(2)}`;
-      });
-      const rhsDetails = rel.rhs.map(term => {
-        const f = forceByName[term.name];
-        const comp = term.component || 'magnitude';
-        let val = 0;
-        if(f){
-          if(term.component){
-            const dir = getComponentDir(term.component, task);
-            if(dir) val = componentMagnitude(f, dir);
-            else val = magnitude(f);
-          } else {
-            val = magnitude(f);
-          }
-        }
-        return `${term.name}[${comp}]=${val.toFixed(2)}`;
-      });
+      const formatTerm = term => {
+        const suffix = {
+          horizontal: 'x',
+          vertical: 'y',
+          tangent: 't',
+          normal: 'n'
+        }[term.component];
+        return suffix ? `${term.name}_${suffix}` : `|${term.name}|`;
+      };
       
       const lhsV = sum(rel.lhs); const rhsV = sum(rel.rhs);
       const measuredRatio = rhsV===0? 0 : lhsV/rhsV;
@@ -579,6 +557,8 @@
       out.push({
         lhs: lhsNames.join('+'),
         rhs: rhsNames.join('+'),
+        lhsExpression: rel.lhs.map(formatTerm).join(' + '),
+        rhsExpression: rel.rhs.map(formatTerm).join(' + '),
         forceNames: allNames,
         missingNames,
         missingInvolved: missingNames.length>0,
@@ -976,17 +956,26 @@ if(r.anchorType === 'point'){
       debugOutput += `📏 ALLE KRAFTER (navn, lengde, retning, type):\n`;
       allForces.forEach(f => {
         if(!f.anchor || !f.arrowBase || !f.arrowTip) return;
-        const len = typeof f.force_len === 'number' ? f.force_len.toFixed(0) : '?';
+        const vec = f.vec;
+        const len = typeof f.length === 'number' ? f.length : (Array.isArray(vec) ? Math.hypot(vec[0], vec[1]) : null);
         const dirV = Array.isArray(f.force_dir) ? `(${f.force_dir[0].toFixed(2)}, ${f.force_dir[1].toFixed(2)})` : '?';
         const kind = f.isExpected === false || f.moveable === false ? 'låst' : 'tegnet';
-        debugOutput += `  ${f.name || '(uten navn)'}: ${len}px, dir ${dirV}, ${kind}\n`;
+        const plane = task.scene && task.scene.plane;
+        const fx = Array.isArray(vec) ? vec[0] : null;
+        const fy = Array.isArray(vec) ? vec[1] : null;
+        const ftDir = plane && getComponentDir('tangent', task);
+        const fnDir = plane && getComponentDir('normal', task);
+        const ft = Array.isArray(vec) && ftDir ? vec[0]*ftDir[0] + vec[1]*ftDir[1] : null;
+        const fn = Array.isArray(vec) && fnDir ? vec[0]*fnDir[0] + vec[1]*fnDir[1] : null;
+        const fmt = value => typeof value === 'number' ? value.toFixed(1) : '?';
+        debugOutput += `  ${f.name || '(uten navn)'}: F_x=${fmt(fx)}, F_y=${fmt(fy)}, F_t=${fmt(ft)}, F_n=${fmt(fn)}, |F|=${fmt(len)}px, dir ${dirV}, ${kind}\n`;
       });
 
       if(relationResults && relationResults.length){
         debugOutput += `⚖️ RELASJONER:\n`;
         relationResults.forEach(r => {
           const status = r.ok ? '✓' : '✗';
-          debugOutput += `  ${status} ${r.lhs} = ${r.rhs}: målt forhold ${r.measuredRatio.toFixed(2)}, forventet ${r.expectedRatio}, avvik ${(r.relError*100).toFixed(0)}% (tol ${(r.tolRel*100).toFixed(0)}%), score ${(r.relScore*100).toFixed(0)}%`;
+          debugOutput += `  ${status} ${r.lhsExpression || r.lhs} = ${r.rhsExpression || r.rhs}: målt forhold ${r.measuredRatio.toFixed(2)}, forventet ${r.expectedRatio}, avvik ${(r.relError*100).toFixed(0)}% (tol ${(r.tolRel*100).toFixed(0)}%), score ${(r.relScore*100).toFixed(0)}%`;
           if(r.missingNames && r.missingNames.length) debugOutput += `, mangler: ${r.missingNames.join(', ')}`;
           debugOutput += `\n`;
         });

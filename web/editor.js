@@ -131,6 +131,7 @@ window.tasks = [];
     
     // Draw test forces
     if(window.fm){
+      window.drawForceGridTrace(ctx,window.fm.forces[window.fm.activeIndex]);
       window.fm.drawAll(ctx);
     }
     
@@ -3429,6 +3430,7 @@ window.tasks = [];
     // If active force is drawing/dragging, forward motion
     if(active){
       let usePos = pos;
+      let snapDirection = null;
       // snapping for arrowTip while drawing or dragging arrowTip
       if(window.enableSnap && (active.drawing || active.dragging==='arrowTip')){
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
@@ -3438,25 +3440,14 @@ window.tasks = [];
           (active.anchor && [active.anchor[0], active.anchor[1]]) ||
           (plane && plane.through) || window.DRAW_CENTER;
 
-        // Include other forces’ arrowBase/arrowTip as extra snap candidates
-        const extraPoints = [];
-        if(window.fm && window.fm.forces){
-          window.fm.forces.forEach((f)=>{
-            if(f===active) return;
-            if(f.arrowBase) extraPoints.push([f.arrowBase[0], f.arrowBase[1]]);
-            if(f.arrowTip)  extraPoints.push([f.arrowTip[0],  f.arrowTip[1]]);
-          });
-        }
-        const combinedPoints = window.snapPoints ? window.snapPoints.slice() : [];
-        Array.prototype.push.apply(combinedPoints, extraPoints);
-
-        const res = snapping.snap(pos, {
-          points:combinedPoints,
+        const res = snapping.snapForce(pos, {
+          force:active,task:window.currentTask,forces:window.fm.forces,
           gridStep:GRID_STEP,
           origin:baseOrigin,
-          axesDir:plane
+          tip:true
         });
         usePos = res.pos;
+        snapDirection = res.direction;
         if(geometry.length([usePos[0]-pos[0], usePos[1]-pos[1]]) > 1){
           window.snapIndicator = {pos:usePos};
         } else {
@@ -3479,19 +3470,8 @@ window.tasks = [];
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
         const anchorOrigin = active.anchor ? active.anchor : (plane && plane.through ? plane.through : window.DRAW_CENTER);
         const base = active.arrowBase;
-        // Include other forces' arrowBase/arrowTip as additional scene points
-        const extraPoints = [];
-        if(window.fm && window.fm.forces){
-          window.fm.forces.forEach((f)=>{
-            if(f===active) return;
-            if(f.arrowBase) extraPoints.push([f.arrowBase[0], f.arrowBase[1]]);
-            if(f.arrowTip) extraPoints.push([f.arrowTip[0], f.arrowTip[1]]);
-          });
-        }
-        const combinedPoints = window.snapPoints ? window.snapPoints.slice() : [];
-        Array.prototype.push.apply(combinedPoints, extraPoints);
-        // snap arrowBase using guideline-aware snapping with combined points
-        const resBase = snapping.snap(base, {points:combinedPoints, gridStep:GRID_STEP, origin:anchorOrigin, axesDir:plane});
+        const resBase = snapping.snapForce(base, {force:active,task:window.currentTask,forces:window.fm.forces,gridStep:GRID_STEP,origin:anchorOrigin});
+        snapDirection = resBase.direction;
         const snappedBase = resBase.pos;
         const dx = snappedBase[0]-base[0];
         const dy = snappedBase[1]-base[1];
@@ -3505,9 +3485,12 @@ window.tasks = [];
       }
       // build guidelines: follow mousepos; origin = arrowBase if present, else fallback DRAW_CENTER
       if(window.enableGuidelines){
-        const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
-        let originForGuidelines = (active && active.arrowBase) ? active.arrowBase : window.DRAW_CENTER;
-        window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, plane);
+        const originForGuidelines = active.dragging==='body' && active.anchor
+          ? active.anchor : (active.arrowBase || window.DRAW_CENTER);
+        window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, snapDirection ? {t_vec:snapDirection} : null);
+        if(active.drawing || active.dragging==='arrowTip'){
+          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces));
+        }
       } else {
         window.currentGuidelines = null;
       }

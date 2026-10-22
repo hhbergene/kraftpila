@@ -29,11 +29,56 @@
     if(!window.enableGuidelines || !window.currentGuidelines) return;
     ctx.lineWidth = 1;
     window.currentGuidelines.forEach(gl=>{
+      ctx.lineWidth = gl.lineWidth || 1;
       ctx.strokeStyle = gl.color || '#ccc';
-      if(gl.dashed){ ctx.setLineDash([8,6]); } else { ctx.setLineDash([]); }
+      if(gl.dashed){ ctx.setLineDash(gl.dash || [8,6]); } else { ctx.setLineDash([]); }
       ctx.beginPath(); ctx.moveTo(gl.a[0] + 0.5, gl.a[1] + 0.5); ctx.lineTo(gl.b[0] + 0.5, gl.b[1] + 0.5); ctx.stroke();
     });
     ctx.setLineDash([]);
+  }
+
+  function drawForceGridTrace(ctx,force){
+    if(!window.enableGuidelines || !force) return;
+    const g=window.geometry,base=force.arrowBase,tip=force.arrowTip;
+    if(!g.finitePoint(base)||!g.finitePoint(tip)) return;
+    const length=g.distance(base,tip);
+    if(!Number.isFinite(length)||length<1e-6) return;
+    const t=[(tip[0]-base[0])/length,(tip[1]-base[1])/length];
+    const n=[-t[1],t[0]],halfWidth=GRID_STEP/2,arm=GRID_STEP/2;
+    const corners=[
+      [base[0]+n[0]*halfWidth,base[1]+n[1]*halfWidth],
+      [tip[0]+n[0]*halfWidth,tip[1]+n[1]*halfWidth],
+      [tip[0]-n[0]*halfWidth,tip[1]-n[1]*halfWidth],
+      [base[0]-n[0]*halfWidth,base[1]-n[1]*halfWidth]
+    ];
+    const major=Math.abs(t[0])>=Math.abs(t[1])?0:1,minor=1-major;
+    const first=Math.ceil((Math.min(...corners.map(p=>p[major]))-arm-base[major])/GRID_STEP);
+    const last=Math.floor((Math.max(...corners.map(p=>p[major]))+arm-base[major])/GRID_STEP);
+    // Enumerate a narrow strip, not the full bounding box of a diagonal arrow.
+    const margin=(halfWidth+arm*Math.SQRT2)/Math.abs(t[major]);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(...corners[0]);
+    for(const corner of corners.slice(1)) ctx.lineTo(...corner);
+    ctx.closePath();
+    ctx.clip();
+    ctx.strokeStyle='#8296aa';
+    ctx.lineWidth=1;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    for(let i=first;i<=last;i++){
+      const along=i*GRID_STEP,center=along*t[minor]/t[major];
+      const low=Math.ceil((center-margin)/GRID_STEP),high=Math.floor((center+margin)/GRID_STEP);
+      for(let j=low;j<=high;j++){
+        const point=base.slice();
+        point[major]+=along;
+        point[minor]+=j*GRID_STEP;
+        ctx.moveTo(point[0]-arm,point[1]);ctx.lineTo(point[0]+arm,point[1]);
+        ctx.moveTo(point[0],point[1]-arm);ctx.lineTo(point[0],point[1]+arm);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawPlane(ctx, plane, isDim){
@@ -983,6 +1028,20 @@
         };
       });
     }
+    const allPoints = buildAllScenePointsBase(task);
+    for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['texts','text']]){
+      (task.scene[collection] || []).forEach((element,index)=>{
+        const entry = allPoints[`${prefix}${index}`];
+        if(entry){
+          const enabled = element.snapping !== false;
+          lookup[`${prefix}${index}`] = {
+            snapping:enabled,
+            points:enabled ? entry.points : {},
+            segments:enabled ? entry.segments : {}
+          };
+        }
+      });
+    }
     (task.scene.points||[]).forEach((p,i)=>{
       if(p?.id&&validPos(p.pos)){
         lookup[p.id]={snapping:true,points:{center:cp(p.pos)},segments:{}};
@@ -1143,10 +1202,55 @@
     return lookup;
   }
 
+  function forceSnapDirections(task,anchor){
+    const g=window.geometry, directions=[];
+    if(!g.finitePoint(anchor) || !task?.scene) return directions;
+    const lookup=buildSceneLookup(task);
+    const add=vector=>{
+      if(!g.finitePoint(vector)) return;
+      const length=Math.hypot(...vector);
+      if(length<1e-10) return;
+      const unit=vector.map(v=>v/length);
+      if(!directions.some(d=>Math.abs(g.cross(d,unit))<1e-8)) directions.push(unit);
+    };
+    for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['rects','rect'],['circles','circle'],['ellipses','ellipse']]){
+      (task.scene[collection]||[]).forEach((element,index)=>{
+        const entry=lookup[`${prefix}${index}`];
+        if(!entry || entry.snapping===false) return;
+        const atPoint=Object.entries(entry.points).find(([,p])=>g.finitePoint(p)&&g.distance(p,anchor)<=1e-6);
+        if(!atPoint) return;
+        if(collection==='segments'||collection==='arrows'){
+          const direction=[element.b[0]-element.a[0],element.b[1]-element.a[1]];
+          add(direction);add([-direction[1],direction[0]]);
+        } else if(collection==='rects'){
+          add(element.t_vec||[1,0]);
+          add(element.n_vec||[0,-1]);
+        } else {
+          const ellipse=collection==='circles'
+            ? {...element,width:element.radius*2,height:element.radius*2} : element;
+          const frame=g.ellipseFrame(ellipse);
+          if(!frame) return;
+          if(atPoint[0]==='center'){
+            add(frame.t);add(frame.n);
+          } else {
+            const delta=[anchor[0]-frame.center[0],anchor[1]-frame.center[1]];
+            const x=g.dot(delta,frame.t)/(frame.rx*frame.rx);
+            const y=g.dot(delta,frame.n)/(frame.ry*frame.ry);
+            const normal=[x*frame.t[0]+y*frame.n[0],x*frame.t[1]+y*frame.n[1]];
+            add(normal);add([-normal[1],normal[0]]);
+          }
+        }
+      });
+    }
+    return directions;
+  }
+
+  window.forceSnapDirections = forceSnapDirections;
   window.drawScene = drawScene;
   window.buildSceneLookup = buildSceneLookup;
   window.buildAllScenePoints = buildAllScenePoints;
   window.drawGrid = drawGrid;
   window.drawGuidelines = drawGuidelines;
+  window.drawForceGridTrace = drawForceGridTrace;
   window.rectPoints = rectPoints;
 })();

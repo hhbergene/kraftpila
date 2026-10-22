@@ -108,7 +108,7 @@
 
   // Composite snap: considers block/scene points and XY grid.
   function snap(pos, options){
-    const { points=[], gridStep=20, origin=[0,0], axesDir=null, priorityFactor=1.5 } = options || {};
+    const { points=[], gridStep=20, origin=[0,0], axesDir=null, relativeGridOnly=false } = options || {};
     //snap_old(pos, options); // for debugging comparison
     //return;
     // Check snapping enabled globally
@@ -120,6 +120,8 @@
     const ox = origin[0]||0, oy = origin[1]||0;
     const gx = Math.round((px - ox) / gridStep) * gridStep + ox;
     const gy = Math.round((py - oy) / gridStep) * gridStep + oy;
+    // Force geometry uses exact offsets from its base/anchor, not the canvas grid.
+    if(relativeGridOnly) return {pos:[gx,gy],source:'origin-grid'};
     // Round to ensure clean integer coordinates (avoid floating point errors)
     const gx_clean = Math.round(gx);
     const gy_clean = Math.round(gy);
@@ -135,6 +137,11 @@
     if(points && points.length){
       const np = nearestPoint(pos, points);
       if(np.point){ pointCandidate = { pos:[np.point[0], np.point[1]], source:'point', d2:np.d2 }; }
+    }
+
+    // Enabled scene anchors take priority over grids, including off-grid coordinates.
+    if(pointCandidate && pointCandidate.d2 <= SNAP_THRESHOLD*SNAP_THRESHOLD){
+      return {pos:pointCandidate.pos,source:'point'};
     }
 
     // Guideline candidates
@@ -159,16 +166,7 @@
       if(!guidelineBest || d2 < guidelineBest.d2){ guidelineBest = { pos:[c[0],c[1]], source:'guideline', d2 }; }
     }
 
-    // Priority rule:
-    // Grid snapping (origin-based or pure) should be preferred over guideline/point snapping
-    // because grid gives clean integer coordinates, while guideline/point can have decimals.
-    const HALF_GRID2 = (gridStep/2)*(gridStep/2);
-    const PRIORITY_GRID2 = (gridStep*priorityFactor)*(gridStep*priorityFactor);
-    const originGridClose = originCandidate.d2 <= HALF_GRID2;
-    const pointClose = pointCandidate && pointCandidate.d2 <= PRIORITY_GRID2;
-    const guidelineClose = guidelineBest && guidelineBest.d2 <= PRIORITY_GRID2;
-    
-    // IMPORTANT: Check pure grid FIRST - if very close (within 2px), prefer it regardless of other candidates
+    // With no nearby scene anchor, keep the existing grid/guideline priority.
     const PURE_GRID_THRESHOLD2 = 2*2;
     if(gridCandidate.d2 <= PURE_GRID_THRESHOLD2){
       return { pos: gridCandidate.pos, source: 'grid' };
@@ -196,6 +194,116 @@
     return { pos: best.pos, source: best.source };
   }
 
+  function snapForce(pos,{force,task,forces=[],origin,gridStep=20,tip=false}){
+    const grid=snap(pos,{origin,gridStep,relativeGridOnly:true});
+    if(!window.enableSnap) return grid;
+    const g=window.geometry;
+    const candidates=[{...grid,rank:3}];
+    const add=(point,source,rank,direction=null,component=null)=>{
+      if(g.finitePoint(point)) candidates.push({pos:point,source,rank,direction,component});
+    };
+    if(!tip){
+      const absolute=snap(pos,{origin:[0,0],gridStep,relativeGridOnly:true});
+      add(absolute.pos,'grid',3);
+    }
+    for(const other of forces){
+      if(other===force) continue;
+      for(const point of [other.arrowTip,other.arrowBase]){
+        if(g.finitePoint(point)&&g.distance(point,pos)<=SNAP_THRESHOLD){
+          add(point.slice(),'force-point',0);
+        }
+      }
+    }
+    const delta=[pos[0]-origin[0],pos[1]-origin[1]];
+    const directions=window.forceSnapDirections(task,force.anchor)
+      .filter(direction=>Math.abs(g.cross(delta,direction))<=8);
+    if(tip){
+      const components=[[],[]];
+      for(const other of forces){
+        if(other===force || !g.finitePoint(other.arrowBase)||!g.finitePoint(other.arrowTip)) continue;
+        for(const axis of [0,1]){
+          const size=Math.abs(other.arrowTip[axis]-other.arrowBase[axis]);
+          if(!Number.isFinite(size)) continue;
+          for(const offset of size===0 ? [0] : [size,-size]){
+            if(!components[axis].some(value=>Math.abs(value-offset)<1e-8)){
+              components[axis].push(offset);
+            }
+          }
+        }
+      }
+      for(const axis of [0,1]){
+        for(const offset of components[axis]){
+          const coordinate=origin[axis]+offset;
+          if(Math.abs(pos[axis]-coordinate)>8) continue;
+          const component={axis,coordinate};
+          if(!directions.length){
+            const point=pos.slice();point[axis]=coordinate;
+            add(point,'force-component',1,null,component);
+          } else {
+            // Do not also offer a free projection that would override the direction.
+            for(const direction of directions){
+              let point;
+              if(Math.abs(direction[axis])<1e-10){
+                if(Math.abs(offset)>1e-8) continue;
+                const along=g.dot(delta,direction);
+                point=[origin[0]+along*direction[0],origin[1]+along*direction[1]];
+              } else {
+                const along=offset/direction[axis];
+                point=[origin[0]+along*direction[0],origin[1]+along*direction[1]];
+              }
+              point[axis]=coordinate;
+              if(g.distance(pos,point)<=8) add(point,'force-component',1,direction,component);
+            }
+          }
+        }
+      }
+    }
+    for(const direction of directions){
+      const projection=g.dot(delta,direction);
+      // Adjacent grid lines around the projection contain the nearest intersections.
+      for(const axis of [0,1]){
+        if(Math.abs(direction[axis])<1e-10) continue;
+        const coordinate=projection*direction[axis]/gridStep;
+        for(const step of [Math.floor(coordinate),Math.ceil(coordinate)]){
+          const distance=step*gridStep/direction[axis];
+          const point=[origin[0]+distance*direction[0],origin[1]+distance*direction[1]];
+          point[axis]=origin[axis]+step*gridStep;
+          add(point,'scene-direction',2,direction);
+        }
+      }
+    }
+    const squaredDistance=point=>(point[0]-pos[0])**2+(point[1]-pos[1])**2;
+    let best=candidates[0],bestDistance=squaredDistance(best.pos);
+    for(const candidate of candidates.slice(1)){
+      const distance=squaredDistance(candidate.pos);
+      if(distance<bestDistance || (distance===bestDistance&&candidate.rank<best.rank)){
+        best=candidate;bestDistance=distance;
+      }
+    }
+    return {pos:best.pos,source:best.source,direction:best.direction||null,component:best.component||null};
+  }
+
+  function buildMatchedComponentGuidelines(force,forces){
+    const g=window.geometry,lines=[];
+    if(!window.enableSnap || !g.finitePoint(force.arrowBase)||!g.finitePoint(force.arrowTip)) return lines;
+    for(const axis of [0,1]){
+      const size=Math.abs(force.arrowTip[axis]-force.arrowBase[axis]);
+      if(!Number.isFinite(size)) continue;
+      const matched=forces.some(other=>other!==force &&
+        g.finitePoint(other.arrowBase)&&g.finitePoint(other.arrowTip)&&
+        Math.abs(Math.abs(other.arrowTip[axis]-other.arrowBase[axis])-size)<=1e-8);
+      if(!matched) continue;
+      const componentAxis=1-axis;
+      const fromBase=force.arrowBase.slice(),fromTip=force.arrowTip.slice();
+      fromBase[componentAxis]=force.arrowTip[componentAxis];
+      fromTip[componentAxis]=force.arrowBase[componentAxis];
+      const style={color:window.forceArrowColor(force,true),dashed:true,dash:[4,3],lineWidth:1};
+      lines.push({a:force.arrowBase.slice(),b:fromBase,...style},
+        {a:force.arrowTip.slice(),b:fromTip,...style});
+    }
+    return lines;
+  }
+
   // Guidelines: produce line segments for rendering
   function buildGuidelines(anchor, mousePos, plane){
     const lines = [];
@@ -218,5 +326,5 @@
     return lines;
   }
 
-  window.snapping = { buildSnapPoints, snapPoint, buildGuidelines, snap };
+  window.snapping = { buildSnapPoints, snapPoint, buildGuidelines, buildMatchedComponentGuidelines, snap, snapForce };
 })();

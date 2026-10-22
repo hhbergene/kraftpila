@@ -18,6 +18,18 @@
     return out;
   }
 
+  function forceArrowColor(force,active=false){
+    const isExpected=force.isExpected===undefined ? force.moveable!==false : force.isExpected;
+    let color=force.checkHighlight ? HIGHLIGHT_FORCE_COLOR : (active ? ACTIVE_FORCE_COLOR : FORCE_COLOR);
+    if(!isExpected) color='#2d7d2d';
+    if(['body','arrowTip'].includes(force.dragging) || ['body','arrowTip'].includes(force.hovering)){
+      color=HIGHLIGHT_FORCE_COLOR;
+    }
+    return color;
+  }
+
+  window.forceArrowColor=forceArrowColor;
+
   class Force {
     constructor(){
       this.anchor = null;     // attack point
@@ -229,11 +241,7 @@
         ctx.beginPath(); ctx.moveTo(this.anchor[0], this.anchor[1]); ctx.lineTo(this.arrowBase[0], this.arrowBase[1]); ctx.stroke();
 
         // arrow body
-        let arrowColor = evalHighlighted ? HIGHLIGHT_FORCE_COLOR : (active ? ACTIVE_FORCE_COLOR : FORCE_COLOR);
-        // Use green color for initial forces (in all modes)
-        if(isInitial) arrowColor = '#2d7d2d';
-        if(this.dragging==='body' || this.hovering==='body') arrowColor = HIGHLIGHT_FORCE_COLOR;
-        if(this.dragging==='arrowTip' || this.hovering==='arrowTip') arrowColor = HIGHLIGHT_FORCE_COLOR;
+        const arrowColor = forceArrowColor(this,active);
 
         ctx.lineWidth = 4;
         ctx.strokeStyle = arrowColor;

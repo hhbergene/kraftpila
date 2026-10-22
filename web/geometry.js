@@ -113,5 +113,75 @@
     return minDist;
   }
 
-  window.geometry = { distance, distPointToSegment, distPointOrSegment, xOnLine, yOnLine, length, normalizeVector, tangentFromNormal, normalFromTangent };
+  function cross(a,b){ return a[0]*b[1]-a[1]*b[0]; }
+  function dot(a,b){ return a[0]*b[0]+a[1]*b[1]; }
+  function finitePoint(p){ return Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]); }
+  function wrapRadians(a){ return ((a % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI); }
+  function ellipseFrame(ellipse){
+    if(!ellipse || !finitePoint(ellipse.center)) return null;
+    const rx = Number(ellipse.width)/2, ry = Number(ellipse.height)/2;
+    if(!(rx > EPS) || !(ry > EPS) || !Number.isFinite(rx+ry)) return null;
+    const rawT = Array.isArray(ellipse.t_vec) ? ellipse.t_vec :
+      (Array.isArray(ellipse.n_vec) ? [-ellipse.n_vec[1], ellipse.n_vec[0]] : [1,0]);
+    const t = normalizeVector(rawT);
+    if(length(t) < 1-EPS) return null;
+    return {center: ellipse.center, rx, ry, t, n: [t[1], -t[0]]};
+  }
+  function ellipsePoint(ellipse, angleDeg){
+    const f = ellipseFrame(ellipse);
+    if(!f || !Number.isFinite(angleDeg)) return null;
+    const a = angleDeg*Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+    return [f.center[0]+f.rx*c*f.t[0]+f.ry*s*f.n[0],
+      f.center[1]+f.rx*c*f.t[1]+f.ry*s*f.n[1]];
+  }
+  function ellipseParameter(ellipse, point){
+    const f = ellipseFrame(ellipse);
+    if(!f || !finitePoint(point)) return NaN;
+    const d = [point[0]-f.center[0], point[1]-f.center[1]];
+    return wrapRadians(Math.atan2(dot(d,f.n)/f.ry, dot(d,f.t)/f.rx));
+  }
+  function ellipseSweep(ellipse){
+    const start = Number.isFinite(ellipse?.startAngleDeg) ? ellipse.startAngleDeg : 0;
+    const end = Number.isFinite(ellipse?.endAngleDeg) ? ellipse.endAngleDeg : 360;
+    let sweep = ((end-start)%360+360)%360;
+    if(Math.abs(sweep) < 1e-10 && Math.abs(end-start) >= 360-1e-10) sweep = 360;
+    return {start: ((start%360)+360)%360, sweep};
+  }
+  function ellipseAngleInSweep(ellipse, angleDeg, toleranceDeg=1e-7){
+    const {start,sweep} = ellipseSweep(ellipse);
+    if(sweep >= 360-toleranceDeg) return true;
+    if(sweep <= toleranceDeg) return false;
+    const delta = ((angleDeg-start)%360+360)%360;
+    return delta <= sweep+toleranceDeg;
+  }
+  function ellipseBoundaryPoints(ellipse){
+    const out = [];
+    const sweep = ellipseSweep(ellipse);
+    if(sweep.sweep <= 1e-10) return out;
+    for(const a of [0,90,180,270]){
+      if(ellipseAngleInSweep(ellipse,a)) out.push({name:({0:'right_middle',90:'top_center',180:'left_middle',270:'bottom_center'})[a],pos:ellipsePoint(ellipse,a),angleDeg:a});
+    }
+    if(sweep.sweep < 360-1e-10){
+      out.push({name:'arc_start',pos:ellipsePoint(ellipse,sweep.start),angleDeg:sweep.start});
+      out.push({name:'arc_end',pos:ellipsePoint(ellipse,sweep.start+sweep.sweep),angleDeg:sweep.start+sweep.sweep});
+    }
+    return out;
+  }
+  function sampleEllipse(ellipse, maxError=0.25){
+    const frame=ellipseFrame(ellipse),interval=ellipseSweep(ellipse);
+    if(!frame||interval.sweep<=1e-10)return [];
+    const radius=Math.max(frame.rx,frame.ry),error=Number.isFinite(maxError)&&maxError>0?maxError:0.25;
+    const step=Math.min(Math.PI/45,2*Math.acos(Math.max(-1,1-error/radius)));
+    const count=Math.max(1,Math.ceil(interval.sweep*Math.PI/180/Math.max(step,1e-5)));
+    const segments=[];
+    let previous=ellipsePoint(ellipse,interval.start);
+    for(let i=1;i<=count;i++){
+      const next=ellipsePoint(ellipse,interval.start+interval.sweep*i/count);
+      segments.push([previous,next]);previous=next;
+    }
+    return segments;
+  }
+
+  window.geometry = { distance, distPointToSegment, distPointOrSegment, xOnLine, yOnLine, length, normalizeVector, tangentFromNormal, normalFromTangent,
+    cross, dot, finitePoint, wrapRadians, ellipseFrame, ellipsePoint, ellipseParameter, ellipseSweep, ellipseAngleInSweep, ellipseBoundaryPoints, sampleEllipse };
 })();

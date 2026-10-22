@@ -1,0 +1,4148 @@
+{
+  "tasks": [
+    {
+      "id": "task_1791480987568_u6brmhjow",
+      "title": "Tegn tyngdekraften på en fallende ball",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "På en ball som faller fritt mot bakken virker det bare en kraft:",
+        "G - Tyngdekraften",
+        "Tyngdekraften er en fjernkraft, og angrepspunktet skal tegnes i massemidtpunktet til ballen.",
+        "Tegn tyngdekraften."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            480
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [
+              520,
+              240
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "snapping": true,
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Trykk på Oppgave-knappen over for flere detaljer",
+            "pos": [
+              440,
+              20
+            ],
+            "size": 14,
+            "align": "right",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              440,
+              20
+            ]
+          },
+          {
+            "txt": "Tegn inn tyngdekraften G.",
+            "pos": [
+              240,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              240,
+              80
+            ]
+          },
+          {
+            "txt": "- Klikk i ballens sentrum og dra rett ned.",
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              240,
+              99
+            ]
+          },
+          {
+            "txt": "- Husk å navngi kraften.",
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              240,
+              118
+            ]
+          },
+          {
+            "txt": "Trykk på Sjekk-knappen før du går til neste oppgave",
+            "pos": [
+              480,
+              20
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              480,
+              20
+            ],
+            "linked": false
+          },
+          {
+            "txt": "v",
+            "pos": [
+              340,
+              240
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              340,
+              240
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              360,
+              220
+            ],
+            "b": [
+              360,
+              260
+            ],
+            "snapping": false
+          }
+        ],
+        "rects": [],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              520,
+              240
+            ],
+            "arrowBase": [
+              520,
+              240
+            ],
+            "arrowTip": [
+              520,
+              320
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {},
+      "relations": [],
+      "taskTitle": "Intro 1",
+      "taskSubTitle": "Intro 1",
+      "subTitle": "Intro 1"
+    },
+    {
+      "id": "task_1791480987568_2u5txto26",
+      "title": "Snordrag på ball",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En ball henger i ro i en snor. Det virker to krefter:",
+        "G - Tyngdekraften",
+        "S - Snordraget",
+        "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
+        "Tegn snordraget."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            499,
+            499.6666660308838
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [
+              500,
+              240
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "-Tegn snordraget",
+            "pos": [
+              200,
+              114
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              114
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              180
+            ],
+            "b": [
+              500,
+              40
+            ],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 520,
+            "height": 20,
+            "bottomCenter": [
+              740,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "top_center"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              180
+            ],
+            "arrowBase": [
+              520,
+              180
+            ],
+            "arrowTip": [
+              520,
+              100
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            240
+          ],
+          "arrowBase": [
+            500,
+            240
+          ],
+          "arrowTip": [
+            500,
+            320
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "origin",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {},
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Intro 2",
+      "taskSubTitle": "Intro 2",
+      "subTitle": "Intro 2"
+    },
+    {
+      "id": "task_1791480987569_qg12erkik",
+      "title": "Normalkraften fra underlaget",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "På en ball som ligger i ro på bakken virker det to krefter:",
+        "G - Tyngdekraften",
+        "N - Normalkraften fra underlaget",
+        "Normalkraften er en kontaktkraft som angriper i kontaktpunktet med bakken.",
+        "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
+        "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            340
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [
+              500,
+              280
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "-Tegn normalkraften fra underlaget",
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              114
+            ],
+            "pos": [
+              200,
+              114
+            ],
+            "linked": false
+          }
+        ],
+        "segments": [],
+        "rects": [],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "N",
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "bottom_center"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              340
+            ],
+            "arrowBase": [
+              520,
+              340
+            ],
+            "arrowTip": [
+              520,
+              240
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            280
+          ],
+          "arrowBase": [
+            480,
+            280
+          ],
+          "arrowTip": [
+            480,
+            380
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {},
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Intro 3",
+      "taskSubTitle": "Intro 3",
+      "subTitle": "Intro 3"
+    },
+    {
+      "id": "task_1791480987570_9dzqpjzzk",
+      "title": "Kloss i ro på horisontalt underlag",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        360
+      ],
+      "help_lines": [
+        "En kloss ligger i ro på et horisontalt underlag.",
+        "Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "dirPoint": [
+            500,
+            300
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v=0 (konstant)",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              442,
+              338
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              442,
+              338
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              480,
+              300
+            ],
+            "arrowTip": [
+              480,
+              400
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              520,
+              360
+            ],
+            "arrowTip": [
+              520,
+              260
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Kloss i ro på horisontalt underlag",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987571_i2kw1klmh",
+      "title": "Kloss med konstant fart på horisontalt underlag",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "Vi trekker en kloss på et horisontalt underlag med friksjon med en kraft F horisontalt mot høyre.",
+        "Tegn de andre kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              460,
+              144
+            ],
+            "b": [
+              540,
+              144
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn de andre kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              500,
+              122
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              122
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              442,
+              338
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              442,
+              338
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              540,
+              300
+            ],
+            "arrowTip": [
+              540,
+              400
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              460,
+              360
+            ],
+            "arrowTip": [
+              460,
+              260
+            ]
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjon",
+            "fr"
+          ],
+          "dir": [
+            -1,
+            0
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              420,
+              360
+            ],
+            "arrowBase": [
+              420,
+              340
+            ],
+            "arrowTip": [
+              360,
+              340
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "F",
+          "anchor": [
+            580,
+            300
+          ],
+          "arrowBase": [
+            580,
+            300
+          ],
+          "arrowTip": [
+            640,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "right_middle"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "F"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "R"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Kloss med konstant fart på horisontalt underlag",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791480987572_yjio90r9e",
+      "title": "Kloss på kloss i ro horisontalt",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "En kloss B ligger oppå kloss A på et horisontalt underlag. Begge klossene ligger i ro. ",
+        "Tyngden til A er dobbelt så stor som tyngden til B. ",
+        "Tegn kreftene som virker på kloss A."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          },
+          {
+            "width": 120,
+            "height": 80,
+            "bottomCenter": [
+              500,
+              240
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "m_A = 2 · m_B",
+            "pos": [
+              375,
+              124
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              124
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              440,
+              260
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              440,
+              260
+            ]
+          },
+          {
+            "txt": "B",
+            "pos": [
+              460,
+              180
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              460,
+              180
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              460,
+              300
+            ],
+            "arrowTip": [
+              460,
+              380
+            ]
+          }
+        },
+        {
+          "name": "N_{AB}",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              500,
+              280
+            ]
+          }
+        },
+        {
+          "name": "N_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "bottom_center"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              540,
+              360
+            ],
+            "arrowTip": [
+              540,
+              240
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G_B",
+          "anchor": [
+            500,
+            200
+          ],
+          "arrowBase": [
+            480,
+            200
+          ],
+          "arrowTip": [
+            480,
+            240
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "center"
+          }
+        },
+        {
+          "name": "N_B",
+          "anchor": [
+            500,
+            240
+          ],
+          "arrowBase": [
+            520,
+            240
+          ],
+          "arrowTip": [
+            520,
+            200
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect1",
+            "segment": "bottom"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G_A",
+              "component": "magnitude"
+            },
+            {
+              "name": "N_{AB}",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N_A",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Kloss på kloss i ro horisontalt",
+      "taskSubTitle": ""
+    },
+    {
+      "id": "task_1791600000003_ai0004abc",
+      "title": "Trekke kasse med vinkel",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En kasse trekkes mot venstre langs et horisontalt underlag med en snor festet i senter av kassen slik at kassen får konstant fart",
+        "Snordraget-S og tyngdekraften-G er tegnet in. ",
+        "Tegn de andre kreftene som virker på klossen:",
+        "N - Normalkraften fra underlaget. ",
+        "R - Friksjonen fra underlaget. "
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            480
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "En kasse trekkes mot venstre.",
+            "pos": [
+              150,
+              90
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              150,
+              90
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              420
+            ],
+            "b": [
+              360,
+              340
+            ],
+            "snapping": true,
+            "color": "#545454",
+            "lineWidth": 8
+          }
+        ],
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              480
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "color": "#000000"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S",
+          "anchor": {
+            "type": "segment",
+            "ref": "segment0",
+            "segment": "segment"
+          },
+          "dir": [
+            -0.866,
+            -0.5
+          ],
+          "drawn": {
+            "anchor": [
+              430,
+              380
+            ],
+            "arrowBase": [
+              500,
+              420
+            ],
+            "arrowTip": [
+              431,
+              380
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              480
+            ],
+            "arrowBase": [
+              520,
+              480
+            ],
+            "arrowTip": [
+              520,
+              440
+            ]
+          }
+        },
+        {
+          "name": "R",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              480
+            ],
+            "arrowBase": [
+              580,
+              480
+            ],
+            "arrowTip": [
+              630,
+              480
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            420
+          ],
+          "arrowBase": [
+            500,
+            420
+          ],
+          "arrowTip": [
+            500,
+            500
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
+      ],
+      "taskTitle": "Trekke kasse med vinkel",
+      "taskSubTitle": "Dekomponering",
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "N",
+              "component": "magnitude"
+            },
+            {
+              "name": "S",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {},
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791600000004_ai0005abc",
+      "title": "Summer 4 krefter",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "Fire krefter virker på en masse: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre ",
+        "Tegn ΣF - Summen av kreftene. "
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn resultanten \\sumF",
+            "pos": [
+              150,
+              90
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              150,
+              90
+            ]
+          },
+          {
+            "txt": "8 N",
+            "pos": [
+              500,
+              200
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              200
+            ]
+          },
+          {
+            "txt": "4 N",
+            "pos": [
+              500,
+              360
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              360
+            ]
+          },
+          {
+            "txt": "8 N",
+            "pos": [
+              400,
+              300
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              400,
+              300
+            ]
+          },
+          {
+            "txt": "12 N",
+            "pos": [
+              640,
+              300
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              640,
+              300
+            ]
+          }
+        ],
+        "rects": [],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "ΣF",
+          "aliases": [
+            "F",
+            "sumF",
+            "\\sumF"
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              500,
+              300
+            ]
+          },
+          "dir": [
+            0.7071,
+            -0.7071
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              500,
+              300
+            ],
+            "arrowTip": [
+              540,
+              260
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "F_1",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            220
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "custom"
+          }
+        },
+        {
+          "name": "F_2",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            340
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "custom"
+          }
+        },
+        {
+          "name": "F_3",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            420,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "custom"
+          }
+        },
+        {
+          "name": "F_4",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            620,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "custom"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "ΣF",
+              "component": "vertical"
+            },
+            {
+              "name": "F_2",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_1",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "ΣF",
+              "component": "horizontal"
+            },
+            {
+              "name": "F_3",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_4",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Sum krefter",
+      "taskSubTitle": "\\sum F",
+      "sumF": {},
+      "subTitle": "\\sum F"
+    },
+    {
+      "id": "task_1791600000002_ai0003abc",
+      "title": "Kjeglependel",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En ball henger i en snor festet taket. Ballen beveger seg i en sirkelbevegelse med sentrum på loddlinja fra festepunktet. ",
+        "Kreftene som virker på ballen er tegnet inn:",
+        "G - Tyngdekraften",
+        "S - Snordraget i snora. ",
+        "Tegn summen av kreftene ΣF - (sumF) med angrepspunkt i senter av ballen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            640,
+            40
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            -0.8944271909999159,
+            -0.4472135954999579
+          ],
+          "t_vec": [
+            0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "dirPoint": [
+            560,
+            0
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 89.44271909999159,
+            "height": 89.44271909999159,
+            "center": [
+              520,
+              280
+            ],
+            "n_vec": [
+              0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "t_vec": [
+              0.8944271909999159,
+              0.4472135954999579
+            ],
+            "snapping": true
+          },
+          {
+            "width": 240,
+            "height": 40,
+            "center": [
+              640,
+              280
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "body": "dashed",
+            "color": "#6b6b6b"
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn summen av kreftene \\sumF (sumF)",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          }
+        ],
+        "arrows": [],
+        "segments": [
+          {
+            "a": [
+              540,
+              240
+            ],
+            "b": [
+              640,
+              40
+            ],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              640,
+              40
+            ],
+            "b": [
+              640,
+              280
+            ],
+            "snapping": false,
+            "body": "dashed",
+            "color": "#6e6e6e"
+          }
+        ],
+        "rects": [
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "ΣF",
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "aliases": [
+            "sumF",
+            "F"
+          ],
+          "drawn": {
+            "anchor": [
+              520,
+              280
+            ],
+            "arrowBase": [
+              520,
+              280
+            ],
+            "arrowTip": [
+              580,
+              280
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            520,
+            280
+          ],
+          "arrowBase": [
+            520,
+            280
+          ],
+          "arrowTip": [
+            520,
+            400
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
+        },
+        {
+          "name": "S",
+          "anchor": [
+            540,
+            240
+          ],
+          "arrowBase": [
+            540,
+            240
+          ],
+          "arrowTip": [
+            600,
+            120
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "top_center"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "ΣF"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S",
+              "component": "tangent"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Kjeglependel",
+      "taskSubTitle": "Sirkelbevegelse",
+      "sumF": {},
+      "subTitle": "Sirkelbevegelse"
+    },
+    {
+      "id": "task_1791480987575_d5vxa3521",
+      "title": "Bil i horisontal sving",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En bil kjører rett mot oss med konstant banefart i en sving med sentrum mot venstre.",
+        "Tegn kreftene som virker på bilen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            480
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              660,
+              480
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              482
+            ],
+            "b": [
+              820,
+              482
+            ],
+            "snapping": false
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              660,
+              540
+            ],
+            "b": [
+              300,
+              540
+            ],
+            "body": "dashed",
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på bilen.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "|v| = konstant",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "Til sentrum av sirkelbevegelsen",
+            "pos": [
+              500,
+              550
+            ],
+            "size": 12,
+            "align": "center",
+            "color": "#00f",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              550
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              660,
+              420
+            ],
+            "arrowBase": [
+              660,
+              420
+            ],
+            "arrowTip": [
+              660,
+              500
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              660,
+              480
+            ],
+            "arrowBase": [
+              680,
+              480
+            ],
+            "arrowTip": [
+              680,
+              400
+            ]
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjonskraft",
+            "R"
+          ],
+          "dir": [
+            -1,
+            0
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              580,
+              480
+            ]
+          },
+          "drawn": {
+            "anchor": [
+              580,
+              480
+            ],
+            "arrowBase": [
+              580,
+              460
+            ],
+            "arrowTip": [
+              500,
+              460
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N",
+              "component": "normal"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Bil i horisontal sving",
+      "taskSubTitle": "Sirkelbevegelse",
+      "subTitle": "Sirkelbevegelse"
+    },
+    {
+      "id": "task_1792664909003_dnr0pvg73",
+      "title": "Bil i dosert sving uten friksjon",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En bil kjører mot oss med konstant banefart i en dossert sving med sirkelform og sentrum mot venstre.",
+        "Tegn kreftene som virker på bilen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            520,
+            480
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            -0.3162277660168379,
+            -0.9486832980505138
+          ],
+          "t_vec": [
+            0.9486832980505138,
+            -0.3162277660168379
+          ],
+          "dirPoint": [
+            496.20001220703125,
+            428
+          ]
+        },
+        "rects": [
+          {
+            "width": 252.98221281347037,
+            "height": 126.49110640673518,
+            "bottomCenter": [
+              700,
+              420
+            ],
+            "angleDeg": 0,
+            "snapping": true,
+            "n_vec": [
+              -0.3162277660168379,
+              -0.9486832980505138
+            ],
+            "t_vec": [
+              0.9486832980505138,
+              -0.3162277660168379
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              520,
+              480
+            ],
+            "b": [
+              880,
+              360
+            ],
+            "snapping": false
+          },
+          {
+            "a": [
+              140,
+              480
+            ],
+            "b": [
+              520,
+              480
+            ],
+            "snapping": false
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              680,
+              540
+            ],
+            "b": [
+              300,
+              540
+            ],
+            "body": "dashed",
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på bilen.",
+            "pos": [
+              280,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              280,
+              80
+            ]
+          },
+          {
+            "txt": "|v| = konstant",
+            "pos": [
+              280,
+              100
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              280,
+              100
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Friksjon: \\mu = 0",
+            "pos": [
+              280,
+              120
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              280,
+              120
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Til sentrum av sirkelbevegelsen",
+            "pos": [
+              500,
+              550
+            ],
+            "size": 12,
+            "align": "center",
+            "color": "#00f",
+            "snapping": false,
+            "_renderedPos": [
+              500,
+              550
+            ],
+            "linked": false
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              680,
+              360
+            ],
+            "arrowBase": [
+              680,
+              360
+            ],
+            "arrowTip": [
+              680,
+              480
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            -0.316,
+            -0.949
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              700,
+              420
+            ],
+            "arrowBase": [
+              760,
+              400
+            ],
+            "arrowTip": [
+              720,
+              280
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N",
+              "component": "vertical"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [],
+          "rhs": [],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "task_1791480987575_d5vxa3521.",
+      "taskSubTitle": "Sirkelbevegelse",
+      "subTitle": "Sirkelbevegelse"
+    },
+    {
+      "id": "task_1791600000005_ai0006abc",
+      "title": "Hengende kasse -/",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En kasse henger i ro, festet med to snorer: en som går skrått opp til taket, og en som går vannrett til veggen.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i den skrå snora",
+        "S_2 - Snordraget i den vannrette snora",
+        "Den skrå snora er festet i kassens øvre høyre hjørne, og den vannrette snora er festet midt på venstre sideflate. Kreftene virker langs snorene, bort fra kassen.",
+        "Kassen er i ro, så ΣF = 0. Den vertikale komponenten av S_1 må være like stor som G, og den horisontale komponenten av S_1 må være like stor som S_2.",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          },
+          {
+            "txt": "Kassen henger i ro",
+            "pos": [
+              200,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              560,
+              240
+            ],
+            "b": [
+              760,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              440,
+              300
+            ],
+            "b": [
+              100,
+              300
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 120,
+            "height": 120.00000000362624,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0.000007774172613278579,
+              -0.9999999999697813
+            ],
+            "t_vec": [
+              0.9999999999697813,
+              0.000007774172613278579
+            ],
+            "snapping": true,
+            "color": "#000000"
+          },
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          },
+          {
+            "width": 20,
+            "height": 500,
+            "bottomCenter": [
+              90,
+              540
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              560,
+              240
+            ]
+          },
+          "dir": [
+            0.707,
+            -0.707
+          ],
+          "drawn": {
+            "anchor": [
+              560,
+              240
+            ],
+            "arrowBase": [
+              560.0009328989005,
+              240.0004664503568
+            ],
+            "arrowTip": [
+              640.0009328989005,
+              160.0004664503568
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "left"
+          },
+          "dir": [
+            -1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              440,
+              300
+            ],
+            "arrowBase": [
+              440,
+              300
+            ],
+            "arrowTip": [
+              360,
+              300
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500.0004664503568,
+            300
+          ],
+          "arrowBase": [
+            500.0004664503568,
+            300
+          ],
+          "arrowTip": [
+            500.0004664503568,
+            380
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "horizontal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_2"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Hengende kasse -/",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791600000006_ai0007abc",
+      "title": "Hengende kasse \\,-'",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En kasse henger i ro, festet med to snorer til taket. Snorene går i ulike retninger langs rutenettet.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i snora til venstre",
+        "S_2 - Snordraget i snora til høyre",
+        "Begge snorene er festet i samme punkt midt på kassens toppside. Kreftene virker langs snorene, bort fra kassen.",
+        "Kassen er i ro, så ΣF = 0. Summen av de vertikale komponentene til S_1 og S_2 må være like stor som G. De horisontale komponentene må være like store.",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          },
+          {
+            "txt": "Kassen henger i ro.",
+            "pos": [
+              200,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              500,
+              240
+            ],
+            "b": [
+              240,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              500,
+              240
+            ],
+            "b": [
+              900,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 120,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "color": "#000000"
+          },
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_center"
+          },
+          "dir": [
+            -0.8,
+            -0.6
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              420,
+              180
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_center"
+          },
+          "dir": [
+            0.8944,
+            -0.4472
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              500,
+              240
+            ],
+            "arrowTip": [
+              580,
+              200
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            400
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            },
+            {
+              "name": "S_2",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "horizontal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_2",
+              "component": "horizontal"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "taskTitle": "Kasse \\,-'",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791480987573_3k1992zvk",
+      "title": "Kloss på glatt skråplan",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En bil kjører mot oss med konstant banefart",
+        "i en dossert sving uten friksjon uten å skli.",
+        "Tegn kreftene som virker på bilen."
+      ],
+      "scene": {
+        "plane": {
+          "n_vec": [
+            -0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "t_vec": [
+            0.8944271909999159,
+            -0.4472135954999579
+          ]
+        },
+        "rects": [
+          {
+            "width": 178.88543819998318,
+            "height": 89.44271909999159,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "snapping": true,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              455.27864045000416,
+              181.11456180001684
+            ],
+            "b": [
+              383.72446517001094,
+              216.89164944001342
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "μ = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "v",
+            "pos": [
+              409.6628537090085,
+              179.325707418017
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "_renderedPos": [
+              409.6628537090085,
+              179.325707418017
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              438.2845238210058,
+              366.26099033699944
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              438.2845238210058,
+              366.26099033699944
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              480,
+              320
+            ]
+          },
+          "drawn": {
+            "anchor": [
+              480,
+              320
+            ],
+            "arrowBase": [
+              480,
+              320
+            ],
+            "arrowTip": [
+              480,
+              420
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            -0.447,
+            -0.894
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              540,
+              340
+            ],
+            "arrowTip": [
+              500,
+              260
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "sumF": {
+        "n": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Kloss på glatt skråplan",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791480987574_yqapzukcp",
+      "title": "Kloss på skråplan",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En kloss A sklir nedover et skråplan med konstant fart.",
+        "Tegn kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "n_vec": [
+            -0.4472135954999579,
+            -0.8944271909999159
+          ],
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "t_vec": [
+            0.8944271909999159,
+            -0.4472135954999579
+          ]
+        },
+        "rects": [
+          {
+            "width": 178.88543819998318,
+            "height": 89.44271909999159,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "snapping": true,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ]
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              455.27864045000416,
+              181.11456180001684
+            ],
+            "b": [
+              383.72446517001094,
+              216.89164944001342
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              409.6628537090085,
+              179.325707418017
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "_renderedPos": [
+              409.6628537090085,
+              179.325707418017
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              438.2845238210058,
+              366.26099033699944
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              438.2845238210058,
+              366.26099033699944
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G",
+          "aliases": [
+            "g",
+            "ga",
+            "tyngde",
+            "fg",
+            "G"
+          ],
+          "dir": [
+            0.002,
+            1
+          ],
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "drawn": {
+            "anchor": [
+              480,
+              320
+            ],
+            "arrowBase": [
+              479.8328157299975,
+              319.6656314599949
+            ],
+            "arrowTip": [
+              480,
+              420
+            ]
+          }
+        },
+        {
+          "name": "N",
+          "aliases": [
+            "n",
+            "na",
+            "normalkraft",
+            "r",
+            "fn",
+            "N"
+          ],
+          "dir": [
+            -0.447,
+            -0.894
+          ],
+          "anchor": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom"
+          },
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              520,
+              350
+            ],
+            "arrowTip": [
+              480,
+              270
+            ]
+          }
+        },
+        {
+          "name": "R",
+          "aliases": [
+            "r",
+            "ra",
+            "friksjonskraft",
+            "R"
+          ],
+          "dir": [
+            0.894,
+            -0.447
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              580,
+              320
+            ]
+          },
+          "drawn": {
+            "anchor": [
+              580,
+              320
+            ],
+            "arrowBase": [
+              570,
+              300
+            ],
+            "arrowTip": [
+              610,
+              280
+            ]
+          }
+        }
+      ],
+      "initialForces": [],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "normal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        },
+        {
+          "lhs": [
+            {
+              "name": "G",
+              "component": "tangent"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "R"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "sumF": {
+        "n": 0,
+        "t": 0
+      },
+      "taskTitle": "Kloss på skråplan",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791600000000_ai0001abc",
+      "title": "Hengende ball _/",
+      "category": "Fysikk 2",
+      "origin": [
+        500,
+        240
+      ],
+      "help_lines": [
+        "En ball henger i ro, festet med to snorer: en som går på skrå opp til taket, og en som går vannrett til veggen.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i den skrå snora",
+        "S_2 - Snordraget i den vannrette snora",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ],
+          "dirPoint": [
+            500,
+            480
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [
+              500,
+              300
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              200,
+              80
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              80
+            ]
+          },
+          {
+            "txt": "Ballen henger i ro",
+            "pos": [
+              200,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              200,
+              99
+            ]
+          }
+        ],
+        "arrows": [],
+        "segments": [
+          {
+            "a": [
+              530,
+              248
+            ],
+            "b": [
+              650,
+              40
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              440,
+              300
+            ],
+            "b": [
+              100,
+              300
+            ],
+            "snapping": true,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              540,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          },
+          {
+            "width": 20,
+            "height": 500,
+            "bottomCenter": [
+              90,
+              540
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              530,
+              248
+            ]
+          },
+          "dir": [
+            0.498,
+            -0.867
+          ],
+          "drawn": {
+            "anchor": [
+              530,
+              248
+            ],
+            "arrowBase": [
+              530,
+              248
+            ],
+            "arrowTip": [
+              576,
+              168
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "left_middle"
+          },
+          "dir": [
+            -1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              440,
+              300
+            ],
+            "arrowBase": [
+              440,
+              300
+            ],
+            "arrowTip": [
+              394,
+              300
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            380
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Ball _/",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    },
+    {
+      "id": "task_1791600000001_ai0002abc",
+      "title": "Hengende ball \\,-'",
+      "category": "Fysikk 2",
+      "origin": [
+        400,
+        240
+      ],
+      "help_lines": [
+        "En ball henger i ro, festet med to snorer til taket. Snorene danner vinklene 45° og 30° med taket.",
+        "G - Tyngdekraften (er tegnet inn)",
+        "S_1 - Snordraget i snora til venstre (45°)",
+        "S_2 - Snordraget i snora til høyre (30°)",
+        "Tegn S_1 og S_2."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            400,
+            540
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "ellipses": [
+          {
+            "width": 120,
+            "height": 120,
+            "center": [
+              400,
+              300
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_1 og S_2",
+            "pos": [
+              330,
+              90
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              90
+            ]
+          },
+          {
+            "txt": "Ballen henger i ro",
+            "pos": [
+              330,
+              109
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              109
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Det lønner seg å skru av snapping på denne oppgaven",
+            "pos": [
+              330,
+              128
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              128
+            ],
+            "linked": true
+          },
+          {
+            "txt": "Og det kan være lurt å regne litt",
+            "pos": [
+              330,
+              147
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              330,
+              147
+            ]
+          },
+          {
+            "txt": "Snor 1",
+            "pos": [
+              135.1999969482422,
+              89
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              135.1999969482422,
+              89
+            ]
+          },
+          {
+            "txt": "Snor 2",
+            "pos": [
+              823.1999969482422,
+              89
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              823.1999969482422,
+              89
+            ]
+          },
+          {
+            "txt": "45°",
+            "pos": [
+              183.1999969482422,
+              59
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              183.1999969482422,
+              59
+            ]
+          },
+          {
+            "txt": "30°",
+            "pos": [
+              793.1999969482422,
+              56
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              793.1999969482422,
+              56
+            ]
+          }
+        ],
+        "arrows": [],
+        "segments": [
+          {
+            "a": [
+              358,
+              258
+            ],
+            "b": [
+              140,
+              40
+            ],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          },
+          {
+            "a": [
+              452,
+              270
+            ],
+            "b": [
+              850,
+              40
+            ],
+            "snapping": false,
+            "color": "#aaa7a7",
+            "lineWidth": 3
+          }
+        ],
+        "rects": [
+          {
+            "width": 920,
+            "height": 20,
+            "bottomCenter": [
+              480,
+              40
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": false,
+            "color": "#acadaf"
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "S_1",
+          "nameBase": "S",
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              358,
+              258
+            ]
+          },
+          "dir": [
+            -0.706,
+            -0.708
+          ],
+          "drawn": {
+            "anchor": [
+              358,
+              258
+            ],
+            "arrowBase": [
+              358,
+              258
+            ],
+            "arrowTip": [
+              257.1999969482422,
+              157
+            ]
+          }
+        },
+        {
+          "name": "S_2",
+          "nameBase": "S",
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              452,
+              270
+            ]
+          },
+          "dir": [
+            0.862,
+            -0.507
+          ],
+          "drawn": {
+            "anchor": [
+              452,
+              270
+            ],
+            "arrowBase": [
+              452,
+              270
+            ],
+            "arrowTip": [
+              552.1999969482422,
+              211
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "anchor": [
+            400,
+            300
+          ],
+          "arrowBase": [
+            400,
+            300
+          ],
+          "arrowTip": [
+            400,
+            460
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse0",
+            "point": "center"
+          }
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "S_1",
+              "component": "vertical"
+            },
+            {
+              "name": "S_2",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G"
+            }
+          ],
+          "ratio": 1,
+          "tol_rel": 0.15
+        }
+      ],
+      "taskTitle": "Hengende ball \\,-'",
+      "taskSubTitle": "Dekomponering",
+      "subTitle": "Dekomponering"
+    }
+  ],
+  "metadata": {
+    "name": "taskset",
+    "exported": "2026-10-22T11:39:27.061Z",
+    "count": 17,
+    "appVersion": "2026-10-22 13:18"
+  }
+}

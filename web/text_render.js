@@ -45,6 +45,7 @@
     '\\approx': '≈',
     '\\sqrt': '√',
     '\\degree': '°',
+    '\\deg': '°',
     '\\Leftrightarrow': '⇔'
   };
 

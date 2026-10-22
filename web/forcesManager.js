@@ -1,5 +1,12 @@
 // forcesManager.js - minimal subset of ForcesManager
 (function(){
+  function anchorCandidates(task){
+    if(window.sceneModel){
+      return window.sceneModel.candidates(task).filter(c=>(c.anchor?.type || c.type || c.kind) !== 'curve')
+        .map(c=>({...c, ...(c.anchor || {}), pos:c.pos}));
+    }
+    return window.buildAnchorCandidates ? window.buildAnchorCandidates(task) : [];
+  }
   class ForcesManager {
     constructor(){
       this.forces = [];
@@ -335,6 +342,23 @@
           
           const force = window.fm.forces[forceIdx];
           const selectedValue = e.target.value;
+          if(window.editorMode && window.sceneEditor){
+            window.sceneEditor.cancel(false);
+            const candidate=anchorCandidates(window.currentTask).find(c=>
+              `${c.type}:${c.ref}:${c.point || c.segment}`===selectedValue);
+            if(candidate){
+              const spec=candidate.type==='point' ?
+                {type:'point',ref:candidate.ref,point:candidate.point} :
+                {type:'segment',ref:candidate.ref,segment:candidate.segment};
+              window.sceneEditor.applyForceAnchor(forceIdx,spec,candidate.pos,false);
+            } else if(selectedValue.startsWith('custom:')){
+              const pos=selectedValue.slice(7).split(',').map(Number);
+              if(pos.length===2 && pos.every(Number.isFinite)){
+                window.sceneEditor.applyForceAnchor(forceIdx,{type:'custom',pos},pos,false);
+              }
+            }
+            return;
+          }
           
           // Parse selection: format is "point:ref:pointName" or "segment:ref:segmentName" or "custom:x,y"
           const parts = selectedValue.split(':');
@@ -364,7 +388,7 @@
               const name = parts.slice(2).join(':');
               
               // Find the candidate to get its position
-              const candidates = window.buildAnchorCandidates ? window.buildAnchorCandidates(window.currentTask) : [];
+              const candidates = anchorCandidates(window.currentTask);
               let anchorPos = null;
               
               if(type === 'point'){
@@ -403,6 +427,7 @@
         
         anchorDropdownContainer.appendChild(anchorLabel);
         anchorDropdownContainer.appendChild(anchorSelect);
+        window.sceneEditor?.bindForcePicker(anchorSelect,anchorDropdownContainer);
         container.appendChild(anchorDropdownContainer);
       }
       // Remove excess rows
@@ -496,11 +521,13 @@
           if(shouldShowDropdown){
             // Rebuild when requested, or when the force/anchor/task changed since last build
             const sigSelect = anchorDropdownContainer.querySelector('.force-anchor-select');
+            window.sceneEditor?.bindForcePicker(sigSelect,anchorDropdownContainer);
             const dropdownSig = [
               window.currentTask ? window.currentTask.id : '',
               i, f.name || '', f.anchor ? f.anchor.join(',') : ''
             ].join('|');
-            const needsRebuild = forceDropdownRebuild || (sigSelect && sigSelect.dataset.sig !== dropdownSig);
+            const needsRebuild = !window.sceneEditor?.isPicking(sigSelect) &&
+              (forceDropdownRebuild || (sigSelect && sigSelect.dataset.sig !== dropdownSig));
             if(needsRebuild){
               // Rebuild dropdown options from buildAnchorCandidates
               const anchorSelect = sigSelect;
@@ -511,7 +538,7 @@
                 // Add "None" option
                 const noneOption = document.createElement('option');
                 noneOption.value = '';
-                noneOption.textContent = '-- Velg ankerpunkt --';
+                noneOption.textContent = 'Frikoble / fri posisjon';
                 anchorSelect.appendChild(noneOption);
                 
                 // Get current anchor from expectedForce if available
@@ -545,63 +572,37 @@
                 }
                 
                 // Build candidates and add to dropdown
-                if(window.buildAnchorCandidates && window.currentTask){
-                  const candidates = window.buildAnchorCandidates(window.currentTask);
+                if((window.sceneModel || window.buildAnchorCandidates) && window.currentTask){
+                  const candidates = anchorCandidates(window.currentTask);
                   console.log(`🎯 Dropdown for force "${f.name}" (index ${i}): building with ${candidates.length} candidates`);
                   
-                  // Nearest candidates first, based on the drawn force's anchor (or arrow base)
                   const refPos = f.anchor || f.arrowBase;
-                  if(refPos){
-                    const nearest = candidates
-                      .filter(c => c.pos)
-                      .map(c => ({ c, d: Math.hypot(c.pos[0]-refPos[0], c.pos[1]-refPos[1]) }))
-                      .sort((a, b) => a.d - b.d)
-                      .slice(0, 5);
-                    if(nearest.length){
-                      const nearGroup = document.createElement('optgroup');
-                      nearGroup.label = 'Nærmest';
-                      nearest.forEach(({c, d}) => {
-                        const option = document.createElement('option');
-                        const key = c.type === 'point' ? c.point : c.segment;
-                        option.value = `${c.type}:${c.ref}:${key}`;
-                        option.textContent = `${c.ref} ${c.type}: ${key} (${Math.round(d)}px)`;
-                        nearGroup.appendChild(option);
-                      });
-                      anchorSelect.appendChild(nearGroup);
-                    }
-                  }
-                  
-                  // Group by ref for better UI
-                  const groupedByRef = {};
-                  candidates.forEach(c => {
-                    if(!groupedByRef[c.ref]) groupedByRef[c.ref] = [];
-                    groupedByRef[c.ref].push(c);
-                  });
-                  
-                  console.log(`   Grouped into ${Object.keys(groupedByRef).length} refs:`, Object.keys(groupedByRef));
-                  
-                  // Add options, grouped by ref
-                  Object.keys(groupedByRef).sort().forEach(ref => {
-                    const group = groupedByRef[ref];
-                    
-                    // Create optgroup for this ref
-                    const optgroup = document.createElement('optgroup');
-                    optgroup.label = ref;
-                    
-                    group.forEach(candidate => {
+                  const ordered=window.sceneModel.orderAnchors(window.currentTask,candidates,refPos);
+                  if(ordered.nearest.length){
+                    const nearGroup = document.createElement('optgroup');
+                    nearGroup.label = '5 nærmeste';
+                    ordered.nearest.forEach(({candidate:c,distance:d}) => {
                       const option = document.createElement('option');
-                      if(candidate.type === 'point'){
-                        option.value = `point:${candidate.ref}:${candidate.point}`;
-                        option.textContent = `point: ${candidate.point}`;
-                      } else if(candidate.type === 'segment'){
-                        option.value = `segment:${candidate.ref}:${candidate.segment}`;
-                        option.textContent = `segment: ${candidate.segment}`;
-                      }
-                      optgroup.appendChild(option);
+                      const key = c.type === 'point' ? c.point : c.segment;
+                      option.value = `${c.type}:${c.ref}:${key}`;
+                      option.textContent = `${window.sceneModel.anchorLabel(c)} (${Math.round(d)}px)`;
+                      nearGroup.appendChild(option);
                     });
-                    
-                    anchorSelect.appendChild(optgroup);
+                    anchorSelect.appendChild(nearGroup);
+                  }
+                  const optgroup = document.createElement('optgroup');
+                  optgroup.label = 'Alle ankrene';
+                  ordered.all.forEach(candidate => {
+                    const option = document.createElement('option');
+                    if(candidate.type === 'point'){
+                      option.value = `point:${candidate.ref}:${candidate.point}`;
+                    } else if(candidate.type === 'segment'){
+                      option.value = `segment:${candidate.ref}:${candidate.segment}`;
+                    }
+                    option.textContent=window.sceneModel.anchorLabel(candidate);
+                    optgroup.appendChild(option);
                   });
+                  anchorSelect.appendChild(optgroup);
                   
                   // Add custom position option if force has one
                   if(currentCustomPos){
@@ -615,11 +616,18 @@
                   };
                   
                   // Set current selection
+                  if(currentAnchorValue && !Array.from(anchorSelect.options).some(option=>option.value===currentAnchorValue)){
+                    const retained=document.createElement('option');
+                    retained.value=currentAnchorValue;
+                    retained.textContent=storedAnchor ? window.sceneModel.anchorLabel(storedAnchor) : currentAnchorValue;
+                    anchorSelect.appendChild(retained);
+                  }
                   anchorSelect.value = currentAnchorValue;
                 }
               }
             }
             
+            window.sceneEditor?.syncControl(sigSelect);
             anchorDropdownContainer.style.display = 'block';
           } else {
             anchorDropdownContainer.style.display = 'none';

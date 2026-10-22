@@ -23,6 +23,7 @@ window.tasks = [];
   canvas.height = window.CANVAS_HEIGHT;
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
+  window.sceneEditor.init();
   
   // Initialize scroll position to show grid area at top-left
   window.initializeScroll();
@@ -60,6 +61,10 @@ window.tasks = [];
   }
 
   function frame() {
+    if(window.currentTask){
+      window.sceneModel.update(window.currentTask);
+      window.syncSceneForceAnchors(window.currentTask, window.fm, true);
+    }
     clear();
     
     // Save context and translate so grid area (0,0 to 1000,640) starts at top-left
@@ -120,16 +125,7 @@ window.tasks = [];
         
         // Highlight the closest one (hovered) in bright color, others dim
         const isHovered = (idx === window.anchorHoverIndex);
-        const radius = isHovered ? 8 : 5;
-        const color = isHovered ? '#ffff00' : '#aaaaaa'; // bright yellow vs dim gray
-        const alpha = isHovered ? 1.0 : 0.5;
-        
-        ctx.fillStyle = color;
-        ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        ctx.arc(candidate.pos[0], candidate.pos[1], radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
+        window.drawAnchorMarker(ctx,candidate.pos,isHovered ? 'forceHovered' : 'forceCandidate');
       });
     }
     
@@ -147,6 +143,7 @@ window.tasks = [];
     if(window.selectedSceneElement){
       drawSceneElementHandles(ctx, window.selectedSceneElement);
     }
+    window.sceneEditor.drawOverlay(ctx);
     
     ctx.restore();
     requestAnimationFrame(frame);
@@ -221,16 +218,13 @@ window.tasks = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            ctx.fillStyle = window.HIGHLIGHT_SCENE_POINT_DIM_COLOR;
-            ctx.beginPath();
-            ctx.arc(point[0], point[1], window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
+            window.drawAnchorMarker(ctx,point,'sceneSelected');
           }
         });
       }
       // Draw segment lines for selected element (dim, thicker line)
-      if(entry && entry.segments){
-        Object.values(entry.segments).forEach(seg => {
+      if(entry){
+        [...Object.values(entry.segments || {}), ...Object.values(entry.curves || {}).flat()].forEach(seg => {
           if(Array.isArray(seg) && seg.length >= 2){
             ctx.strokeStyle = window.HIGHLIGHT_SCENE_LINE_DIM_COLOR;
             ctx.lineWidth = window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH;
@@ -252,16 +246,13 @@ window.tasks = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            ctx.fillStyle = window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR;
-            ctx.beginPath();
-            ctx.arc(point[0], point[1], window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
+            window.drawAnchorMarker(ctx,point,'sceneHovered');
           }
         });
       }
       // Draw segment lines for hovered element (bright, thicker line)
-      if(entry && entry.segments){
-        Object.values(entry.segments).forEach(seg => {
+      if(entry){
+        [...Object.values(entry.segments || {}), ...Object.values(entry.curves || {}).flat()].forEach(seg => {
           if(Array.isArray(seg) && seg.length >= 2){
             ctx.strokeStyle = window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR;
             ctx.lineWidth = window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH;
@@ -337,7 +328,18 @@ window.tasks = [];
       ctx.fill();
     }
     
-    if(type === 'origin' && scene.origin){
+    if(type === 'point' && scene.points?.[index]){
+      const point = scene.points[index];
+      if(point.type === 'free') drawHandle(...point.pos);
+    }
+    else if(type === 'angle' && scene.angles?.[index]){
+      const angle = scene.angles[index];
+      const resolved = window.sceneModel.angleGeometry(angle, window.currentTask);
+      ['start', 'vertex', 'end'].forEach(field => {
+        if(angle[field] && !angle[field].anchor && resolved[field]) drawHandle(...resolved[field]);
+      });
+    }
+    else if(type === 'origin' && scene.origin){
       const [x, y] = scene.origin;
       drawHandle(x, y);
     } 
@@ -733,9 +735,12 @@ window.tasks = [];
       }
       
       // Test all segments in this element (by distance to segment, not just endpoints)
-      if(entry.segments){
-        Object.keys(entry.segments).forEach(segName => {
-          const seg = entry.segments[segName];
+      if(entry.segments || entry.curves){
+        const segments = [
+          ...Object.entries(entry.segments || {}),
+          ...Object.entries(entry.curves || {}).flatMap(([name, pieces]) => pieces.map(seg => [name, seg]))
+        ];
+        segments.forEach(([segName, seg]) => {
           if(!Array.isArray(seg) || seg.length < 2) return;
           
           const dist = window.geometry.distPointToSegment(pos, seg[0], seg[1]);
@@ -965,11 +970,12 @@ window.tasks = [];
   // Save removed - use editor mode only
 
   function updateHelpButton(){
+    if(window.updateTaskHeader) window.updateTaskHeader();
     const helpBtn = document.getElementById('btn-help');
     if(helpBtn && window.currentTask){
       const span = helpBtn.querySelector('span');
       if(span){
-        let btnText = '' + (window.currentTask.taskTitle || window.currentTask.id);
+        let btnText = window.getTaskPositionLabel ? window.getTaskPositionLabel(window.currentTask) : `Oppgave ${(window.currentTaskIndex || 0) + 1}`;
         // Add score if available
         const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
         if(taskScore && typeof taskScore.score === 'number'){
@@ -1027,6 +1033,8 @@ window.tasks = [];
                           (scene.circles?.length || 0) +
                           (scene.segments?.length || 0) +
                           (scene.arrows?.length || 0) +
+                          (scene.points?.length || 0) +
+                          (scene.angles?.length || 0) +
                           (scene.texts?.length || 0);
     }
     
@@ -1069,6 +1077,7 @@ window.tasks = [];
    * pos is the [x, y] coordinate for distance matching.
    */
   window.buildAnchorCandidates = function(task){
+    if(window.sceneModel) return window.sceneModel.candidates(task);
     const candidates = [];
     if(!task || !task.scene) return candidates;
     
@@ -1359,6 +1368,8 @@ window.tasks = [];
   window.updateAppState = function(){
     //console.log('updateAppState() kjørt - oppdaterer snap points, guidelines, scene panel, etc.');
     if(!window.currentTask) return;
+    window.sceneModel.update(window.currentTask);
+    if(window.syncSceneForceAnchors(window.currentTask, window.fm, true)) markEdited('forces', 'task');
     
     // Cleanup: ensure exactly one blank force at the end, remove extra blanks
     if(window.fm && window.fm.forces){
@@ -1413,6 +1424,10 @@ window.tasks = [];
           elementOrigin = scene.rects[index].bottomCenter;
         } else if(type === 'ellipse' && scene?.ellipses?.[index]){
           elementOrigin = scene.ellipses[index].center;
+        } else if(type === 'point' && scene?.points?.[index]){
+          elementOrigin = scene.points[index].pos;
+        } else if(type === 'angle' && scene?.angles?.[index]){
+          elementOrigin = scene.angles[index].vertex.pos;
         } else if(type === 'circle' && scene?.circles?.[index]){
           elementOrigin = scene.circles[index].center;
         } else if(type === 'segment' && scene?.segments?.[index]){
@@ -1473,10 +1488,7 @@ window.tasks = [];
 
   function normalizeTaskMeta(task){
     if(!task) return task;
-    // Normalize title fields
-    const title = task.taskTitle || task.title;
-    if(title && !task.taskTitle) task.taskTitle = title;
-    if(title && !task.title) task.title = title;
+    if(typeof task.title !== 'string') task.title = '';
     // Normalize subtitle fields
     const sub = task.taskSubTitle || task.subTitle;
     if(sub && !task.taskSubTitle) task.taskSubTitle = sub;
@@ -1508,10 +1520,7 @@ window.tasks = [];
 
         const oldId = taskData.id;
         const newId = generateUniqueTaskId();
-        const oldTitle = taskData.taskTitle || '';
-
-        // Promote old ID to title and old title to subtitle
-        const migratedTask = { ...taskData, id: newId, taskTitle: oldId, taskSubTitle: oldTitle };
+        const migratedTask = { ...taskData, id: newId };
 
         localStorage.setItem(`editor_task_${newId}`, JSON.stringify(migratedTask));
         localStorage.removeItem(taskKey);
@@ -1620,6 +1629,7 @@ window.tasks = [];
   }
 
   function loadTask(index){
+    window.sceneEditor.cancel();
     // Slipp fokus (utløser change på feltet i oppgaven vi forlater) og fjern valgt scene-element
     const ae = document.activeElement;
     if(ae && ae !== document.body && typeof ae.blur === 'function' && ae.closest && !ae.closest('#task-order-modal')) ae.blur();
@@ -1940,6 +1950,7 @@ window.tasks = [];
   // Write current task to localStorage
   function writeTask(){
     if(!window.currentTask) return;
+    window.sceneModel.update(window.currentTask);
     const taskId = window.currentTask.id;
     try {
       localStorage.setItem(`editor_task_${taskId}`, JSON.stringify(window.currentTask));
@@ -2099,9 +2110,39 @@ window.tasks = [];
   
   const btnAddRect = document.getElementById('btn-add-rect');
   const btnAddEllipse = document.getElementById('btn-add-ellipse');
+  const btnAddAngle = document.getElementById('btn-add-angle');
   const btnAddSegment = document.getElementById('btn-add-segment');
   const btnAddArrow = document.getElementById('btn-add-arrow');
   const btnAddText = document.getElementById('btn-add-text');
+  function selectNewElement(type,list){
+    window.selectedSceneElement={type,index:list.length-1,obj:list[list.length-1]};
+    window.setActivePanel('scene');
+    markEdited('task');
+    window.updateAppState();
+    const item=document.querySelector(`.scene-item[data-type="${type}"][data-index="${list.length-1}"]`);
+    if(item) window.sceneEditor.revealSelection(item);
+  }
+
+  btnAddAngle.addEventListener('click', ()=>{
+    if(!window.currentTask) return;
+    window.sceneEditor.cancel();
+    const scene = window.currentTask.scene;
+    if(!Array.isArray(scene.angles)) scene.angles = [];
+    const [x, y] = DRAW_CENTER;
+    scene.angles.push({
+      start: {pos: [x + 30, y]},
+      vertex: {pos: [x, y]},
+      end: {pos: [x + 30 * Math.cos(Math.PI / 6), y - 15]},
+      radius: 30, symbol: 'α', showDegrees: false,
+      startReversed: false, endReversed: false,
+      size: 14, color: '#222222', lineWidth: 2, body: 'solid'
+    });
+    window.selectedSceneElement = {type: 'angle', index: scene.angles.length - 1};
+    window.setActivePanel('scene');
+    markEdited('task');
+    window.updateAppState();
+    window.sceneEditor.startAngle(scene.angles[scene.angles.length - 1]);
+  });
   
   if(btnAddRect){
     btnAddRect.addEventListener('click', ()=>{
@@ -2117,9 +2158,7 @@ window.tasks = [];
         t_vec: [1, 0],
         snapping: true
       });
-      updateScenePanel();
-      markEdited('task');
-      window.updateAppState();
+      selectNewElement('rect',scene.rects);
     });
   }
   
@@ -2136,9 +2175,7 @@ window.tasks = [];
         t_vec: [1, 0],
         snapping: true
       });
-      updateScenePanel();
-      markEdited('task');
-      window.updateAppState();
+      selectNewElement('ellipse',scene.ellipses);
     });
   }
   
@@ -2152,9 +2189,7 @@ window.tasks = [];
         b: [DRAW_CENTER[0] + wA/2, DRAW_CENTER[1]],
         snapping: false
       });
-      updateScenePanel();
-      markEdited('task');
-      window.updateAppState();
+      selectNewElement('segment',scene.segments);
     });
   }
   
@@ -2168,9 +2203,7 @@ window.tasks = [];
         b: [DRAW_CENTER[0] + wA/2, DRAW_CENTER[1]],
         snapping: false
       });
-      updateScenePanel();
-      markEdited('task');
-      window.updateAppState();
+      selectNewElement('arrow',scene.arrows);
     });
   }
   
@@ -2208,9 +2241,7 @@ window.tasks = [];
         color: '#222',
         snapping: false
       });
-      updateScenePanel();
-      markEdited('task');
-      window.updateAppState();
+      selectNewElement('text',scene.texts);
     });
   }
   
@@ -2334,6 +2365,21 @@ window.tasks = [];
     // Focus on textarea
     textarea.focus();
   };
+
+  const helpTitleInput = document.getElementById('help-title-input');
+  if(helpTitleInput){
+    helpTitleInput.addEventListener('input',()=>{
+      if(!window.currentTask) return;
+      window.currentTask.title = helpTitleInput.value;
+      const task = window.tasks.find(item => item.id === window.currentTask.id);
+      if(task) task.title = helpTitleInput.value;
+      const sceneTitleInput = document.getElementById('task-title-input');
+      if(sceneTitleInput && sceneTitleInput.value !== helpTitleInput.value) sceneTitleInput.value = helpTitleInput.value;
+      markEdited('task');
+      if(window.updateTaskHeader) window.updateTaskHeader();
+      if(window.updateTaskOrderList) window.updateTaskOrderList();
+    });
+  }
 
   // Solution forces removed - use editor.js for editor mode
 
@@ -2489,6 +2535,8 @@ window.tasks = [];
         ellipses: scene.ellipses ? JSON.stringify(scene.ellipses) : null,
         segments: scene.segments ? JSON.stringify(scene.segments) : null,
         arrows: scene.arrows ? JSON.stringify(scene.arrows) : null,
+        points: scene.points ? JSON.stringify(scene.points) : null,
+        angles: scene.angles ? JSON.stringify(scene.angles) : null,
         // NOTE: Deliberately excluding texts, help_lines, and other metadata
       };
       return JSON.stringify(sig);
@@ -2672,15 +2720,14 @@ window.tasks = [];
     console.groupEnd();
   };
 
-  // Load saved tasks from localStorage before loading initial task
-  migrateLegacyTasks();
-  loadSavedTasks();
-  
-  // Apply saved task order from localStorage
-  loadTaskOrder();
+  // Load the current task schema before touching persisted tasks.
+  (async function initializeEditorTasks(){
+    const currentTasks = await window.loadSupportedTaskSchema();
+    window.currentTaskSchema = currentTasks;
+    await window.AppVersioning.checkStorage('editor',currentTasks,migrateLegacyTasks);
+    loadSavedTasks();
+    loadTaskOrder();
 
-  // Load initial task based on persisted index
-  (function(){
     let startIdx = 0;
     try {
       const s = localStorage.getItem('editor_currentTaskIndex');
@@ -2691,7 +2738,7 @@ window.tasks = [];
     } catch {}
     loadTask(startIdx);
     resetUndo();
-  })();
+  })().catch(error => console.error('Kunne ikke starte editoren:',error));
 
   // ===== Mouse interaction for forces =====
   function withinForceArea(x,y){
@@ -2744,7 +2791,20 @@ window.tasks = [];
       return Math.hypot(pos[0] - closestX, pos[1] - closestY);
     }
     
-    if(type === 'origin' && scene?.origin){
+    if(type === 'point' && scene?.points?.[index]){
+      const point = scene.points[index];
+      if(point.type === 'free' && isNear(...point.pos)) return {type, index, handleType: 'center'};
+    }
+    else if(type === 'angle' && scene?.angles?.[index]){
+      const angle = scene.angles[index];
+      const resolved = window.sceneModel.angleGeometry(angle, window.currentTask);
+      for(const field of ['start', 'vertex', 'end']){
+        if(angle[field] && !angle[field].anchor && resolved[field] && isNear(...resolved[field])){
+          return {type, index, handleType: field};
+        }
+      }
+    }
+    else if(type === 'origin' && scene?.origin){
       const [x, y] = scene.origin;
       if(isNear(x, y)) return {type: 'origin', index, handleType: 'center'};
     }
@@ -2910,6 +2970,22 @@ window.tasks = [];
     
     const { type, index, handleType } = handleInfo;
     const scene = window.currentTask.scene;
+
+    if(type === 'point' || type === 'angle'){
+      const clamped = window.clampToCanvas(newPos);
+      if(type === 'point' && scene.points?.[index]?.type === 'free'){
+        scene.points[index].pos = clamped;
+      } else if(type === 'angle' && scene.angles?.[index]?.[handleType] && !scene.angles[index][handleType].anchor){
+        scene.angles[index][handleType].pos = clamped;
+      } else {
+        return;
+      }
+      window.selectedSceneElement._handleStartPos = clamped;
+      window.snapIndicator = null;
+      markEdited('task');
+      window.updateAppState();
+      return;
+    }
     
     // Store element's position before move for displacement calculation
     let oldPos = null;
@@ -3268,6 +3344,7 @@ window.tasks = [];
     
     // Save and sync after any scene element change
     markEdited('task');
+    window.updateAppState();
     if(window.fm){
       window.fm.syncInputs(document.getElementById('force-inputs'));
     }
@@ -3762,7 +3839,7 @@ window.tasks = [];
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = window.getTaskPositionLabel(window.currentTask);
           if(helpContent && helpCanvas){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
@@ -3801,7 +3878,7 @@ window.tasks = [];
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = window.getTaskPositionLabel(window.currentTask);
           if(helpContent && helpCanvas){
             // Show editable version in editor mode
             helpContent.style.display = 'block';
@@ -3904,7 +3981,7 @@ window.tasks = [];
         console.log('helpContent:', helpContent, 'helpCanvas:', helpCanvas);
         if(!helpContent) { console.warn('❌ helpContent not found'); }
         if(!helpCanvas) { console.warn('❌ helpCanvas not found'); }
-        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+        if(helpTitle) helpTitle.textContent = window.getTaskPositionLabel(window.currentTask);
         if(helpContent && helpCanvas) {
           // Show editable version in editor mode
           helpContent.style.display = 'block';
@@ -4071,7 +4148,6 @@ window.tasks = [];
       
       const newTask = {
         id: generateUniqueTaskId(), // Auto-generate unique ID
-        taskTitle: title, // Store user-provided title as taskTitle
         title: title,
         category: 'Egendefinert',
         origin: [DRAW_CENTER[0], DRAW_CENTER[1]],
@@ -4139,6 +4215,8 @@ window.tasks = [];
   if(btnExportTask){
     btnExportTask.addEventListener('click', ()=>{
       if(!window.currentTask) return;
+      window.sceneModel.update(window.currentTask);
+      window.syncSceneForceAnchors(window.currentTask, window.fm, true);
       
       // Build export task with aliases and relations
       const task = JSON.parse(JSON.stringify(window.currentTask));
@@ -4598,7 +4676,7 @@ window.tasks = [];
       // Check if this task should be checked (saved state or newly imported)
       const isChecked = newlyImportedTaskIds.has(task.id) || (savedCheckState[task.id] !== false);
       
-      const title = task.taskTitle || task.title || '(Ingen tittel)';
+      const title = task.title || '(Ingen tittel)';
       const subtitle = task.taskSubTitle || task.subTitle || '';
       const category = task.category || '';
 
@@ -4850,7 +4928,7 @@ window.tasks = [];
       tasksetOpenModal.classList.add('hidden');
       try {
         const data = await fetchJson(set.file);
-        await importTasks(extractTasks(data), set.name || set.file);
+        await importTasks(extractTasks(data), set.name || set.file, data?.metadata?.appVersion || data?.appVersion);
       } catch (err) {
         showTasksetError('Feil ved åpning av oppgavesett: ' + err.message);
       }
@@ -4941,7 +5019,8 @@ window.tasks = [];
         metadata: {
           name: tasksetNameInput.value.trim() || 'taskset',
           exported: new Date().toISOString(),
-          count: tasksToExport.length
+          count: tasksToExport.length,
+          appVersion:window.AppVersioning.time('editor')
         }
       };
 
@@ -4980,7 +5059,8 @@ window.tasks = [];
       reader.onload = async (event) => {
         tasksetErrorDiv.style.display = 'none';
         try {
-          await importTasks(extractTasks(JSON.parse(event.target.result)), file.name);
+          const data = JSON.parse(event.target.result);
+          await importTasks(extractTasks(data), file.name, data?.metadata?.appVersion || data?.appVersion);
         } catch (err) {
           showTasksetError('Feil ved lesing av fil: ' + err.message);
         }
@@ -5005,7 +5085,7 @@ window.tasks = [];
       overlay.className = 'modal';
       const box = document.createElement('div');
       box.className = 'modal-content';
-      const title = (t) => escapeHtml(t.taskTitle || t.title || t.id);
+      const title = (t) => escapeHtml(t.title || t.id);
       box.innerHTML = `
         <h2 style="font-size:16px; margin:0 0 12px 0;">Oppgaven finnes allerede</h2>
         <p style="font-size:13px; margin:0 0 8px 0;">Eksisterende: <strong>${title(existing)}</strong><br>Importert: <strong>${title(incoming)}</strong></p>
@@ -5029,7 +5109,14 @@ window.tasks = [];
   }
 
   // Slår importerte oppgaver sammen med de eksisterende. Nye og erstattede oppgaver havner sist i listen.
-  async function importTasks(incoming, sourceName){
+  async function importTasks(incoming, sourceName, sourceVersion){
+    const reviewed = await window.AppVersioning.checkImport(
+      {tasks:incoming,metadata:{appVersion:sourceVersion}},
+      'editor',
+      sourceName,
+      [...(window.currentTaskSchema || []), ...(window.tasks || [])]
+    );
+    incoming = reviewed.data.tasks;
     autoSave(); // lagre ventende redigeringer først
     const counts = { added: 0, kept: 0, replaced: 0, renewed: 0, invalid: 0 };
     const currentId = window.currentTask && window.currentTask.id;
@@ -5224,6 +5311,7 @@ window.tasks = [];
         taskScores: window.taskScores,
         // Comments are now part of task.comment, not stored separately
         timestamp: new Date().toISOString(),
+        appVersion:window.AppVersioning.time('editor'),
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
         localStorage: {}
       };
@@ -5269,9 +5357,16 @@ window.tasks = [];
       const file = e.target.files?.[0];
       if(!file) return;
       const reader = new FileReader();
-      reader.onload = (evt)=>{
+      reader.onload = async (evt)=>{
         try{
-          const backup = JSON.parse(evt.target?.result || '{}');
+          let backup = JSON.parse(evt.target?.result || '{}');
+          const reviewed = await window.AppVersioning.checkImport(
+            backup,
+            'editor',
+            file.name,
+            [...(window.currentTaskSchema || []), ...(window.tasks || [])]
+          );
+          backup = reviewed.data;
           if(backup.settings){ window.settings = { ...window.settings, ...backup.settings }; }
           if(backup.taskScores){ window.taskScores = backup.taskScores; }
           // Comments are now restored from task.comment in localStorage keys

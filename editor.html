@@ -41,6 +41,8 @@
       <div class="editor-buttons-right">
         <button id="btn-add-rect" title="Legg til rektangel">▭</button>
         <button id="btn-add-ellipse" title="Legg til ellipse">⬭</button>
+        <button id="btn-add-angle" title="Legg til vinkel">∠</button>
+        <button id="btn-add-point" title="Punkt: klikk for fritt punkt, klikk igjen for skjæringspunkt" aria-pressed="false">●</button>
         <button id="btn-add-segment" title="Legg til segment">─</button>
         <button id="btn-add-arrow" title="Legg til pil">→</button>
         <button id="btn-add-text" title="Legg til tekst">T</button>
@@ -146,6 +148,7 @@
     <div id="help-panel" class="hidden">
       <div class="help-header">
         <h3 id="help-title">Hjelp</h3>
+        <input id="help-title-input" type="text" aria-label="Oppgavetittel" style="flex:1; min-width:0; margin:0 8px; font:inherit; font-weight:600; padding:4px 6px;">
         <button id="help-close" title="Lukk">✖</button>
       </div>
       <div id="help-content"></div>
@@ -189,6 +192,14 @@
           <textarea id="settings-task-comment" placeholder="Skriv kommentar..." style="flex:1; padding:6px 8px; font-size:13px; border:1px solid #888; border-radius:4px; resize:vertical; min-height:60px; font-family:inherit;"></textarea>
         </label>
         <div class="settings-divider"></div>
+        <details>
+          <summary>Vinkler, buer og punkter i scenen</summary>
+          <p>Ellipse: Start- og stoppvinkel er parametervinkler langs ellipsen, ikke nødvendigvis vinkler sett fra sentrum. 0° ligger i positiv lokal bredderetning; positiv retning er mot klokka. 300°–60° krysser 0°, 0°–360° gir hel ellipse, og like verdier gir tom bue. Fyll dekker sektoren inn mot sentrum uten radielinjer.</p>
+          <p>Vinkel: ∠ starter valg av Toppunkt → Start → Slutt. Ny vinkel har radius og beinlengde 30 og standardvinkel 30°. Segmenter gjennom toppunktet foreslås som bein; Enter bekrefter et forslag. Et segment bestemmer retning uavhengig av plasseringen; «Snu retning» vender beinet. Bare minste vinkel, 0°–180°, vises. En 90° vinkel markeres med rette linjer som følger vinkelbeinene, i stedet for bue. Symbol/tekst kan inneholde \alpha=30\deg eller α=30°. «Vis grader» legger til =beregnet° når teksten er fylt ut; slå av for bare egen tekst.</p>
+          <p>Punkt: Første klikk på ● aktiverer fri plassering uten snapping; neste klikk velger skjæringsmodus. Velg to geometrikilder og bekreft ønsket skjæring. Punkter er skjult for eleven som standard, men kan fortsatt brukes som ankre. En skjæring som forsvinner beholder bindingene og sist gyldige posisjon; rød ring og forklaring ved hover vises bare i editoren.</p>
+          <p>Ankre: Klikk ankerfeltet for liste og scenevalg, både for vinkler og krefter. Hover i canvas eller listen og blaing med piltaster uthever kandidaten i canvas uten å lagre. Canvas-/listevalg eller Enter bekrefter, og Esc avbryter. Vinkler går automatisk til neste felt. «Frikoble» i listen bevarer geometrien og tillater fri flytting. Ledig canvas-klikk oppretter et skjult hjelpepunkt; punkt og binding angres samlet. Klikk på annet element eller knapp bekrefter aktivt forslag og avslutter sekvensen. Panelet ruller bare når aktivt felt ikke er fullt synlig.</p>
+        <p>Ankerlistene bruker faktiske referanser, som rect0 bottom og point-1 center. Rektangler har også hjørneankrene top_left, top_right, bottom_left og bottom_right; disse følger rektangelets rotasjon. Når et annet vinkelanker er valgt (eller kraften har anker/base), vises 5 nærmeste først; segmentavstand måles til selve segmentet. «Alle ankrene» er alltid komplett og sortert etter elementtype og nummer, så rect2 kommer før rect10. Nærmeste ankrene finnes også i den komplette listen.</p>
+        </details>
         <div class="settings-buttons">
           <button id="settings-download" title="Download innstillinger">Last ned</button>
           <button id="settings-restore" title="Last opp innstillinger">Gjenopprett</button>
@@ -208,14 +219,16 @@
   <script src="web/text_render.js"></script>
   <script src="web/geometry.js"></script>
   <script src="web/scene_render.js"></script>
+  <script src="web/scene_model.js"></script>
   <script src="web/debug_render.js"></script>
   <script src="web/evaluate.js"></script>
   <script src="web/forces.js"></script>
   <script src="web/forcesManager.js"></script>
   <script src="web/snapping.js"></script>
   <script src="web/ui.js"></script>
+  <script src="web/scene_editor.js"></script>
   <!-- Editor entry point -->
   <script src="web/editor.js"></script>
-  <script>if(window.BUILD_TIME) document.title += " (" + window.BUILD_TIME + ")";</script>
+  <script>if(window.EDITOR_BUILD_TIME) document.title += " (" + window.EDITOR_BUILD_TIME + ")";</script>
 </body>
 </html>

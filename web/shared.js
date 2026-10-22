@@ -34,6 +34,44 @@ window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH = 4;
 window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR = '#66bbff';    // Bright cyan for segment lines (hovered)
 window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH = 6;
 
+// Adjust anchor marker styles here; scene highlighting uses the constants above.
+window.ANCHOR_MARKER_STYLES = {
+  get sceneSelected(){
+    return {radius:window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS,color:window.HIGHLIGHT_SCENE_POINT_DIM_COLOR,fill:true,opacity:1};
+  },
+  get sceneHovered(){
+    return {radius:window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS,color:window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR,fill:true,opacity:1};
+  },
+  get forceCandidate(){
+    return {radius:5,color:window.HIGHLIGHT_SCENE_POINT_DIM_COLOR,fill:true,opacity:0.5};
+  },
+  get forceHovered(){
+    return this.sceneHovered;
+  },
+  pickerCandidate:{radius:6,color:'#1686ad',fill:false,opacity:1,lineWidth:2},
+  pickerHovered:{radius:6,color:'#e89100',fill:false,opacity:1,lineWidth:2},
+  get pickerPreview(){
+    return {...this.pickerHovered,radius:8};
+  }
+};
+
+window.drawAnchorMarker = function(ctx,pos,state){
+  const style=window.ANCHOR_MARKER_STYLES[state];
+  ctx.save();
+  ctx.globalAlpha*=style.opacity;
+  ctx.beginPath();
+  ctx.arc(pos[0],pos[1],style.radius,0,Math.PI*2);
+  if(style.fill){
+    ctx.fillStyle=style.color;
+    ctx.fill();
+  }else{
+    ctx.strokeStyle=style.color;
+    ctx.lineWidth=style.lineWidth;
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
 // ===== Scene Element Handles Constants =====
 window.SCENE_HANDLE_RADIUS = 5;
 window.SCENE_HANDLE_COLOR = '#ff9800';     // Orange
@@ -154,21 +192,49 @@ window.clearHighlights = function() {
  */
 window.getMousePos = function(evt) {
   const canvas = document.getElementById('app-canvas');
-  const container = document.getElementById('canvas-container');
-  if (!canvas || !container) return [0, 0];
-  
-  // Get container viewport bounds
-  const containerRect = container.getBoundingClientRect();
-  
-  // Calculate mouse position relative to container viewport
-  const mouseX = evt.clientX - containerRect.left;
-  const mouseY = evt.clientY - containerRect.top;
-  
-  // Add scroll offset to get position relative to canvas element
-  // Subtract the translation offset applied in frame() rendering
-  const x = mouseX + container.scrollLeft - window.offsetX;
-  const y = mouseY + container.scrollTop - window.offsetY;
+  if(!canvas) throw new Error('Canvas mangler ved koordinatberegning');
+  const bounds = canvas.getBoundingClientRect();
+  if(bounds.width <= 0 || bounds.height <= 0) throw new Error('Canvas har ugyldig størrelse');
+  const x = (evt.clientX - bounds.left) * canvas.width / bounds.width - window.offsetX;
+  const y = (evt.clientY - bounds.top) * canvas.height / bounds.height - window.offsetY;
   return [x, y];
+};
+
+window.syncSceneForceAnchors = function(task, manager, editorMode){
+  if(!task?.scene || !manager || !window.sceneModel) return false;
+  let changed = false;
+  manager.forces.forEach(force => {
+    if(force.drawing || force.dragging || !force.anchor || !force.name) return;
+    let spec, anchor;
+    if(editorMode){
+      const match = window.getForceSpec(force);
+      if(!match) return;
+      spec = match.spec;
+      anchor = spec[match.prop];
+    } else {
+      if(force.isExpected !== false) return;
+      spec = (task.initialForces || []).find(s => s.name === force.name);
+      if(!spec) return;
+      anchor = spec.anchorSpec || (spec.anchorFrom ? {type: 'point', ref: spec.anchorFrom, point: spec.point} : null);
+    }
+    if(anchor?.type !== 'point') return;
+    const resolved = window.sceneModel.resolveAnchor(task, anchor);
+    if(!resolved.pos) return;
+    const dx = resolved.pos[0] - force.anchor[0];
+    const dy = resolved.pos[1] - force.anchor[1];
+    if(Math.hypot(dx, dy) < 1e-8) return;
+    force.anchor = resolved.pos.slice();
+    if(force.arrowBase) force.arrowBase = [force.arrowBase[0] + dx, force.arrowBase[1] + dy];
+    if(force.arrowTip) force.arrowTip = [force.arrowTip[0] + dx, force.arrowTip[1] + dy];
+    if(force.arrowBase && force.arrowTip) force.updateDirectionAndLength();
+    if(editorMode && force.isExpected === false){
+      spec.anchor = force.anchor.slice();
+      if(force.arrowBase) spec.arrowBase = force.arrowBase.slice();
+      if(force.arrowTip) spec.arrowTip = force.arrowTip.slice();
+    }
+    changed = true;
+  });
+  return changed;
 };
 
 /**
@@ -257,3 +323,237 @@ window.planeTangentFromAngle = function(angleDeg) {
 window.tangentFromNormal = function(n) { 
   return window.unit([-n[1], n[0]]);
 };
+
+window.getTaskPositionLabel = function(task){
+  const tasks = Array.isArray(window.tasks) ? window.tasks : [];
+  const index = tasks.findIndex(item => item && item.id === task?.id);
+  return `Oppgave ${index >= 0 ? index + 1 : (window.currentTaskIndex || 0) + 1}`;
+};
+
+window.loadSupportedTaskSchema = async function(){
+  const taskFiles = new Set(['taskset_Intro.json']);
+  try{
+    const response = await fetch('oppgavesett.json',{cache:'no-store'});
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const manifest = await response.json();
+    if(Array.isArray(manifest)) manifest.forEach(item => {if(item?.file) taskFiles.add(item.file);});
+  }catch(error){
+    console.warn('Kunne ikke hente oppgavesettlisten for skjemakontroll:',error);
+  }
+  const results = await Promise.all(Array.from(taskFiles,async file => {
+    try{
+      const response = await fetch(encodeURI(file),{cache:'no-store'});
+      if(!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      return (Array.isArray(data) ? data : data.tasks || []).filter(task => task && task.id);
+    }catch(error){
+      console.warn(`Kunne ikke hente oppgaveskjema fra ${file}:`,error);
+      return [];
+    }
+  }));
+  return results.flat();
+};
+
+window.AppVersioning = (function(){
+  const modeInfo = {
+    player: {time:window.PLAYER_BUILD_TIME || window.BUILD_TIME || 'ukjent', key:'tk_app_version', prefix:'tk_'},
+    editor: {time:window.EDITOR_BUILD_TIME || window.BUILD_TIME || 'ukjent', key:'editor_app_version', prefix:'editor_'}
+  };
+
+  function collectSchema(values){
+    const objectKeys = new Set();
+    const requiredKeys = values.length && values.every(value => value && typeof value === 'object' && !Array.isArray(value))
+      ? Object.keys(values[0]) : [];
+    values.forEach(value => {
+      if(value && typeof value === 'object' && !Array.isArray(value)){
+        Object.keys(value).forEach(key => objectKeys.add(key));
+      }
+    });
+    const sharedRequired = requiredKeys.filter(key => values.every(value => Object.hasOwn(value, key)));
+    const children = {};
+    objectKeys.forEach(key => {
+      const present = values.filter(value => value && typeof value === 'object' && !Array.isArray(value) && Object.hasOwn(value, key)).map(value => value[key]);
+      children[key] = collectSchema(present);
+    });
+    const arrayItems = values.filter(Array.isArray).flat();
+    return {
+      objectKeys,
+      requiredKeys:sharedRequired,
+      children,
+      item:arrayItems.length ? collectSchema(arrayItems) : null
+    };
+  }
+
+  function diff(value, schema, path, missing, unknown){
+    if(Array.isArray(value)){
+      if(schema.item) value.forEach((item,index) => diff(item,schema.item,`${path}[${index}]`,missing,unknown));
+      return;
+    }
+    if(!value || typeof value !== 'object') return;
+    schema.requiredKeys.forEach(key => {
+      if(!Object.hasOwn(value,key)) missing.push(`${path}.${key}`);
+    });
+    Object.keys(value).forEach(key => {
+      if(!schema.objectKeys.has(key)){
+        unknown.push(`${path}.${key}`);
+      }else if(schema.children[key]){
+        diff(value[key],schema.children[key],`${path}.${key}`,missing,unknown);
+      }
+    });
+  }
+
+  function filter(value,schema){
+    if(Array.isArray(value)) return schema.item ? value.map(item => filter(item,schema.item)) : value;
+    if(!value || typeof value !== 'object') return value;
+    const result = {};
+    Object.keys(value).forEach(key => {
+      if(schema.objectKeys.has(key)){
+        result[key] = schema.children[key] ? filter(value[key],schema.children[key]) : value[key];
+      }
+    });
+    return result;
+  }
+
+  function escapeHtml(value){
+    return String(value).replace(/[&<>"']/g,char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+
+  function confirmMismatch({mode,source,oldTime,data,reference}){
+    const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : reference ? [reference] : []}]);
+    const missing = [], unknown = [];
+    const wrappedData = {tasks:data};
+    if(data && schema.objectKeys.size) diff(wrappedData,schema,'$',missing,unknown);
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal';
+      overlay.style.zIndex = '10000';
+      const box = document.createElement('div');
+      box.className = 'modal-content';
+      const currentTime = modeInfo[mode].time;
+      const allRows = [
+        ...missing.map(path => `<li>Mangler: <code>${escapeHtml(path)}</code></li>`),
+        ...unknown.map(path => `<li>Ukjent og blir utelatt: <code>${escapeHtml(path)}</code></li>`)
+      ];
+      const rows = allRows.slice(0,100);
+      if(allRows.length > rows.length) rows.push(`<li>... og ${allRows.length - rows.length} flere avvik</li>`);
+      box.innerHTML = `<h2>Ulik programversjon</h2>
+        <p>${escapeHtml(source)} er lagret med versjon ${escapeHtml(oldTime || 'ukjent')}. Denne versjonen er fra ${escapeHtml(currentTime)}.</p>
+        <p>Eldre programversjon (${escapeHtml(oldTime || 'ukjent')}) må eventuelt lastes manuelt. «Åpne uansett» beholder bare felter og strukturer som finnes i dagens datasett; ukjente felter blir utelatt.</p>
+        <div style="max-height:240px;overflow:auto;"><ul>${rows.length ? rows.join('') : '<li>Fant ingen feltavvik mot oppgavestrukturen som er tilgjengelig nå.</li>'}</ul></div>`;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.textContent = 'Åpne uansett';
+      open.addEventListener('click',() => {
+        overlay.remove();
+        resolve({approved:true, data:schema.objectKeys.size ? filter(wrappedData,schema).tasks : data});
+      });
+      box.appendChild(open);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    });
+  }
+
+  function stamp(mode){
+    const info = modeInfo[mode];
+    try{ localStorage.setItem(info.key,info.time); }catch(error){ console.warn('Kunne ikke lagre programversjon:',error); }
+  }
+
+  function checkStorage(mode,reference,prepare){
+    const info = modeInfo[mode];
+    const keys = [];
+    for(let index=0; index<localStorage.length; index++){
+      const key = localStorage.key(index);
+      if(key && key.startsWith(info.prefix) && key !== info.key) keys.push(key);
+    }
+    const storedTime = read(mode);
+    if(!keys.length || storedTime === info.time){
+      if(prepare) prepare();
+      stamp(mode);
+      return Promise.resolve(true);
+    }
+    const taskPrefix = mode === 'editor' ? 'editor_task_' : 'tk_task_';
+    const taskEntries = keys.filter(key => key.startsWith(taskPrefix) && !key.startsWith(`${taskPrefix}lock_`)).map(key => {
+      try{return {key,task:JSON.parse(localStorage.getItem(key))};}catch{return {key,task:null};}
+    }).filter(entry => entry.task && typeof entry.task === 'object');
+    const tasks = taskEntries.map(entry => entry.task);
+    return confirmMismatch({mode,source:'localStorage',oldTime:storedTime,data:tasks,reference}).then(result => {
+      if(!result.approved) return false;
+      if(prepare) prepare();
+      const currentTaskEntries = [];
+      for(let index=0; index<localStorage.length; index++){
+        const key = localStorage.key(index);
+        if(!key || !key.startsWith(taskPrefix) || key.startsWith(`${taskPrefix}lock_`)) continue;
+        try{
+          const task = JSON.parse(localStorage.getItem(key));
+          if(task && typeof task === 'object') currentTaskEntries.push({key,task});
+        }catch(error){console.warn(`Kunne ikke lese lagret oppgave ${key}:`,error);}
+      }
+      const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : []}]);
+      const taskSchema = schema.children.tasks?.item;
+      const byId = new Map();
+      currentTaskEntries.forEach(entry => {
+        const task = taskSchema ? filter(entry.task,taskSchema) : entry.task;
+        if(!task || !task.id) return;
+        localStorage.setItem(entry.key,JSON.stringify(task));
+        byId.set(task.id,task);
+      });
+      const knownIds = new Set([...byId.keys(),...(Array.isArray(reference) ? reference : []).map(task => task?.id).filter(Boolean)]);
+      currentTaskEntries.forEach(entry => {if(!byId.has(entry.task.id)) localStorage.removeItem(entry.key);});
+      const orderKey = mode === 'editor' ? 'editor_taskOrder' : 'tk_taskOrder';
+      try{
+        const order = JSON.parse(localStorage.getItem(orderKey) || '[]');
+        localStorage.setItem(orderKey,JSON.stringify(order.filter(id => knownIds.has(id))));
+      }catch(error){console.warn('Kunne ikke filtrere oppgaverekkefølgen:',error);}
+      stamp(mode);
+      return true;
+    });
+  }
+
+  function read(mode){
+    const info = modeInfo[mode];
+    try{return localStorage.getItem(info.key);}catch(error){console.warn('Kunne ikke lese programversjon:',error);return null;}
+  }
+
+  return {
+    time(mode){return modeInfo[mode].time;},
+    stamp,
+    read,
+    checkStorage,
+    checkImport(data,mode,source,reference){
+      const sourceTime = data?.metadata?.appVersion || data?.appVersion || null;
+      if(sourceTime === modeInfo[mode].time) return Promise.resolve({approved:true,data});
+      let tasks = Array.isArray(data) ? data : data?.tasks;
+      let storageTaskKeys = [];
+      if(!Array.isArray(tasks) && data?.localStorage && typeof data.localStorage === 'object'){
+        tasks = [];
+        storageTaskKeys = Object.keys(data.localStorage).filter(key => /^(editor|tk)_task_/.test(key));
+        storageTaskKeys.forEach(key => {
+          try{
+            const task = JSON.parse(data.localStorage[key]);
+            if(task && task.id) tasks.push(task);
+          }catch(error){console.warn(`Kunne ikke lese ${key} fra backup:`,error);}
+        });
+      }
+      if(!Array.isArray(tasks)) return Promise.resolve({approved:true,data});
+      return confirmMismatch({mode,source,oldTime:sourceTime,data:tasks,reference}).then(result => {
+        if(Array.isArray(data)) return {...result,data:result.data};
+        if(Array.isArray(data?.tasks)) return {...result,data:{...data,tasks:result.data}};
+        if(storageTaskKeys.length){
+          const keptIds = new Set(result.data.map(task => task.id));
+          const localStorageCopy = {...data.localStorage};
+          storageTaskKeys.forEach(key => {
+            let id = key.slice(key.indexOf('_task_') + 6);
+            if(!keptIds.has(id)) delete localStorageCopy[key];
+            else{
+              const task = result.data.find(item => item.id === id);
+              localStorageCopy[key] = JSON.stringify(task);
+            }
+          });
+          return {...result,data:{...data,localStorage:localStorageCopy}};
+        }
+        return {...result,data};
+      });
+    },
+    confirmMismatch
+  };
+})();

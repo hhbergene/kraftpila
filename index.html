@@ -151,10 +151,12 @@
     </div>
   </main>
   <!-- Midlertidig: uten ES module for å kunne åpne via file:// -->
+  <script src="web/version.js"></script>
   <script src="web/shared.js"></script>
   <script src="web/text_render.js"></script>
   <script src="web/geometry.js"></script>
   <script src="web/scene_render.js"></script>
+  <script src="web/scene_model.js"></script>
   <script src="web/debug_render.js"></script>
   <script src="web/evaluate.js"></script>
   <script src="web/forces.js"></script>
@@ -163,5 +165,6 @@
   <script src="web/ui.js"></script>
   <script src="web/report.js"></script>
   <script src="web/main.js"></script>
+  <script>if(window.PLAYER_BUILD_TIME) document.title += " (" + window.PLAYER_BUILD_TIME + ")";</script>
 </body>
 </html>

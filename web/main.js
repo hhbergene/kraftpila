@@ -58,6 +58,10 @@ window.TASKS = [];
   window.renderTo = (g) => renderOnce(g);
 
   function renderOnce(g = ctx) {
+    if(window.currentTask){
+      window.sceneModel.update(window.currentTask);
+      window.syncSceneForceAnchors(window.currentTask, window.fm, false);
+    }
     window.clearCanvas(g);
     
     // Save context and translate so grid area (0,0 to 1000,640) starts at top-left
@@ -185,10 +189,7 @@ window.TASKS = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            ctx.fillStyle = window.HIGHLIGHT_SCENE_POINT_DIM_COLOR;
-            ctx.beginPath();
-            ctx.arc(point[0], point[1], window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
+            window.drawAnchorMarker(ctx,point,'sceneSelected');
           }
         });
       }
@@ -216,10 +217,7 @@ window.TASKS = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            ctx.fillStyle = window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR;
-            ctx.beginPath();
-            ctx.arc(point[0], point[1], window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
+            window.drawAnchorMarker(ctx,point,'sceneHovered');
           }
         });
       }
@@ -875,11 +873,12 @@ window.TASKS = [];
   // Save removed - use editor mode only
 
   function updateHelpButton(){
+    if(window.updateTaskHeader) window.updateTaskHeader();
     const helpBtn = document.getElementById('btn-help');
     if(helpBtn && window.currentTask){
       const span = helpBtn.querySelector('span');
       if(span){
-        let btnText = '' + (window.currentTask.taskTitle || window.currentTask.id);
+        let btnText = window.getTaskPositionLabel ? window.getTaskPositionLabel(window.currentTask) : `Oppgave ${(window.currentTaskIndex || 0) + 1}`;
         // Add score if available
         const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
         if(taskScore && typeof taskScore.score === 'number'){
@@ -913,6 +912,7 @@ window.TASKS = [];
    * pos is the [x, y] coordinate for distance matching.
    */
   window.buildAnchorCandidates = function(task){
+    if(window.sceneModel) return window.sceneModel.candidates(task);
     const candidates = [];
     if(!task || !task.scene) return candidates;
     
@@ -1570,14 +1570,17 @@ window.TASKS = [];
     }
   };
 
-  // Load saved tasks from localStorage before loading initial task
-  loadSavedTasks();
-  
-  // Apply saved task order from localStorage
-  loadTaskOrder();
+  // Load a current task schema before merging persisted tasks, so version checks
+  // can distinguish supported fields from fields belonging to older builds.
+  (async function initializeTasks(){
+    const currentTasks = await window.loadSupportedTaskSchema();
+    window.currentTaskSchema = currentTasks;
+    window.TASKS = currentTasks;
+    window.tasks = window.TASKS;
+    await window.AppVersioning.checkStorage('player',currentTasks);
+    loadSavedTasks();
+    loadTaskOrder();
 
-  // Load initial task based on persisted index
-  (function(){
     let startIdx = 0;
     try {
       const s = localStorage.getItem('tk_currentTaskIndex');
@@ -1586,36 +1589,22 @@ window.TASKS = [];
         if(!Number.isNaN(n)) startIdx = n;
       }
     } catch {}
-    loadTask(startIdx);
-  })();
-
-  // No tasks stored in the browser: fetch the Intro taskset automatically
-  if(!window.tasks.length){
-    (async function(){
+    if(!window.tasks.length){
+      window.tasks = currentTasks;
+      window.TASKS = window.tasks;
+      window.tasks.forEach(task => {
+        if(!Array.isArray(task.help_lines)) task.help_lines = [];
+        delete task.comment;
+        try{localStorage.setItem(`tk_task_${task.id}`,JSON.stringify(task));}catch(error){console.warn(`Kunne ikke lagre oppgave ${task.id}:`,error);}
+      });
       try{
-        const res = await fetch('taskset_Intro.json', {cache: 'no-store'});
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        const list = (Array.isArray(data) ? data : data.tasks || []).filter(t => t && t.id);
-        if(!list.length) return;
-        window.TASKS = [];
-        list.forEach(task => {
-          if(!Array.isArray(task.help_lines)) task.help_lines = [];
-          delete task.comment;
-          window.TASKS.push(task);
-          try{ localStorage.setItem(`tk_task_${task.id}`, JSON.stringify(task)); }catch{}
-        });
-        window.tasks = window.TASKS;
-        try{
-          localStorage.setItem('tk_taskOrder', JSON.stringify(window.tasks.map(t => t.id)));
-          localStorage.setItem('tk_currentTaskIndex', '0');
-        }catch{}
-        loadTask(0);
-      }catch(err){
-        console.warn('Kunne ikke laste Intro-oppgavene automatisk:', err);
-      }
-    })();
-  }
+        localStorage.setItem('tk_taskOrder',JSON.stringify(window.tasks.map(task => task.id)));
+        localStorage.setItem('tk_currentTaskIndex','0');
+      }catch(error){console.warn('Kunne ikke lagre standardoppgavene:',error);}
+      startIdx = 0;
+    }
+    loadTask(startIdx);
+  })().catch(error => console.error('Kunne ikke starte elevmodus:',error));
 
   // ===== Task Set Selection from localStorage =====
   function populateTasksetSelect() {
@@ -2516,7 +2505,7 @@ window.TASKS = [];
             const taskId = window.currentTask.id;
             const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
-            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
+            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.title || taskId} (${taskId})`;
           }
         }
         // Update help panel if it's open
@@ -2525,7 +2514,7 @@ window.TASKS = [];
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `${window.getTaskPositionLabel(window.currentTask)}: ${window.currentTask.title || ''}`;
           if(helpContent && helpCanvas){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
@@ -2548,7 +2537,7 @@ window.TASKS = [];
             const taskId = window.currentTask.id;
             const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
             taskComment.value = commentText;
-            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
+            if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.title || taskId} (${taskId})`;
           }
         }
         // Update help panel if it's open
@@ -2557,7 +2546,7 @@ window.TASKS = [];
           const helpContent = document.getElementById('help-content');
           const helpCanvas = document.getElementById('help-canvas');
           const helpTitle = document.getElementById('help-title');
-          if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+          if(helpTitle) helpTitle.textContent = `${window.getTaskPositionLabel(window.currentTask)}: ${window.currentTask.title || ''}`;
           if(helpContent && helpCanvas){
             // Player mode: always show canvas rendering
             helpContent.style.display = 'none';
@@ -2606,7 +2595,7 @@ window.TASKS = [];
         // Show help lines
         const helpCanvas = document.getElementById('help-canvas');
         const helpTitle = document.getElementById('help-title');
-        if(helpTitle) helpTitle.textContent = `Oppgave ${window.currentTask.taskTitle || window.currentTask.id}: ${window.currentTask.title}`;
+        if(helpTitle) helpTitle.textContent = `${window.getTaskPositionLabel(window.currentTask)}: ${window.currentTask.title || ''}`;
         if(helpCanvas) helpCanvas.style.display = 'block';
         helpPanel.classList.remove('hidden');
         window.updateHelpPanelLayout();
@@ -2642,7 +2631,7 @@ window.TASKS = [];
           const taskId = window.currentTask.id;
           const commentText = window.currentTask.comment || (window.taskComments[taskId] && window.taskComments[taskId].comment) || '';
           taskComment.value = commentText;
-          if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.taskTitle || window.currentTask.title || taskId} (${taskId})`;
+          if(commentLabel) commentLabel.textContent = `Kommentar til ${window.currentTask.title || taskId} (${taskId})`;
         }
         // Inject Full reset button if not present
         let resetAllBtn = document.getElementById('settings-reset-all');
@@ -3212,6 +3201,7 @@ window.TASKS = [];
         taskScores: window.taskScores,
         taskComments: window.taskComments,
         timestamp: new Date().toISOString(),
+        appVersion:window.AppVersioning.time('player'),
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
         localStorage: {}
       };
@@ -3251,9 +3241,16 @@ window.TASKS = [];
       const file = e.target.files?.[0];
       if(!file) return;
       const reader = new FileReader();
-      reader.onload = (evt)=>{
+      reader.onload = async (evt)=>{
         try{
-          const backup = JSON.parse(evt.target?.result || '{}');
+          let backup = JSON.parse(evt.target?.result || '{}');
+          const reviewed = await window.AppVersioning.checkImport(
+            backup,
+            'player',
+            file.name,
+            [...(window.currentTaskSchema || []), ...(window.tasks || [])]
+          );
+          backup = reviewed.data;
           if(backup.settings){ window.settings = { ...window.settings, ...backup.settings }; }
           if(backup.taskScores){ window.taskScores = backup.taskScores; }
           if(backup.taskComments){ window.taskComments = backup.taskComments; }
@@ -3369,6 +3366,7 @@ window.TASKS = [];
   // Store pending taskset data (selected but not yet uploaded)
   let pendingTasksetData = null;
   let pendingTasksetName = '';
+  let pendingTasksetVersion = null;
 
   if(tasksetUploadBtn){
     tasksetUploadBtn.addEventListener('click', ()=>{
@@ -3383,6 +3381,7 @@ window.TASKS = [];
       tasksetUploadInput.value = '';
       pendingTasksetData = null;
       pendingTasksetName = '';
+      pendingTasksetVersion = null;
       tasksetUploadConfirm.disabled = true;
       if(tasksetUploadModal) tasksetUploadModal.classList.remove('hidden');
     });
@@ -3416,6 +3415,7 @@ window.TASKS = [];
         // Store data for when user clicks "Last opp"
         pendingTasksetData = data;
         pendingTasksetName = key.replace('taskset_', '');
+        pendingTasksetVersion = data?.metadata?.appVersion || data?.appVersion || window.AppVersioning.read('player');
         tasksetUploadConfirm.disabled = false;
       } catch (err) {
         tasksetUploadError.textContent = 'Feil ved lesing av oppgavesett: ' + err.message;
@@ -3488,6 +3488,7 @@ window.TASKS = [];
       if(tasksetSelect) tasksetSelect.value = '';
       pendingTasksetData = null;
       pendingTasksetName = '';
+      pendingTasksetVersion = null;
       tasksetUploadConfirm.disabled = true;
       if(!file) return;
       try{
@@ -3501,6 +3502,7 @@ window.TASKS = [];
         tasksetFileSelected.style.display = 'block';
         pendingTasksetData = tasks;
         pendingTasksetName = label;
+        pendingTasksetVersion = data?.metadata?.appVersion || data?.appVersion || null;
         tasksetUploadConfirm.disabled = false;
       }catch(err){
         tasksetUploadError.textContent = 'Feil ved henting av oppgavesett: ' + err.message;
@@ -3515,7 +3517,7 @@ window.TASKS = [];
       if(!file) return;
 
       const reader = new FileReader();
-      reader.onload = (evt)=>{
+      reader.onload = async (evt)=>{
         try{
           const importData = JSON.parse(evt.target?.result || '{}');
           const tasksToImport = importData.tasks || [];
@@ -3546,6 +3548,7 @@ window.TASKS = [];
           // Store data for when user clicks "Last opp"
           pendingTasksetData = tasksToImport;
           pendingTasksetName = fileName;
+          pendingTasksetVersion = importData?.metadata?.appVersion || importData?.appVersion || null;
           tasksetUploadConfirm.disabled = false;
         } catch(err){
           tasksetUploadError.textContent = 'Feil: ' + err.message;
@@ -3564,7 +3567,7 @@ window.TASKS = [];
 
   // Handle "Last opp" button - actually loads the taskset
   if(tasksetUploadConfirm){
-    tasksetUploadConfirm.addEventListener('click', ()=>{
+    tasksetUploadConfirm.addEventListener('click', async ()=>{
       if(!pendingTasksetData){
         tasksetUploadError.textContent = 'Feil: Ingen oppgavesett valgt';
         tasksetUploadError.style.display = 'block';
@@ -3600,6 +3603,15 @@ window.TASKS = [];
         if(tasksToImport.length === 0){
           throw new Error('Ingen gyldige oppgaver funnet');
         }
+
+        const reviewed = await window.AppVersioning.checkImport(
+          {tasks:tasksToImport,metadata:{appVersion:pendingTasksetVersion}},
+          'player',
+          pendingTasksetName || 'oppgavesett',
+          [...(window.currentTaskSchema || []), ...(window.tasks || [])]
+        );
+        tasksToImport = reviewed.data.tasks;
+        if(!tasksToImport.length) throw new Error('Ingen støttede oppgaver igjen etter filtrering');
 
         // Clear current tasks and scores
         window.TASKS = [];

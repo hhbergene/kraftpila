@@ -62,6 +62,8 @@ function updatePanelHeights(){
                         (scene.circles?.length || 0) +
                         (scene.segments?.length || 0) +
                         (scene.arrows?.length || 0) +
+                        (scene.points?.length || 0) +
+                        (scene.angles?.length || 0) +
                         (scene.texts?.length || 0);
   }
   
@@ -120,6 +122,7 @@ function updateScenePanel(){
   scenePanel.innerHTML = '';
   
   const scene = window.currentTask.scene;
+  if(window.sceneEditor) window.sceneEditor.checkTask();
   
   // Helper to expand short hex colors to full format
   function expandHexColor(color) {
@@ -145,6 +148,8 @@ function updateScenePanel(){
     else if(type === 'circle') typeCount = (scene.circles || []).length;
     else if(type === 'segment') typeCount = (scene.segments || []).length;
     else if(type === 'arrow') typeCount = (scene.arrows || []).length;
+    else if(type === 'angle') typeCount = (scene.angles || []).length;
+    else if(type === 'point') typeCount = (scene.points || []).length;
     else if(type === 'text') typeCount = (scene.texts || []).filter(t => !t._isShortLines).length;
     
     const isFirst = index === 0;
@@ -201,14 +206,20 @@ function updateScenePanel(){
         if(!array) return;
         
         if(direction === 'up' && index > 0) {
+          window.sceneEditor?.cancel();
+          window.sceneModel?.remapReferences(window.currentTask, type, index, direction);
           // Swap with previous
           [array[index - 1], array[index]] = [array[index], array[index - 1]];
+          window.selectedSceneElement = {type, index: index - 1, obj};
           updateScenePanel();
           window.markEdited && window.markEdited('task');
           window.updateAppState();
         } else if(direction === 'down' && index < array.length - 1) {
+          window.sceneEditor?.cancel();
+          window.sceneModel?.remapReferences(window.currentTask, type, index, direction);
           // Swap with next
           [array[index], array[index + 1]] = [array[index + 1], array[index]];
+          window.selectedSceneElement = {type, index: index + 1, obj};
           updateScenePanel();
           window.markEdited && window.markEdited('task');
           window.updateAppState();
@@ -218,6 +229,9 @@ function updateScenePanel(){
     
     // Wire up editor inputs
     setupEditorInputs(editor, type, index, obj);
+    if(type === 'angle' || type === 'point'){
+      window.sceneEditor?.buildProperties(editor, type, obj, index);
+    }
     
     scenePanel.appendChild(item);
   }
@@ -226,13 +240,19 @@ function updateScenePanel(){
   function getItemIcon(type) {
     const icons = {
       'origin': '●', 'plane': '─', 'rect': '▭', 'ellipse': '⬭',
-      'circle': '●', 'segment': '─', 'arrow': '→', 'text': 'T'
+      'circle': '●', 'segment': '─', 'arrow': '→', 'text': 'T', 'angle': '∠', 'point': '•'
     };
     return icons[type] || '◆';
   }
   
   // Helper to get editor HTML for each type
   function getEditorHTML(type, obj, index) {
+    if(type === 'angle' || type === 'point') return '';
+    function fillHTML(){
+      return `<div class="scene-editor-row"><label>Fyll:</label>
+        <input type="checkbox" class="scene-editor-input" data-field="fillEnabled" data-type="${type}" data-idx="${index}" ${obj.fill_color ? 'checked' : ''} />
+        <input type="color" class="scene-editor-input" data-field="fill_color" data-type="${type}" data-idx="${index}" value="${expandHexColor(obj.fill_color || '#4090ff')}" ${obj.fill_color ? '' : 'disabled'} /></div>`;
+    }
     // Helper to get delete button HTML for scene elements
     function getDeleteButtonHTML(){
       if(index === undefined) return ''; // No delete for singleton items (origin, plane)
@@ -299,6 +319,11 @@ function updateScenePanel(){
     } else if(type === 'ellipse') {
       const ellObj = obj;
       return `
+        <div class="scene-editor-row" title="Parametervinkler: 0° langs lokal bredderetning; positivt mot klokka. 0–360° er hel ellipse. Like verdier er tom bue.">
+          <label style="min-width:0;">Start °:</label><input type="number" class="scene-editor-input" data-field="startAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.startAngleDeg ?? 0}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
+          <label style="min-width:0;">Slutt °:</label><input type="number" class="scene-editor-input" data-field="endAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.endAngleDeg ?? 360}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
+        </div>
+        ${fillHTML()}
         <div class="scene-editor-row">
           <label>Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
@@ -321,6 +346,7 @@ function updateScenePanel(){
     } else if(type === 'circle') {
       const circObj = obj;
       return `
+        ${fillHTML()}
         <div class="scene-editor-row">
           <label>Snap:</label>
           <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="circle" data-idx="${index}" ${(circObj.snapping ? 'checked' : '')} />
@@ -416,6 +442,31 @@ function updateScenePanel(){
         const idx = parseInt(input.dataset.idx);
         // Use window.currentTask.scene directly instead of closure to avoid stale references
         const currentScene = window.currentTask?.scene;
+        if((fieldType === 'ellipse' || fieldType === 'circle') &&
+           (field === 'fillEnabled' || field === 'fill_color' || field === 'startAngleDeg' || field === 'endAngleDeg')){
+          const target = currentScene?.[fieldType + 's']?.[idx];
+          if(!target) return;
+          if(field === 'fillEnabled'){
+            const color = editor.querySelector('[data-field="fill_color"]');
+            if(input.checked) target.fill_color = color.value;
+            else delete target.fill_color;
+            color.disabled = !input.checked;
+          } else if(field === 'fill_color'){
+            target.fill_color = input.value;
+          } else {
+            const value = Number(input.value);
+            if(input.value.trim() === '' || !Number.isFinite(value)){
+              input.setCustomValidity('Oppgi en endelig vinkel i grader.');
+              input.reportValidity();
+              return;
+            }
+            input.setCustomValidity('');
+            target[field] = value;
+          }
+          window.markEdited?.('task');
+          window.updateAppState?.();
+          return;
+        }
         
         if(fieldType === 'text' && currentScene?.texts?.[idx]) {
           if(input.type === 'checkbox') {
@@ -499,6 +550,8 @@ function updateScenePanel(){
         const btnIdx = parseInt(btn.dataset.idx);
         // Use window.currentTask.scene directly instead of closure to avoid stale references
         const currentScene = window.currentTask?.scene;
+        window.sceneEditor?.cancel();
+        window.sceneModel?.remapReferences(window.currentTask, btnType, btnIdx, 'delete');
         
         if(btnType === 'text' && currentScene?.texts?.[btnIdx]) {
           // Tekster uten pos henger etter forrige tekst. Når første tekst slettes, 
@@ -540,13 +593,13 @@ function updateScenePanel(){
     const metaEditor = document.createElement('div');
     metaEditor.className = 'scene-item';
     metaEditor.style.marginBottom = '8px';
-    const titleVal = window.currentTask.taskTitle || window.currentTask.title || '';
+    const titleVal = window.currentTask.title || '';
     const subTitleVal = window.currentTask.taskSubTitle || window.currentTask.subTitle || '';
     const categoryVal = window.currentTask.category || '';
     metaEditor.innerHTML = `
       <div class="scene-editor-row">
         <label>Oppgave-Tittel:</label>
-        <input type="text" id="task-title-input" class="scene-editor-input" value="${titleVal}" style="flex:1; padding:2px 4px; font-size:11px;" />
+        <input type="text" id="task-title-input" class="scene-editor-input" style="flex:1; padding:2px 4px; font-size:11px;" />
       </div>
       <div class="scene-editor-row">
         <label>Undertittel:</label>
@@ -558,6 +611,7 @@ function updateScenePanel(){
       </div>
     `;
     scenePanel.appendChild(metaEditor);
+    metaEditor.querySelector('#task-title-input').value = titleVal;
     
     // Wire up metadata input handlers
     const titleInput = metaEditor.querySelector('#task-title-input');
@@ -566,19 +620,13 @@ function updateScenePanel(){
     
     if(titleInput) {
       titleInput.addEventListener('change', () => {
-        window.currentTask.taskTitle = titleInput.value;
         window.currentTask.title = titleInput.value;
-        // Also update in window.tasks array so oppgavelisten reflects the change
         if(window.tasks && window.currentTaskIndex !== undefined){
           const task = window.tasks.find(t => t.id === window.currentTask.id);
-          if(task){
-            task.taskTitle = titleInput.value;
-            task.title = titleInput.value;
-          }
+          if(task) task.title = titleInput.value;
         }
         window.markEdited && window.markEdited('task');
         updateHelpButton();
-        // Update task order list if it exists
         if(window.updateTaskOrderList){
           window.updateTaskOrderList();
         }
@@ -677,6 +725,8 @@ function updateScenePanel(){
   }
   
   // Step 5: Restore selected element after DOM rebuild
+  (scene.points || []).forEach((point, idx) => addItem('Punkt', 'point', idx, point));
+  (scene.angles || []).forEach((angle, idx) => addItem('Vinkel', 'angle', idx, angle));
   if(window.selectedSceneElement && scenePanel){
     const items = scenePanel.querySelectorAll('.scene-item');
     for(const item of items){
@@ -703,11 +753,18 @@ function updateScenePanel(){
 function updateHelpButton(){
   const helpBtn = document.getElementById('btn-help');
   if(!helpBtn || !window.currentTask) return;
-  
-  const id = window.currentTask.id || '?';
-  const title = window.currentTask.title || '?';
-  helpBtn.textContent = `❓ ${id}: ${title}`;
+  const label = window.getTaskPositionLabel ? window.getTaskPositionLabel(window.currentTask) : `Oppgave ${(window.currentTaskIndex || 0) + 1}`;
+  const taskScore = window.taskScores && window.taskScores[window.currentTask.id];
+  const buttonLabel = `${label}${taskScore && typeof taskScore.score === 'number' ? ` ${Math.round(taskScore.score * 100)}%` : ''}`;
+  const span = helpBtn.querySelector('span');
+  if(span) span.textContent = buttonLabel;
+  else helpBtn.textContent = `❓ ${buttonLabel}`;
+  const helpTitle = document.getElementById('help-title');
+  const titleInput = document.getElementById('help-title-input');
+  if(helpTitle) helpTitle.textContent = titleInput ? label : `${label}: ${window.currentTask.title || ''}`;
+  if(titleInput && titleInput.value !== (window.currentTask.title || '')) titleInput.value = window.currentTask.title || '';
 }
+window.updateTaskHeader = updateHelpButton;
 
 // ===== Help Lines Canvas Rendering =====
 

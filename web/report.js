@@ -201,7 +201,7 @@
         await nextFrames();
         if(window.renderNow) window.renderNow();
         entries.push({
-          title: task.title && task.title !== task.taskTitle ? `${task.taskTitle || id}: ${task.title}` : String(task.taskTitle || id),
+          title: task.title || `Oppgave ${i + 1}`,
           image: captureCanvas(),
           drawn,
           score: window.taskScores[id],

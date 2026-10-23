@@ -16,6 +16,7 @@ const context={
   DIR_SPAN_DEG:24,
   POS_SPAN:44,
   COVERAGE_PENALTY_EXP:1.5,
+  NEATNESS_PENALTY_THRESHOLD:0.95,
   clamp:value=>Math.max(0,Math.min(1,value)),
   rampDownLinear:()=>1,
   evalSumF:()=>({score:1,errors:[]}),
@@ -85,4 +86,10 @@ test('debug relations use force-component notation instead of separate component
   assert.match(summary.debugOutput,/S_1_x = G_t:/);
   assert.match(summary.debugOutput,/S_1_n = \|G\|:/);
   assert.doesNotMatch(summary.debugOutput,/Komponenter:/);
+
+  context.computeNeatness=()=>0.999;
+  const commentOnlySummary=context.computeScores(task,[],relationResults,[force]);
+  assert.equal(commentOnlySummary.neatness,0.999);
+  assert.equal(commentOnlySummary.finalScore,summary.finalScore);
+  assert.match(commentOnlySummary.debugOutput,/Intermediate = .* × 100% =/);
 });

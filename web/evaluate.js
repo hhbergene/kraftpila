@@ -16,37 +16,99 @@
   const COVERAGE_PENALTY_EXP = 1.5; // penalize missing forces
   const MATCH_THRESHOLD = 0.20; // matching threshold (keep at 0.2 for tolerance)
   const NAME_MISMATCH_PENALTY = 0.5; // penalty for name mismatch (use 0.5 for balanced matching)
+  const NEATNESS_COMMENT_ONLY = 0.999;
+  const NEATNESS_PENALTY_THRESHOLD = 0.95;
+  const NEATNESS_OVERLAP_PENALTY = 0.9;
   // NEW: helper for adaptive direction tolerance (tighter for axis-aligned expected directions)
   function axisAlignedDirTol(dir){
     return (Math.abs(dir[0]) < 1e-3 || Math.abs(dir[1]) < 1e-3) ? (DIR_TOL_DEG/4) : DIR_TOL_DEG;
   }
   function computeNeatness(task, forceResults, allForces){
-    // Consider only matched expected forces with complete geometry
     const matched = (forceResults||[]).filter(r=> r.found && typeof r.index==='number' && r.index>=0)
       .map(r => allForces[r.index])
-      .filter(f => f && f.arrowBase && f.arrowTip && Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip));
+      .filter(f => f && Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip));
+    const initialNames = new Set((task.initialForces||[])
+      .map(f => f && f.name)
+      .filter(Boolean)
+      .map(name => name.toLowerCase().trim()));
+    const initial = (allForces||[]).filter(f =>
+      f && f.name && initialNames.has(f.name.toLowerCase().trim()) &&
+      Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip)
+    );
+    const forces = [
+      ...matched.map(force => ({force, isInitial:false})),
+      ...initial.map(force => ({force, isInitial:true}))
+    ];
     const PARALLEL_TOL_DEG = 0.5;
     const OVERLAP_DIST_PX = 3;
-    for(let i=0;i<matched.length;i++){
-      const fi = matched[i];
+    const BASE_POINT_TOL_PX = 3;
+    let hasBasePointCrossing = false;
+    let hasShaftOverlap = false;
+    const cross = (a,b) => a[0]*b[1]-a[1]*b[0];
+    const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
+    const distanceToSegment = (point,start,end) => {
+      const segment = [end[0]-start[0],end[1]-start[1]];
+      const lengthSquared = segment[0]*segment[0]+segment[1]*segment[1];
+      if(lengthSquared < 1e-12) return distance(point,start);
+      const offset = [point[0]-start[0],point[1]-start[1]];
+      const t = Math.max(0,Math.min(1,(offset[0]*segment[0]+offset[1]*segment[1])/lengthSquared));
+      return distance(point,[start[0]+t*segment[0],start[1]+t*segment[1]]);
+    };
+    const basePointCrossesShaft = (point,start,end) => {
+      const segment = [end[0]-start[0],end[1]-start[1]];
+      const length = geometry.length(segment);
+      if(length < 1e-6) return false;
+      const offset = [point[0]-start[0],point[1]-start[1]];
+      const projection = (offset[0]*segment[0]+offset[1]*segment[1])/length;
+      return projection > BASE_POINT_TOL_PX && projection < length-BASE_POINT_TOL_PX &&
+        distanceToSegment(point,start,end) <= BASE_POINT_TOL_PX;
+    };
+    const baseTouchesOtherShaft = (first,second) => {
+      return basePointCrossesShaft(first.arrowBase,second.arrowBase,second.arrowTip) ||
+        basePointCrossesShaft(second.arrowBase,first.arrowBase,first.arrowTip);
+    };
+    for(let i=0;i<forces.length;i++){
+      const {force:fi,isInitial:fiInitial} = forces[i];
       const vi = [fi.arrowTip[0]-fi.arrowBase[0], fi.arrowTip[1]-fi.arrowBase[1]];
       const length = geometry.length(vi);
       if(length < 1e-6) continue;
       const axis = [vi[0]/length,vi[1]/length];
-      for(let j=i+1;j<matched.length;j++){
-        const fj = matched[j];
+      for(let j=i+1;j<forces.length;j++){
+        const {force:fj,isInitial:fjInitial} = forces[j];
+        if(fiInitial && fjInitial) continue;
         const vj = [fj.arrowTip[0]-fj.arrowBase[0], fj.arrowTip[1]-fj.arrowBase[1]];
         const ang = angleBetweenDeg(vi, vj);
-        if(ang > PARALLEL_TOL_DEG && Math.abs(180-ang) > PARALLEL_TOL_DEG) continue;
+        const parallel = ang <= PARALLEL_TOL_DEG || Math.abs(180-ang) <= PARALLEL_TOL_DEG;
+        if(!parallel){
+          const offset = [fj.arrowBase[0]-fi.arrowBase[0],fj.arrowBase[1]-fi.arrowBase[1]];
+          const denominator = cross(vi,vj);
+          const t = cross(offset,vj)/denominator;
+          const u = cross(offset,vi)/denominator;
+          if(t < 0 || t > 1 || u < 0 || u > 1){
+            if(baseTouchesOtherShaft(fi,fj)) hasBasePointCrossing = true;
+            continue;
+          }
+          const intersection = [fi.arrowBase[0]+t*vi[0],fi.arrowBase[1]+t*vi[1]];
+          const atBasePoint = distance(intersection,fi.arrowBase) <= BASE_POINT_TOL_PX ||
+            distance(intersection,fj.arrowBase) <= BASE_POINT_TOL_PX;
+          if(atBasePoint && baseTouchesOtherShaft(fi,fj)) hasBasePointCrossing = true;
+          else if(atBasePoint) continue;
+          else hasShaftOverlap = true;
+          continue;
+        }
         const offsets = [fj.arrowBase,fj.arrowTip].map(point=>[point[0]-fi.arrowBase[0],point[1]-fi.arrowBase[1]]);
         if(offsets.some(offset=>Math.abs(offset[0]*axis[1]-offset[1]*axis[0]) > OVERLAP_DIST_PX)) continue;
         const projections = offsets.map(offset=>offset[0]*axis[0]+offset[1]*axis[1]);
-        // Shared endpoints and crossing arrows are not overlapping shafts.
         const overlap = Math.min(length,Math.max(...projections))-Math.max(0,Math.min(...projections));
-        if(overlap > OVERLAP_DIST_PX) return 0.9;
+        if(overlap > OVERLAP_DIST_PX){
+          hasShaftOverlap = true;
+          continue;
+        }
+        if(baseTouchesOtherShaft(fi,fj)) hasBasePointCrossing = true;
       }
     }
-    return 1.0;
+    if(hasShaftOverlap) return NEATNESS_OVERLAP_PENALTY;
+    return hasBasePointCrossing ? NEATNESS_COMMENT_ONLY : 1.0;
   }
 
   /**
@@ -784,9 +846,9 @@ if(r.anchorType === 'point'){
       lines.push({ text: msg, indices });
     }
     
-    // Check neatness - warn about overlapping forces
+    // Warn for shaft overlap or a shaft crossing another arrow's base point.
     if(neatness !== undefined && neatness < 1.0){
-      lines.push({ text: `Unngå overlappende kraftpiler ved å parallellforskyve pila litt til siden for angrepspunktet.`, indices: [] });
+      lines.push({ text: `Unngå at kraftpiler går gjennom hverandre ved å parallellforskyve pila litt til siden.`, indices: [] });
     }
     
     return lines;
@@ -894,7 +956,9 @@ if(r.anchorType === 'point'){
     }
     
     const neatness = computeNeatness(task, forceResults, allForces);
-    let finalScore = combined * coverageFactor * neatness;
+    // Near-1 factors request a comment but do not reduce the total score.
+    const neatnessMultiplier = neatness < NEATNESS_PENALTY_THRESHOLD ? neatness : 1.0;
+    let finalScore = combined * coverageFactor * neatnessMultiplier;
     
     // NEW: Apply gating/caps based on coverage and essential forces
     let cap = 1.0;
@@ -1012,19 +1076,19 @@ if(r.anchorType === 'point'){
         debugOutput += `  Combined = (Base + Relations) / 2 (SumF is fallback only)\n`;
         debugOutput += `  Combined = (${baseScoreInfo} + ${(relationsScore*100).toFixed(0)}%) / 2 = ${(combined*100).toFixed(0)}%\n`;
         debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
-        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatnessMultiplier*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatnessMultiplier)*100).toFixed(0)}%\n`;
       } else if(!hasSumF){
         debugOutput += `  Combined = Base (ingen relasjoner eller ΣF-krav) = ${(combined*100).toFixed(0)}%\n`;
         debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
-        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatnessMultiplier*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatnessMultiplier)*100).toFixed(0)}%\n`;
       } else {
         debugOutput += `  Combined = (Base + SumF) / 2\n`;
         debugOutput += `  Combined = (${baseScoreInfo} + ${(sumFWeighted*100).toFixed(0)}%) / 2 = ${(combined*100).toFixed(0)}%\n`;
         debugOutput += `  Intermediate = Combined × Coverage × Neatness\n`;
-        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatness*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%\n`;
+        debugOutput += `  Intermediate = ${(combined*100).toFixed(0)}% × ${(coverageFactorVal*100).toFixed(0)}% × ${(neatnessMultiplier*100).toFixed(0)}% = ${((combined*coverageFactorVal*neatnessMultiplier)*100).toFixed(0)}%\n`;
       }
       
-      debugOutput += `  Final = min(Intermediate, Cap) = min(${((combined*coverageFactorVal*neatness)*100).toFixed(0)}%, ${(cap*100).toFixed(0)}%) = ${(finalScore*100).toFixed(0)}%\n`;
+      debugOutput += `  Final = min(Intermediate, Cap) = min(${((combined*coverageFactorVal*neatnessMultiplier)*100).toFixed(0)}%, ${(cap*100).toFixed(0)}%) = ${(finalScore*100).toFixed(0)}%\n`;
       debugOutput += `═════════════════════════`;
     }
     

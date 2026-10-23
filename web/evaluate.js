@@ -10,7 +10,8 @@
  */
 (function(){
   const DIR_TOL_DEG = 2.0; // direction tolerance Degrees
-  const POS_TOL = 22;     // position tolerance (px)
+  const POS_TOL = 5;      // position tolerance without feedback (px)
+  const POS_COMMENT_ONLY = 0.999;
   const DIR_SPAN_DEG = 24; // linear falloff span for direction 
   const POS_SPAN = 44; // linear falloff span for position
   const COVERAGE_PENALTY_EXP = 1.5; // penalize missing forces
@@ -180,6 +181,15 @@
   function rampDownLinear(value, tol, span){ const a=Math.abs(value); if(a<=tol) return 1; if(span<=0) return 0; return clamp(1 - (a - tol)/span, 0, 1); }
 
   /**
+   * Small position errors request feedback; larger errors fall off after half a grid step.
+   * The near-1 score remains in the total so it can combine with other small deductions.
+   */
+  function positionScore(error){
+    if(Math.abs(error) <= POS_TOL) return 1;
+    return POS_COMMENT_ONLY * rampDownLinear(error, window.GRID_STEP/2, POS_SPAN);
+  }
+
+  /**
    * Geometric mean of three values (robust to zeros)
    * Returns the cubic root of product, treating zero/negative as 1e-6 minimum
    * @param {number} a - First value
@@ -306,14 +316,14 @@
             const P = sceneObj && sceneObj.points[spec.anchor.point];
             if(P){
               const posErr = geometry.distance(drawnF.anchor, P);
-              posScore = rampDownLinear(posErr, POS_TOL, POS_SPAN);
+              posScore = positionScore(posErr);
             }
           } else if(spec.anchor.type==='segment'){
             const sceneObj = window.sceneLookup[spec.anchor.ref];
             const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
             if(seg){
               const posErr = distPointToSegment(drawnF.anchor, seg[0], seg[1]);
-              posScore = rampDownLinear(posErr, POS_TOL, POS_SPAN);
+              posScore = positionScore(posErr);
             }
           }
         }
@@ -389,15 +399,15 @@
           anchorType = 'point';
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const P = sceneObj && sceneObj.points[spec.anchor.point];
-          if(P){ posErr = geometry.distance(match.anchor, P); posOk = posErr <= POS_TOL; }
+          if(P){ posErr = geometry.distance(match.anchor, P); posOk = positionScore(posErr) === 1; }
         } else if(spec.anchor.type==='custom' && spec.anchor.pos){
           anchorType = 'custom';
-          posErr = geometry.distance(match.anchor, spec.anchor.pos); posOk = posErr <= POS_TOL;
+          posErr = geometry.distance(match.anchor, spec.anchor.pos); posOk = positionScore(posErr) === 1;
         } else if(spec.anchor.type==='segment'){
           anchorType = 'segment';
           const sceneObj = window.sceneLookup[spec.anchor.ref];
           const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
-          if(seg){ posErr = distPointToSegment(match.anchor, seg[0], seg[1]); posOk = posErr <= POS_TOL; }
+          if(seg){ posErr = distPointToSegment(match.anchor, seg[0], seg[1]); posOk = positionScore(posErr) === 1; }
         }
       }
       
@@ -913,7 +923,7 @@ if(r.anchorType === 'point'){
       const nameScore = r.nameOk ? 1.0 : 0.0;
       const dirTol = r.dirTolDeg || DIR_TOL_DEG;
       const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
-      const posScore = (typeof r.posErr==='number') ? rampDownLinear(r.posErr, POS_TOL, POS_SPAN) : 0.0;
+      const posScore = (typeof r.posErr==='number') ? positionScore(r.posErr) : 0.0;
       // Use arithmetic mean instead of geometric mean for more balanced scoring
       const combined = (nameScore + dirScore + posScore) / 3;
       perForceScores.push(combined);
@@ -1007,7 +1017,7 @@ if(r.anchorType === 'point'){
           const nameScore = r.nameOk ? 1.0 : 0.0;
           const dirTol = r.dirTolDeg || DIR_TOL_DEG;
           const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
-          const posScore = (typeof r.posErr==='number') ? rampDownLinear(r.posErr, POS_TOL, POS_SPAN) : 0.0;
+          const posScore = (typeof r.posErr==='number') ? positionScore(r.posErr) : 0.0;
           const combined = (nameScore + dirScore + posScore) / 3;
           debugOutput += `  ${name}: Navn=${nameScore.toFixed(2)} Dir=${dirScore.toFixed(2)} (tol=${dirTol.toFixed(2)}°) Pos=${posScore.toFixed(2)} → Gjennomsnitt=${(combined*100).toFixed(0)}%\n`;
         }

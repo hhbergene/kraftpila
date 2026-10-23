@@ -103,6 +103,9 @@ window.tasks = [];
     }
 
     // Guidelines (before forces for visibility)
+    if(window.fm){
+      window.drawForceGridTrace(ctx,window.fm.forces[window.fm.activeIndex]);
+    }
     if(window.drawGuidelines){
       drawGuidelines(ctx);
     }
@@ -131,7 +134,6 @@ window.tasks = [];
     
     // Draw test forces
     if(window.fm){
-      window.drawForceGridTrace(ctx,window.fm.forces[window.fm.activeIndex]);
       window.fm.drawAll(ctx);
     }
     
@@ -3500,7 +3502,7 @@ window.tasks = [];
           ? active.anchor : (active.arrowBase || window.DRAW_CENTER);
         window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, snapDirection ? {t_vec:snapDirection} : null);
         if(active.drawing || active.dragging==='arrowTip'){
-          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces));
+          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP));
         }
       } else {
         window.currentGuidelines = null;

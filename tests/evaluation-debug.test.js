@@ -12,13 +12,12 @@ const relationsEnd=source.indexOf('\n  /**',relationsStart);
 const context={
   window:{settings:{debug:true},fm:{forces:[]}},
   DIR_TOL_DEG:2,
-  POS_TOL:22,
   DIR_SPAN_DEG:24,
-  POS_SPAN:44,
   COVERAGE_PENALTY_EXP:1.5,
   NEATNESS_PENALTY_THRESHOLD:0.95,
   clamp:value=>Math.max(0,Math.min(1,value)),
   rampDownLinear:()=>1,
+  positionScore:()=>1,
   evalSumF:()=>({score:1,errors:[]}),
   computeNeatness:()=>1,
   unit:vector=>{

@@ -233,6 +233,8 @@
       }
       for(const axis of [0,1]){
         for(const offset of components[axis]){
+          // A redundant component line must not free the other axis from grid snapping.
+          if(Math.abs(offset-Math.round(offset/gridStep)*gridStep)<=1e-8) continue;
           const coordinate=origin[axis]+offset;
           if(Math.abs(pos[axis]-coordinate)>8) continue;
           const component={axis,coordinate};
@@ -283,21 +285,32 @@
     return {pos:best.pos,source:best.source,direction:best.direction||null,component:best.component||null};
   }
 
-  function buildMatchedComponentGuidelines(force,forces){
+  function buildMatchedComponentGuidelines(force,forces,gridStep=window.GRID_STEP||20){
     const g=window.geometry,lines=[];
-    if(!window.enableSnap || !g.finitePoint(force.arrowBase)||!g.finitePoint(force.arrowTip)) return lines;
+    if(!g.finitePoint(force.arrowBase)||!g.finitePoint(force.arrowTip)) return lines;
     for(const axis of [0,1]){
       const size=Math.abs(force.arrowTip[axis]-force.arrowBase[axis]);
       if(!Number.isFinite(size)) continue;
-      const matched=forces.some(other=>other!==force &&
+      const matches=forces.filter(other=>other!==force &&
         g.finitePoint(other.arrowBase)&&g.finitePoint(other.arrowTip)&&
         Math.abs(Math.abs(other.arrowTip[axis]-other.arrowBase[axis])-size)<=1e-8);
-      if(!matched) continue;
+      if(!matches.length) continue;
       const componentAxis=1-axis;
+      const style={color:window.forceArrowColor(force,true),dashed:true,dash:[4,3],lineWidth:1};
+      const halfLength=gridStep/4;
+      const transverse=Math.abs(force.arrowTip[componentAxis]-force.arrowBase[componentAxis]);
+      const axialMatch=size>1e-8 && transverse<=halfLength;
+      if(axialMatch){
+        const a=force.arrowTip.slice(),b=force.arrowTip.slice();
+        const markerHalfLength=gridStep/2;
+        a[componentAxis]-=markerHalfLength;b[componentAxis]+=markerHalfLength;
+        lines.push({a,b,...style,dash:[8,6],lineWidth:2});
+        continue;
+      }
+      if(!window.enableSnap) continue;
       const fromBase=force.arrowBase.slice(),fromTip=force.arrowTip.slice();
       fromBase[componentAxis]=force.arrowTip[componentAxis];
       fromTip[componentAxis]=force.arrowBase[componentAxis];
-      const style={color:window.forceArrowColor(force,true),dashed:true,dash:[4,3],lineWidth:1};
       lines.push({a:force.arrowBase.slice(),b:fromBase,...style},
         {a:force.arrowTip.slice(),b:fromTip,...style});
     }

@@ -95,26 +95,49 @@ test('trace visibility depends only on guidelines and complete nonzero geometry'
 test('both entrypoints render only the selected force trace before forces, with no retained state',()=>{
   for(const file of ['main.js','editor.js']){
     const window=runtime(),source=fs.readFileSync(path.join(root,'web',file),'utf8');
-    const start=source.indexOf('    // Draw test forces');
+    const start=source.indexOf('    // Guidelines (before forces for visibility)');
     const end=source.indexOf('\n    }',start)+6;
     assert.ok(start>=0 && end>start);
     const traces=[],events=[];
-    const first={arrowBase:[0,0],arrowTip:[80,0]},second={arrowBase:[10,8],arrowTip:[90,8]};
+    const first={arrowBase:[1,0],arrowTip:[81,0]},second={arrowBase:[10,8],arrowTip:[90,8]};
     const ctx=canvas();
     window.fm={forces:[first,second],activeIndex:1,drawAll(){events.push('forces');}};
     const original=window.drawForceGridTrace;
     window.drawForceGridTrace=(ctx,force)=>{traces.push(force);events.push('trace');original(ctx,force);};
+    window.drawGuidelines=()=>events.push('guidelines');
     window.ctx=ctx;window.g=ctx;
-    const draw=()=>vm.runInContext(source.slice(start,end),window);
+    const guidelinesEnd=source.indexOf('\n    }',end)+6;
+    const forcesStart=source.indexOf('    // Draw test forces',guidelinesEnd);
+    const forcesEnd=source.indexOf('\n    }',forcesStart)+6;
+    const draw=()=>{
+      vm.runInContext(source.slice(start,guidelinesEnd),window);
+      vm.runInContext(source.slice(forcesStart,forcesEnd),window);
+    };
+    assert.ok(end<source.indexOf('      drawGuidelines(',start));
+    assert.ok(end<source.indexOf('      window.fm.drawAll(',start));
     draw();
     assert.equal(traces[0],second);
-    assert.deepEqual(events,['trace','forces']);
+    assert.deepEqual(events,['trace','guidelines','forces']);
     window.fm.activeIndex=0;
     draw();
     assert.equal(traces[1],first);
     window.fm.forces=[];
     draw();
     assert.equal(traces[2],undefined);
+    assert.equal(ctx.paths.length,2);
+  }
+});
+
+test('trace is unnecessary only when both base coordinates align with the canvas grid',()=>{
+  for(const gridStep of [20,40]){
+    const window=runtime(gridStep),ctx=canvas();
+    for(const base of [[0,0],[gridStep*3,-gridStep*2],[-gridStep,gridStep]]){
+      window.drawForceGridTrace(ctx,{arrowBase:base,arrowTip:[base[0]+83,base[1]-57]});
+    }
+    assert.equal(ctx.paths.length,0);
+    for(const base of [[gridStep+0.25,gridStep],[gridStep,gridStep-0.25]]){
+      window.drawForceGridTrace(ctx,{arrowBase:base,arrowTip:[base[0]+83,base[1]-57]});
+    }
     assert.equal(ctx.paths.length,2);
   }
 });

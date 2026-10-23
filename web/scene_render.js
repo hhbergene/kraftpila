@@ -41,6 +41,7 @@
     if(!window.enableGuidelines || !force) return;
     const g=window.geometry,base=force.arrowBase,tip=force.arrowTip;
     if(!g.finitePoint(base)||!g.finitePoint(tip)) return;
+    if(base.every(value=>Math.abs(value-Math.round(value/GRID_STEP)*GRID_STEP)<=1e-8)) return;
     const length=g.distance(base,tip);
     if(!Number.isFinite(length)||length<1e-6) return;
     const t=[(tip[0]-base[0])/length,(tip[1]-base[1])/length];

@@ -6,6 +6,30 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8');
 
+test('page titles show the generated build time and prefer page-specific versions',()=>{
+  const root=path.join(__dirname,'..');
+  const versionSource=fs.readFileSync(path.join(root,'web','version.js'),'utf8');
+  for(const [file,versionKey] of [['index.html','PLAYER_BUILD_TIME'],['editor.html','EDITOR_BUILD_TIME']]){
+    const html=fs.readFileSync(path.join(root,file),'utf8');
+    const title=html.match(/<title>(.*?)<\/title>/)[1];
+    const titleScript=Array.from(html.matchAll(/<script>([\s\S]*?)<\/script>/g))
+      .map(match=>match[1]).find(script=>script.includes('document.title'));
+    assert.ok(titleScript,`${file} updates its title`);
+    assert.ok(html.indexOf('src="web/version.js"')<html.indexOf(titleScript));
+    for(const mode of ['generated','page-specific','missing']){
+      const window={};
+      const document={title};
+      const context={window,document};
+      if(mode!=='missing') vm.runInNewContext(versionSource,context);
+      if(mode==='page-specific') window[versionKey]='2026-10-23 13:56';
+      vm.runInNewContext(titleScript,context);
+      const expected=mode==='missing' ? title : `${title} (${window[versionKey] || window.BUILD_TIME})`;
+      assert.equal(document.title,expected,`${file}: ${mode}`);
+      if(mode==='generated') assert.ok(window.BUILD_TIME,'generated version is defined');
+    }
+  }
+});
+
 function setup(){
   const elements=[];
   const storage=new Map();

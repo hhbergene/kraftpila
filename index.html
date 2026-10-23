@@ -165,6 +165,6 @@
   <script src="web/ui.js"></script>
   <script src="web/report.js"></script>
   <script src="web/main.js"></script>
-  <script>if(window.PLAYER_BUILD_TIME) document.title += " (" + window.PLAYER_BUILD_TIME + ")";</script>
+  <script>if(window.PLAYER_BUILD_TIME || window.BUILD_TIME) document.title += " (" + (window.PLAYER_BUILD_TIME || window.BUILD_TIME) + ")";</script>
 </body>
 </html>

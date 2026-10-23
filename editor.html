@@ -241,6 +241,6 @@
   <script src="web/scene_editor.js"></script>
   <!-- Editor entry point -->
   <script src="web/editor.js"></script>
-  <script>if(window.EDITOR_BUILD_TIME) document.title += " (" + window.EDITOR_BUILD_TIME + ")";</script>
+  <script>if(window.EDITOR_BUILD_TIME || window.BUILD_TIME) document.title += " (" + (window.EDITOR_BUILD_TIME || window.BUILD_TIME) + ")";</script>
 </body>
 </html>

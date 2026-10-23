@@ -6,6 +6,60 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname,'..','web','editor.js'),'utf8');
 
+function setupDefaultTasks(savedTasks=[]){
+  const schema=[{id:'default-a',title:'Default',scene:{points:[{x:1,y:2}]}},{id:'default-b'}];
+  const storage=new Map([['tk_task_player','untouched']]);
+  const window={tasks:[],currentTaskSchema:schema,settings:{},rememberUndoSelection(){}};
+  const context={window,JSON,console,parseInt,
+    localStorage:{getItem:key=>storage.get(key) ?? null,setItem:(key,value)=>storage.set(key,value),
+      removeItem:key=>storage.delete(key),get length(){return storage.size;},key:i=>Array.from(storage.keys())[i]},
+    queueStorage:(key,value)=>storage.set(key,JSON.stringify(value)),
+    loadSavedTasks:()=>{window.tasks=JSON.parse(JSON.stringify(savedTasks));},
+    loadTaskOrder(){},migrateLegacyTasks(){},resetUndo(){},
+    loadTask:index=>{window.currentTask=window.tasks[index];},
+    autoSave(){},cancelAutoSave(){},recordUndo(){},updateUserDisplay(){},updateScenePanel(){},
+    confirm:()=>true,alert(){},document:{getElementById:()=>null}};
+  window.loadSupportedTaskSchema=async()=>schema;
+  window.AppVersioning={checkStorage:async()=>true};
+  const start=source.indexOf('  function restoreDefaultTasks(){');
+  const end=source.indexOf('  // ===== Mouse interaction for forces =====',start);
+  return {window,storage,context,schema,initialize:()=>vm.runInNewContext(source.slice(start,end),context)};
+}
+
+test('fresh editor loads and persists independent copies of the default tasks',async()=>{
+  const {window,storage,schema,initialize}=setupDefaultTasks();
+  await initialize();
+  assert.equal(window.tasks.length,2);
+  assert.equal(window.currentTask.id,'default-a');
+  assert.deepEqual(JSON.parse(storage.get('editor_taskOrder')),['default-a','default-b']);
+  assert.deepEqual(JSON.parse(storage.get('editor_savedTasks')),['default-a','default-b']);
+  assert.equal(JSON.parse(storage.get('editor_task_default-a')).title,'Default');
+  window.currentTask.scene.points[0].x=99;
+  assert.equal(schema[0].scene.points[0].x,1);
+});
+
+test('editor startup preserves an existing saved taskset instead of adding defaults',async()=>{
+  const {window,initialize}=setupDefaultTasks([{id:'custom-task',title:'Custom'}]);
+  await initialize();
+  assert.deepEqual(window.tasks.map(task=>task.id),['custom-task']);
+});
+
+test('full reset restores pristine defaults and leaves player storage untouched',async()=>{
+  const {window,storage,context,initialize}=setupDefaultTasks();
+  await initialize();
+  window.tasks=[{id:'custom-task'}];
+  window.currentTask=window.tasks[0];
+  storage.set('editor_task_custom-task','{}');
+  const start=source.indexOf('  function performFullReset(){');
+  const end=source.indexOf('  // Wire reset button',start);
+  vm.runInNewContext(`${source.slice(start,end)};performFullReset();`,context);
+  assert.deepEqual(Array.from(window.tasks,task=>task.id),['default-a','default-b']);
+  assert.equal(window.currentTask.id,'default-a');
+  assert.equal(storage.has('editor_task_custom-task'),false);
+  assert.equal(storage.get('tk_task_player'),'untouched');
+  assert.deepEqual(JSON.parse(storage.get('editor_taskOrder')),['default-a','default-b']);
+});
+
 test('renaming an editor force preserves its spec and updates both sides of saved relations',()=>{
   const start=source.indexOf('  window.renameEditorForce =');
   const end=source.indexOf('  // Create/update the task spec',start);

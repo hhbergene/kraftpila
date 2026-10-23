@@ -46,10 +46,25 @@ function setup(){
     removeItem:key=>storage.delete(key),
     get length(){return storage.size;},
     key:index=>Array.from(storage.keys())[index]};
-  const context={window,document,localStorage,console,Math,Promise,Object,Array,String,JSON,Set,Map};
+  const context={window,document,localStorage,console,Math,Promise,Object,Array,String,JSON,Set,Map,encodeURI};
   vm.runInNewContext(source,context);
-  return {window,document,localStorage,elements};
+  return {window,document,localStorage,elements,context};
 }
+
+test('task schema loads the default set once without requesting the removed Intro file',async()=>{
+  const {window,context}=setup();
+  const requests=[];
+  context.fetch=async file=>{
+    requests.push(file);
+    return {ok:true,json:async()=>file==='oppgavesett.json'
+      ? [{name:'Intro',file:'taskset_Default.json'}]
+      : {tasks:[{id:'default-task',title:'Default'}]}};
+  };
+  const tasks=await window.loadSupportedTaskSchema();
+  assert.deepEqual(requests,['oppgavesett.json','taskset_Default.json']);
+  assert.equal(tasks.length,1);
+  assert.equal(tasks[0].id,'default-task');
+});
 
 test('task position labels are based on current list order',()=>{
   const {window}=setup();

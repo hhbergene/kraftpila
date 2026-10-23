@@ -2736,6 +2736,16 @@ window.tasks = [];
     console.groupEnd();
   };
 
+  function restoreDefaultTasks(){
+    window.tasks = JSON.parse(JSON.stringify(window.currentTaskSchema || []));
+    window.currentTask = null;
+    window.currentTaskIndex = 0;
+    window.tasks.forEach(task => queueStorage(`editor_task_${task.id}`,task));
+    const ids = window.tasks.map(task => task.id);
+    queueStorage('editor_savedTasks',ids);
+    queueStorage('editor_taskOrder',ids);
+  }
+
   // Load the current task schema before touching persisted tasks.
   (async function initializeEditorTasks(){
     const currentTasks = await window.loadSupportedTaskSchema();
@@ -2743,6 +2753,7 @@ window.tasks = [];
     await window.AppVersioning.checkStorage('editor',currentTasks,migrateLegacyTasks);
     loadSavedTasks();
     loadTaskOrder();
+    if(!window.tasks.length) restoreDefaultTasks();
 
     let startIdx = 0;
     try {
@@ -5478,7 +5489,8 @@ window.tasks = [];
     // Clear selection state
     window.selectedSceneElement = null;
     window.currentGuidelines = null;
-    // Reload first task
+    restoreDefaultTasks();
+    // Reload first default task without saving the task that was reset.
     loadTask(0);
     recordUndo(true);
     updateUserDisplay();

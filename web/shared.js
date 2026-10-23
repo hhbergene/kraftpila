@@ -331,7 +331,7 @@ window.getTaskPositionLabel = function(task){
 };
 
 window.loadSupportedTaskSchema = async function(){
-  const taskFiles = new Set(['taskset_Intro.json']);
+  const taskFiles = new Set(['taskset_Default.json']);
   try{
     const response = await fetch('oppgavesett.json',{cache:'no-store'});
     if(!response.ok) throw new Error('HTTP ' + response.status);

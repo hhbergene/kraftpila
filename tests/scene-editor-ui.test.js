@@ -106,6 +106,23 @@ test('force segment selection projects existing position and refreshes anchor co
   assert.equal(rebuilds,1);
 });
 
+test('automatic anchor selection opens the picker with the chosen anchor visible',()=>{
+  const s=setup();
+  s.select.className='force-anchor-select';
+  s.select.value='point:segment0:a';
+  const option=new Element('option');
+  option.value=s.select.value;
+  option.textContent='segment0 a';
+  s.select.appendChild(option);
+  s.document.querySelector=selector=>selector.includes('.force-anchor-select') ? s.select : null;
+  assert.equal(s.window.sceneEditor.showForceAnchorPicker(0),true);
+  assert.equal(s.window.sceneEditor.isPicking(s.select),true);
+  const list=s.parent.children.find(child=>child.className==='scene-anchor-list');
+  assert.equal(list.hidden,false);
+  assert.equal(list.children[0].dataset.value,s.select.value);
+  assert.equal(list.children[0]['aria-selected'],'true');
+});
+
 test('hover previews a candidate without edits or point creation; Esc restores selection',()=>{
   const s=setup();
   s.open();

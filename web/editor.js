@@ -63,7 +63,11 @@ window.tasks = [];
   function frame() {
     if(window.currentTask){
       window.sceneModel.update(window.currentTask);
-      window.syncSceneForceAnchors(window.currentTask, window.fm, true);
+      if(window.syncSceneForceAnchors(window.currentTask, window.fm, true)){
+        markEdited('forces', 'task');
+      }
+      const pendingAnchorPickers=window.pendingForceAnchorPickerIndices?.splice(0) || [];
+      pendingAnchorPickers.forEach(index=>window.sceneEditor?.showForceAnchorPicker(index));
     }
     clear();
     
@@ -1460,6 +1464,8 @@ window.tasks = [];
       window.fm.syncInputs(inputsContainer);
       ensureInputMeta();
     }
+    const pendingAnchorPickers=window.pendingForceAnchorPickerIndices?.splice(0) || [];
+    pendingAnchorPickers.forEach(index=>window.sceneEditor?.showForceAnchorPicker(index));
     
     // 7. Update panel heights based on content
     updatePanelHeights();
@@ -2350,13 +2356,26 @@ window.tasks = [];
     }
     const { spec, prop } = ref;
     if(opts.reanchor || !spec[prop] || !spec[prop].type){
-      const best = window.findBestAnchor ? window.findBestAnchor(force.anchor, task, 40) : null;
-      if(best && best.type === 'point'){
+      const exact = opts.reanchor && window.findSceneAnchorAtPosition
+        ? window.findSceneAnchorAtPosition(force, task) : null;
+      const best = exact || (window.findBestAnchor ? window.findBestAnchor(force.anchor, task, 40) : null);
+      if(best?.anchor){
+        spec[prop] = {...best.anchor};
+      } else if(best && best.type === 'point'){
         spec[prop] = { type: 'point', ref: best.ref, point: best.point };
       } else if(best && best.type === 'segment'){
         spec[prop] = { type: 'segment', ref: best.ref, segment: best.segment };
       } else {
         spec[prop] = { type: 'custom', pos: [force.anchor[0], force.anchor[1]] };
+      }
+      if(opts.reanchor){
+        const index=window.fm?.forces?.indexOf(force);
+        if(index>=0){
+          window.pendingForceAnchorPickerIndices ||= [];
+          if(!window.pendingForceAnchorPickerIndices.includes(index)){
+            window.pendingForceAnchorPickerIndices.push(index);
+          }
+        }
       }
     }
     if(isExpected && (opts.redir || !spec.dir)){

@@ -236,40 +236,147 @@ window.getMousePos = function(evt) {
   return [x, y];
 };
 
+window.findSceneAnchorAtPosition = function(force, task){
+  const position = force?.anchor;
+  if(!Array.isArray(position) || position.length < 2 || !position.every(Number.isFinite) ||
+     !task?.scene || !window.sceneModel) return null;
+  const direction = force.arrowBase && force.arrowTip
+    ? [force.arrowTip[0] - force.arrowBase[0], force.arrowTip[1] - force.arrowBase[1]]
+    : force.force_dir || [0, 0];
+  const matches = [];
+  (window.sceneModel.candidates?.(task) || []).forEach(candidate => {
+    let anchor = candidate.anchor;
+    if(!anchor?.type){
+      const type = candidate.kind === 'point' ? 'point' :
+        candidate.kind === 'segment' ? 'segment' : null;
+      if(!type) return;
+      anchor = {type, ref:candidate.ref, point:candidate.point, segment:candidate.source?.segment};
+    }
+    if(anchor.type !== 'point' && anchor.type !== 'segment') return;
+    const resolved = window.sceneModel.resolveAnchor(task, anchor);
+    if(!resolved.valid) return;
+    let pos = resolved.pos;
+    if(anchor.type === 'segment'){
+      const segment = candidate.segment || resolved.segment;
+      if(!segment?.a || !segment?.b) return;
+      const dx = segment.b[0] - segment.a[0], dy = segment.b[1] - segment.a[1];
+      const lengthSquared = dx * dx + dy * dy;
+      if(lengthSquared < 1e-16) return;
+      const u = Math.max(0, Math.min(1,
+        ((position[0] - segment.a[0]) * dx + (position[1] - segment.a[1]) * dy) / lengthSquared));
+      pos = [segment.a[0] + u * dx, segment.a[1] + u * dy];
+      anchor = {...anchor, u};
+    }
+    if(!Array.isArray(pos) || pos.length < 2 || !pos.every(Number.isFinite)) return;
+    const distance = Math.hypot(position[0] - pos[0], position[1] - pos[1]);
+    const integerCoordinates = position.every(Number.isInteger) && pos.every(Number.isInteger);
+    if(distance >= (integerCoordinates ? 1e-8 : 1)) return;
+    let pointsInward = false;
+    if(anchor.type === 'segment' && /^rect(\d+)$/.test(anchor.ref)){
+      const rect = task.scene.rects?.[Number(anchor.ref.match(/^rect(\d+)$/)[1])];
+      if(rect?.bottomCenter){
+        const normal = rect.n_vec || [0, -1];
+        const center = [rect.bottomCenter[0] + normal[0] * rect.height / 2,
+          rect.bottomCenter[1] + normal[1] * rect.height / 2];
+        pointsInward = direction[0] * (center[0] - pos[0]) +
+          direction[1] * (center[1] - pos[1]) > 1e-8;
+      }
+    }
+    matches.push({anchor, pos, distance, pointsInward});
+  });
+  matches.sort((a, b) => {
+    const aSegment = a.anchor.type === 'segment', bSegment = b.anchor.type === 'segment';
+    return Number(bSegment) - Number(aSegment) ||
+      Number(b.pointsInward) - Number(a.pointsInward) ||
+      a.distance - b.distance;
+  });
+  return matches[0] || null;
+};
+
 window.syncSceneForceAnchors = function(task, manager, editorMode){
   if(!task?.scene || !manager || !window.sceneModel) return false;
   let changed = false;
-  manager.forces.forEach(force => {
+  const pickerIndices = [];
+  const moveForce = (force, pos) => {
+    const dx = pos[0] - force.anchor[0], dy = pos[1] - force.anchor[1];
+    if(Math.hypot(dx, dy) < 1e-8) return false;
+    force.anchor = pos.slice();
+    if(force.arrowBase) force.arrowBase = [force.arrowBase[0] + dx, force.arrowBase[1] + dy];
+    if(force.arrowTip) force.arrowTip = [force.arrowTip[0] + dx, force.arrowTip[1] + dy];
+    if(force.arrowBase && force.arrowTip) force.updateDirectionAndLength();
+    return true;
+  };
+  manager.forces.forEach((force, index) => {
     if(force.drawing || force.dragging || !force.anchor || !force.name) return;
-    let spec, anchor;
+    let spec, prop, anchor;
     if(editorMode){
       const match = window.getForceSpec(force);
       if(!match) return;
-      spec = match.spec;
-      anchor = spec[match.prop];
+      ({spec, prop} = match);
+      anchor = spec[prop];
     } else {
       if(force.isExpected !== false) return;
       spec = (task.initialForces || []).find(s => s.name === force.name);
       if(!spec) return;
+      prop = 'anchorSpec';
       anchor = spec.anchorSpec || (spec.anchorFrom ? {type: 'point', ref: spec.anchorFrom, point: spec.point} : null);
     }
-    if(anchor?.type !== 'point') return;
-    const resolved = window.sceneModel.resolveAnchor(task, anchor);
-    if(!resolved.pos) return;
-    const dx = resolved.pos[0] - force.anchor[0];
-    const dy = resolved.pos[1] - force.anchor[1];
-    if(Math.hypot(dx, dy) < 1e-8) return;
-    force.anchor = resolved.pos.slice();
-    if(force.arrowBase) force.arrowBase = [force.arrowBase[0] + dx, force.arrowBase[1] + dy];
-    if(force.arrowTip) force.arrowTip = [force.arrowTip[0] + dx, force.arrowTip[1] + dy];
-    if(force.arrowBase && force.arrowTip) force.updateDirectionAndLength();
+    if(editorMode && anchor?.type === 'custom' && anchor.detachedReason && Array.isArray(anchor.pos)){
+      const match = window.findSceneAnchorAtPosition(force, task);
+      if(match){
+        spec[prop] = match.anchor;
+        moveForce(force, match.pos);
+      } else {
+        spec[prop] = {type:'custom', pos:force.anchor.slice()};
+      }
+      pickerIndices.push(index);
+      changed = true;
+      return;
+    }
+    if(anchor?.type !== 'point' && !(editorMode && anchor?.type === 'segment')) return;
+    const resolved = window.sceneModel.resolveAnchor(task, {...anchor, pos:force.anchor});
+    if(!resolved.valid || !resolved.pos){
+      if(!editorMode) return;
+      const match = window.findSceneAnchorAtPosition(force, task);
+      if(match){
+        spec[prop] = match.anchor;
+        moveForce(force, match.pos);
+      } else {
+        spec[prop] = {type:'custom', pos:force.anchor.slice()};
+      }
+      pickerIndices.push(index);
+      changed = true;
+      return;
+    }
+    if(editorMode && anchor.type === 'segment' && resolved.segment){
+      const dx = resolved.segment.b[0] - resolved.segment.a[0];
+      const dy = resolved.segment.b[1] - resolved.segment.a[1];
+      const lengthSquared = dx * dx + dy * dy;
+      if(lengthSquared > 1e-16){
+        const u = Math.max(0, Math.min(1,
+          ((resolved.pos[0] - resolved.segment.a[0]) * dx +
+            (resolved.pos[1] - resolved.segment.a[1]) * dy) / lengthSquared));
+        if(!Number.isFinite(anchor.u) || Math.abs(anchor.u - u) > 1e-8){
+          anchor.u = u;
+          changed = true;
+        }
+      }
+    }
+    if(moveForce(force, resolved.pos)) changed = true;
     if(editorMode && force.isExpected === false){
       spec.anchor = force.anchor.slice();
       if(force.arrowBase) spec.arrowBase = force.arrowBase.slice();
       if(force.arrowTip) spec.arrowTip = force.arrowTip.slice();
     }
-    changed = true;
   });
+  if(pickerIndices.length){
+    window.pendingForceAnchorPickerIndices ||= [];
+    pickerIndices.forEach(index => {
+      if(!window.pendingForceAnchorPickerIndices.includes(index)){
+        window.pendingForceAnchorPickerIndices.push(index);
+      }
+    });
+  }
   return changed;
 };
 

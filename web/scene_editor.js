@@ -624,10 +624,20 @@
   }
   function applyForceAnchor(index,spec,pos,newPoint){
     const force=window.fm?.forces?.[index];
+    let savedSpec={...spec};
     if(force && spec?.type === 'segment'){
       const resolved=model().resolveAnchor(window.currentTask,{anchor:spec,pos:force.anchor || force.arrowBase || pos});
       if(!resolved.valid || !finitePos(resolved.pos)) return;
       pos=resolved.pos;
+      if(resolved.segment){
+        const dx=resolved.segment.b[0]-resolved.segment.a[0];
+        const dy=resolved.segment.b[1]-resolved.segment.a[1];
+        const lengthSquared=dx*dx+dy*dy;
+        if(lengthSquared>1e-16){
+          savedSpec.u=Math.max(0,Math.min(1,
+            ((pos[0]-resolved.segment.a[0])*dx+(pos[1]-resolved.segment.a[1])*dy)/lengthSquared));
+        }
+      }
     }
     if(!force || !finitePos(pos)) return;
     const old=force.anchor || pos, delta=[pos[0]-old[0],pos[1]-old[1]];
@@ -635,12 +645,26 @@
     for(const field of ['arrowBase','arrowTip']) if(force[field]) force[field]=force[field].map((n,i)=>n+delta[i]);
     window.syncForceSpec?.(force);
     const ref=window.getForceSpec?.(force);
-    if(ref) ref.spec[ref.prop]={...spec};
+    if(ref) ref.spec[ref.prop]=savedSpec;
     force.updateDirectionAndLength?.();
     window.markEdited?.(...(newPoint ? ['task','forces'] : ['forces']));
     const container=document.getElementById('force-inputs');
     if(container) window.fm.syncInputs(container,true);
     refresh();
+  }
+  function showForceAnchorPicker(index){
+    if(window.fm?.activeIndex!==index) window.fm?.setActive?.(index,true);
+    const select=document.querySelector(`#force-inputs .force-anchor-select[data-index="${index}"]`);
+    const control=select && controls.get(select);
+    if(!control) return false;
+    control.begin();
+    if(active?.control===control){
+      const selected=Array.from(control.list.children).find(item=>item.dataset.value===select.value);
+      if(selected) previewOption(control,selected);
+      syncControl(select);
+      return true;
+    }
+    return false;
   }
   function drawOverlay(ctx){
     checkTask();
@@ -781,7 +805,7 @@
     });
   }
   const api={init,install:init,cancel,checkTask,drawOverlay,buildProperties,bindForcePicker,applyForceAnchor,candidates,
-    startAngle,syncControl,reveal,revealSelection,
+    startAngle,syncControl,reveal,revealSelection,showForceAnchorPicker,
     isPicking:select=>active?.mode==='anchor' && active.select===select};
   window.sceneEditor=api;
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);

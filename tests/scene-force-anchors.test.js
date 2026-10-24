@@ -11,7 +11,10 @@ function setup(){
   const initial = {name: 'G', anchorSpec: anchor, anchor: [10, 20], arrowBase: [15, 20], arrowTip: [15, 80]};
   const expected = {name: 'N', anchor};
   const task = {scene: {}, initialForces: [initial], expectedForces: [expected]};
-  window.sceneModel = {resolveAnchor: () => ({pos: [40, 50], valid: true})};
+  window.sceneModel = {
+    resolveAnchor: () => ({pos: [40, 50], valid: true}),
+    candidates: () => []
+  };
   window.getForceSpec = force => ({
     spec: force.isExpected === false ? initial : expected,
     prop: force.isExpected === false ? 'anchorSpec' : 'anchor'
@@ -58,11 +61,15 @@ test('pupil drawings are not moved to expected answers', () => {
   assert.deepEqual(force.anchor, [10, 20]);
 });
 
-test('invalid intersection anchor uses its last valid position', () => {
-  const {window, task, force} = setup();
+test('invalid intersection anchor is detached at its last valid force position', () => {
+  const {window, task, force, initial} = setup();
   window.sceneModel.resolveAnchor = () => ({pos: [30, 40], valid: false, reason: 'Skjæringen finnes ikke'});
-  window.syncSceneForceAnchors(task, {forces: [force]}, true);
-  assert.deepEqual(Array.from(force.anchor), [30, 40]);
+  assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), true);
+  assert.deepEqual(Array.from(force.anchor), [10, 20]);
+  assert.deepEqual(force.arrowBase, [15, 20]);
+  assert.deepEqual(force.arrowTip, [15, 80]);
+  assert.equal(initial.anchorSpec.type, 'custom');
+  assert.deepEqual(Array.from(initial.anchorSpec.pos), [10, 20]);
 });
 
 test('custom anchors and active dragging retain existing behavior', () => {
@@ -76,10 +83,93 @@ test('custom anchors and active dragging retain existing behavior', () => {
 });
 
 test('unresolved anchors are not moved to a success-shaped default', () => {
-  const {window, task, force} = setup();
+  const {window, task, force, initial} = setup();
   window.sceneModel.resolveAnchor = () => ({valid: false, reason: 'Anker finnes ikke'});
-  assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), false);
+  assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), true);
   assert.deepEqual(force.anchor, [10, 20]);
+  assert.equal(initial.anchorSpec.type, 'custom');
+  assert.deepEqual(Array.from(initial.anchorSpec.pos), [10, 20]);
+});
+
+test('editor follows segment anchors at their saved fraction and persists force coordinates', () => {
+  const {window, task, force, initial} = setup();
+  initial.anchorSpec = {type: 'segment', ref: 'segment0', segment: 'segment', u: 0.25};
+  force.anchor = [10, 20];
+  force.arrowBase = [15, 20];
+  force.arrowTip = [15, 80];
+  window.sceneModel.resolveAnchor = (scene, anchor) => {
+    assert.equal(anchor.u, 0.25);
+    return {pos: [40, 50], segment: {a: [0, 50], b: [100, 50]}, valid: true};
+  };
+  assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), true);
+  assert.deepEqual(Array.from(force.anchor), [40, 50]);
+  assert.deepEqual(Array.from(force.arrowBase), [45, 50]);
+  assert.deepEqual(Array.from(force.arrowTip), [45, 110]);
+  assert.deepEqual(Array.from(initial.anchor), [40, 50]);
+  assert.deepEqual(Array.from(initial.arrowBase), [45, 50]);
+  assert.deepEqual(Array.from(initial.arrowTip), [45, 110]);
+});
+
+test('automatic matching prefers an inward-facing segment over a coincident point', () => {
+  const {window, task, force} = setup();
+  task.scene.rects = [
+    {bottomCenter: [0, 20], width: 20, height: 20, n_vec: [0, -1]},
+    {bottomCenter: [0, 20], width: 20, height: 20, n_vec: [0, 1]}
+  ];
+  force.anchor = [0, 20];
+  force.arrowBase = [0, 20];
+  force.arrowTip = [0, 10];
+  window.sceneModel.candidates = () => [
+    {kind:'point', ref:'point0', pos:[0,20], anchor:{type:'point',ref:'point0',point:'center'}},
+    {kind:'segment', ref:'rect1', segment:'bottom', anchor:{type:'segment',ref:'rect1',segment:'bottom'},
+      segment:{a:[-10,20],b:[10,20]}},
+    {kind:'segment', ref:'rect0', segment:'bottom', anchor:{type:'segment',ref:'rect0',segment:'bottom'},
+      segment:{a:[-10,20],b:[10,20]}}
+  ];
+  window.sceneModel.resolveAnchor = () => ({valid:true,pos:[0,20]});
+  const best = window.findSceneAnchorAtPosition(force, task);
+  assert.equal(best.anchor.type, 'segment');
+  assert.equal(best.anchor.ref, 'rect0');
+  assert.deepEqual(Array.from(best.pos), [0,20]);
+});
+
+test('automatic matching accepts subpixel coordinates under one pixel, but not integer offsets', () => {
+  const {window, task, force} = setup();
+  window.sceneModel.candidates = () => [
+    {kind:'point', ref:'point0', pos:[0,0], anchor:{type:'point',ref:'point0',point:'center'}}
+  ];
+  window.sceneModel.resolveAnchor = () => ({valid:true,pos:[0,0]});
+  force.anchor = [0,0.5];
+  assert.equal(window.findSceneAnchorAtPosition(force, task).anchor.ref, 'point0');
+  force.anchor = [0,1];
+  assert.equal(window.findSceneAnchorAtPosition(force, task), null);
+});
+
+test('invalid anchor automatically reconnects at its current position and queues picker', () => {
+  const {window, task, force, initial} = setup();
+  window.sceneModel.resolveAnchor = (scene, anchor) => anchor.ref === 'point-near'
+    ? {valid:true, pos:[10,20]}
+    : {valid:false, pos:[10,20], reason:'Punkt ugyldig'};
+  window.sceneModel.candidates = () => [
+    {kind:'point',ref:'point-near',pos:[10,20],anchor:{type:'point',ref:'point-near',point:'center'}}
+  ];
+  assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), true);
+  assert.equal(initial.anchorSpec.type, 'point');
+  assert.equal(initial.anchorSpec.ref, 'point-near');
+  assert.equal(initial.anchorSpec.point, 'center');
+  assert.deepEqual(Array.from(window.pendingForceAnchorPickerIndices), [0]);
+});
+
+test('deleted-anchor detachment is processed once and opens the picker when no replacement exists', () => {
+  const {window, task, force, initial} = setup();
+  initial.anchorSpec = {type:'custom', pos:[10,20], detachedReason:'Kildegeometrien ble slettet.'};
+  assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true), true);
+  assert.equal(initial.anchorSpec.type, 'custom');
+  assert.deepEqual(Array.from(initial.anchorSpec.pos), [10,20]);
+  assert.equal(initial.anchorSpec.detachedReason, undefined);
+  assert.deepEqual(Array.from(window.pendingForceAnchorPickerIndices), [0]);
+  delete window.pendingForceAnchorPickerIndices;
+  assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true), false);
 });
 
 test('canvas coordinates account for scrolling and CSS scaling', () => {

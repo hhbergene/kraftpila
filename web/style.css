@@ -176,6 +176,16 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 #relations-close { border:1px solid #777; background:#fafafa; border-radius:4px; height:24px; width:24px; cursor:pointer; font-size:12px; }
 #relations-close:hover { background:#ffecec; }
 .relations-body { flex:1 1 auto; min-height:0; overflow:auto; padding:10px 12px 22px; }
+#clipboard-panel { position:fixed; left:0; top:var(--top-bar-height); width:440px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1200; overflow:hidden; }
+#clipboard-panel.hidden { display:none; }
+.clipboard-body { font-size:13px; overflow-wrap:anywhere; }
+.clipboard-body p { margin:8px 0; }
+.clipboard-actions { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.clipboard-actions button, #clipboard-close { padding:6px 8px; border:1px solid #888; border-radius:4px; background:#f5f5f5; cursor:pointer; }
+.clipboard-actions button:disabled { cursor:default; opacity:0.5; }
+#clipboard-list { padding-left:24px; }
+#clipboard-list li { margin:8px 0; }
+#clipboard-status { font-weight:600; }
 .snap-checklist-body { display:flex; flex-direction:column; gap:9px; font-size:13px; }
 .snap-checklist-body label { display:flex; align-items:flex-start; gap:8px; line-height:1.35; }
 .snap-checklist-body label input { flex:0 0 auto; margin:1px 0 0; }

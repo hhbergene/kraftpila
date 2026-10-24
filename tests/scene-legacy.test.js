@@ -163,3 +163,19 @@ test('formatted text supports alpha, deg, degree and direct symbols without pref
   runtime.drawFormattedText(ctx,'\\alpha=30\\deg / \\degree / α=30°',0,0);
   assert.equal(glyphs.join(''),'α=30° / ° / α=30°');
 });
+
+test('formatted text supports nested bold and italic LaTeX-style commands',()=>{
+  const runtime=sceneRuntime(),drawn=[];
+  vm.runInContext(fs.readFileSync(path.join(root,'web','text_render.js'),'utf8'),runtime);
+  const ctx={
+    font:'',
+    measureText(text){return {width:text.length*8};},
+    fillText(text,x,y){drawn.push({text,font:this.font,x,y});}
+  };
+  runtime.drawFormattedText(ctx,'Vanlig \\textbf{fet og \\textit{fet kursiv}} tekst',100,50,{align:'center'});
+  assert.equal(drawn.map(segment=>segment.text).join(''),'Vanlig fet og fet kursiv tekst');
+  assert.ok(drawn.some(segment=>segment.text==='fet' && segment.font.startsWith('bold ')));
+  assert.ok(drawn.some(segment=>segment.text==='fet' && segment.font.startsWith('bold italic ')));
+  assert.ok(drawn.some(segment=>segment.text==='kursiv' && segment.font.startsWith('bold italic ')));
+  assert.ok(drawn.some(segment=>segment.text==='Vanlig' && segment.font==='16px Arial'));
+});

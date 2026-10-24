@@ -53,6 +53,7 @@
     const baseSize = options.size || 16;
     const color = options.color || '#000';
     const align = options.align || 'center'; // left|center
+    const fontFamily = options.fontFamily || 'Arial';
     
     // Replace LaTeX codes with Unicode symbols
     let processedText = text;
@@ -60,51 +61,76 @@
       processedText = processedText.split(latex).join(symbol);
     }
     
-    // Parse into glyph tokens: {mode:'normal'|'sub'|'sup', text:'...'}
+    // Parse into glyph tokens with inherited bold/italic styles.
     const tokens = [];
-    let i = 0; let mode='normal'; let single=false; let buffer='';
-
-    function flush(){ if(buffer){ tokens.push({mode, text:buffer}); buffer=''; } }
-
-    while(i < processedText.length){
-      const ch = processedText[i];
-      if(ch === '_' || ch === '^'){
-        flush();
-        mode = (ch === '_') ? 'sub' : 'sup';
-        i++;
-        if(i < processedText.length && processedText[i] === '{'){ // multi-char block
-          single = false; i++; // skip '{'
-          // accumulate until closing '}'
-          let block='';
-          while(i < processedText.length && processedText[i] !== '}'){ block += processedText[i++]; }
-          if(i < processedText.length && processedText[i] === '}') i++; // skip '}'
-          tokens.push({mode, text:block});
-          mode='normal';
-        } else { // single char
-          single = true;
-          if(i < processedText.length){
-            tokens.push({mode, text:processedText[i]});
-            i++;
-          }
-          mode='normal'; single=false;
+    function parseRange(start, style, mode, stopAtBrace=false){
+      let i = start;
+      let buffer = '';
+      let currentStyle = style;
+      function flush(){
+        if(buffer){
+          tokens.push({mode, bold:currentStyle.bold, italic:currentStyle.italic, text:buffer});
+          buffer = '';
         }
-        continue;
       }
-      // spaces always normal mode boundary
-      if(ch === ' '){ flush(); tokens.push({mode:'normal', text:' '}); mode='normal'; single=false; i++; continue; }
-      buffer += ch; i++;
+
+      while(i < processedText.length){
+        const ch = processedText[i];
+        if(ch === '}' && stopAtBrace){
+          flush();
+          return i + 1;
+        }
+
+        const styleCommand = processedText.startsWith('\\textbf{', i) ? 'bold'
+          : processedText.startsWith('\\textit{', i) ? 'italic' : null;
+        if(styleCommand){
+          flush();
+          const nestedStyle = {...currentStyle, [styleCommand]:true};
+          i = parseRange(i + 8, nestedStyle, mode, true);
+          continue;
+        }
+
+        if(ch === '_' || ch === '^'){
+          flush();
+          const scriptMode = ch === '_' ? 'sub' : 'sup';
+          i++;
+          if(processedText[i] === '{'){
+            i = parseRange(i + 1, currentStyle, scriptMode, true);
+          } else if(i < processedText.length){
+            tokens.push({
+              mode:scriptMode,
+              bold:currentStyle.bold,
+              italic:currentStyle.italic,
+              text:processedText[i++]
+            });
+          }
+          continue;
+        }
+
+        if(ch === ' '){
+          flush();
+          tokens.push({mode:'normal', bold:currentStyle.bold, italic:currentStyle.italic, text:' '});
+          i++;
+          continue;
+        }
+
+        buffer += ch;
+        i++;
+      }
+      flush();
+      return i;
     }
-    flush();
+    parseRange(0, {bold:false, italic:false}, 'normal');
 
     // Measure total width to support center alignment
     let totalWidth = 0;
     const segments = tokens.map(t => {
       const size = (t.mode === 'normal') ? baseSize : Math.round(baseSize*SUBSCALE);
-      ctx.font = size + 'px Arial';
+      ctx.font = `${t.bold ? 'bold ' : ''}${t.italic ? 'italic ' : ''}${size}px ${fontFamily}`;
       const w = ctx.measureText(t.text).width;
       const yoff = (t.mode === 'sub') ? (DY_FACTOR*baseSize) : (t.mode === 'sup' ? (-DY_FACTOR*baseSize) : 0);
       totalWidth += w;
-      return {text:t.text, mode:t.mode, size, width:w, yoff};
+      return {text:t.text, mode:t.mode, size, bold:t.bold, italic:t.italic, width:w, yoff};
     });
 
     let cursorX = x;
@@ -113,9 +139,10 @@
 
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
+    ctx.textAlign = 'left';
 
     for(const seg of segments){
-      ctx.font = seg.size + 'px Arial';
+      ctx.font = `${seg.bold ? 'bold ' : ''}${seg.italic ? 'italic ' : ''}${seg.size}px ${fontFamily}`;
       ctx.fillText(seg.text, cursorX, y + seg.yoff);
       cursorX += seg.width;
     }

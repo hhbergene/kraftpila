@@ -40,6 +40,7 @@
         <button id="btn-edit-snap-checklist" class="snap-checklist-button" title="Sjekkliste for snapping" aria-label="Sjekkliste for snapping"><span class="snap-checklist-magnet">🧲</span><span class="snap-checklist-check" aria-hidden="true">☐</span></button>
       </div>
       <div class="editor-buttons-right">
+        <button id="btn-clipboard" title="Utklippstavle for sceneelementer og krefter" aria-label="Åpne utklippstavle">⧉</button>
         <button id="btn-add-rect" title="Legg til rektangel">▭</button>
         <button id="btn-add-ellipse" title="Legg til ellipse">⬭</button>
         <button id="btn-add-angle" title="Legg til vinkel">∠</button>
@@ -66,6 +67,30 @@
         </div>
         <div id="scene-items" class="scene-items"></div>
       </div>
+    </div>
+
+    <div id="clipboard-panel" class="hidden" role="region" aria-labelledby="clipboard-title">
+      <div class="relations-header">
+        <h3 id="clipboard-title">Utklippstavle</h3>
+        <button id="clipboard-close" title="Lukk og tøm utklippstavla" aria-label="Lukk og tøm utklippstavla">✕</button>
+      </div>
+      <div class="relations-body clipboard-body">
+        <p>Kopier valgt sceneelement eller kraft. Hver kopiering legges til listen.
+          Elementer kopieres uten krefter; koblinger erstattes med frie koordinater.</p>
+        <div class="clipboard-actions">
+          <button id="clipboard-copy">Kopier valgt (Ctrl+C)</button>
+          <button id="clipboard-paste" disabled>Lim inn alle (Ctrl+V)</button>
+        </div>
+        <strong id="clipboard-count"></strong>
+        <p id="clipboard-empty">Utklippstavla er tom. Velg et element i scenen eller en ferdig kraft med navn.</p>
+        <ol id="clipboard-list"></ol>
+        <p>Listen beholdes ved oppgavebytte og innliming. Lukking eller ny lasting av siden tømmer listen.
+          Et kopiert plan erstatter planet automatisk. Sammenfallende kopier flyttes et halvt rutenettsteg opp og til høyre.
+          Kraftnavn nummereres ved navnekollisjon. Dette er en intern utklippstavle, ikke systemets.
+          På Mac kan du bruke Cmd i stedet for Ctrl.</p>
+        <p id="clipboard-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="help-resize-handle" aria-hidden="true"></div>
     </div>
 
     <!-- Feedback panel (left side) -->
@@ -274,6 +299,7 @@
   <script src="web/scene_editor.js"></script>
   <!-- Editor entry point -->
   <script src="web/editor.js"></script>
+  <script src="web/editor_clipboard.js"></script>
   <script>if(window.EDITOR_BUILD_TIME || window.BUILD_TIME) document.title += " (" + (window.EDITOR_BUILD_TIME || window.BUILD_TIME) + ")";</script>
 </body>
 </html>

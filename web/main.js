@@ -41,11 +41,12 @@ window.TASKS = [];
     g.save();
     g.translate(t.pos[0], t.pos[1]);
     g.rotate(angle);
-    g.fillStyle = color;
-    g.font = `${size}px Segoe UI, Arial`;
-    g.textAlign = align;
-    g.textBaseline = 'middle';
-    g.fillText(t.txt, 0, 0);
+    window.drawFormattedText(g, t.txt, 0, 0, {
+      size,
+      color,
+      align,
+      fontFamily: 'Segoe UI, Arial'
+    });
     g.restore();
   }
 

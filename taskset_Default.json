@@ -1340,6 +1340,22 @@
               150,
               90
             ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              500,
+              122
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "linked": false,
+            "_renderedPos": [
+              500,
+              122
+            ]
           }
         ],
         "segments": [
@@ -1388,6 +1404,19 @@
             ],
             "visible": false,
             "valid": true
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              460,
+              144
+            ],
+            "b": [
+              540,
+              144
+            ],
+            "snapping": false
           }
         ]
       },
@@ -2553,7 +2582,7 @@
       "title": "Kjeglependel",
       "category": "Fysikk 2",
       "help_lines": [
-        "En ball henger i en snor festet taket. Ballen beveger seg i en sirkelbevegelse med sentrum på loddlinja fra festepunktet. ",
+        "En ball henger i en snor festet taket. Ballen beveger seg med konstant banefart i en sirkelbevegelse med sentrum på loddlinja fra festepunktet. ",
         "Kreftene som virker på ballen er tegnet inn:",
         "G - Tyngdekraften",
         "S - Snordraget i snora. ",
@@ -2621,18 +2650,49 @@
         ],
         "texts": [
           {
+            "txt": "\\textbf{Planpendel}",
+            "pos": [
+              300,
+              100
+            ],
+            "size": 16,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              300,
+              100
+            ]
+          },
+          {
             "txt": "Tegn summen av kreftene \\sumF (sumF)",
             "pos": [
-              200,
-              80
+              300,
+              120
             ],
             "size": 14,
             "align": "left",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              200,
-              80
+              300,
+              120
+            ]
+          },
+          {
+            "txt": "|v| = konstant",
+            "pos": [
+              300,
+              140
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "linked": false,
+            "_renderedPos": [
+              300,
+              140
             ]
           }
         ],
@@ -4135,9 +4195,9 @@
     }
   ],
   "metadata": {
-    "name": "Default",
-    "exported": "2026-10-24T13:34:30.855Z",
+    "name": "taskset",
+    "exported": "2026-10-24T17:53:06.299Z",
     "count": 17,
-    "appVersion": "2026-10-24 13:54"
+    "appVersion": "2026-10-24 19:03"
   }
 }

@@ -34,7 +34,7 @@ test('arrow shafts passing through a base point produce a warning without a pena
   const feedbackEnd=source.lastIndexOf('  /**',scoringComment);
   vm.runInContext(source.slice(feedbackStart,feedbackEnd),context);
   const lines=context.buildFeedbackLines([],[],[],false,{initialForces:[]},result);
-  assert.ok(lines.some(line=>line.text.includes('basepunkt')));
+  assert.ok(lines.some(line=>line.text.includes('Unngå at kraftpiler går gjennom hverandre')));
 });
 
 test('arrow shafts crossing away from base points receive the overlap penalty',()=>{

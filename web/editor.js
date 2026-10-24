@@ -23,6 +23,21 @@ window.tasks = [];
   canvas.height = window.CANVAS_HEIGHT;
   /** @type {CanvasRenderingContext2D} */
   const ctx = canvas.getContext('2d');
+  const coordinateReadout = document.getElementById('canvas-coordinate-readout');
+  window.setLastCanvasCoordinates = function(pos){
+    if(!Array.isArray(pos) || pos.length < 2 || !pos.every(Number.isFinite)) return;
+    window.lastCanvasCoordinates = [pos[0], pos[1]];
+    if(coordinateReadout){
+      const format = value => String(Number(value.toFixed(2)));
+      coordinateReadout.textContent = `(${format(pos[0])},${format(pos[1])})`;
+    }
+  };
+  canvas.addEventListener('mousedown', event => {
+    window.setLastCanvasCoordinates?.(window.getMousePos(event));
+  }, true);
+  canvas.addEventListener('mousemove', event => {
+    if(event.buttons) window.setLastCanvasCoordinates?.(window.getMousePos(event));
+  }, true);
   window.sceneEditor.init();
   
   // Initialize scroll position to show grid area at top-left
@@ -154,6 +169,9 @@ window.tasks = [];
     window.sceneEditor.drawOverlay(ctx);
     
     ctx.restore();
+    if(window.snapIndicator?.pos){
+      window.setLastCanvasCoordinates?.(window.snapIndicator.pos);
+    }
     requestAnimationFrame(frame);
   }
   
@@ -2999,17 +3017,28 @@ window.tasks = [];
     if(type === 'point' || type === 'angle'){
       const point = type === 'point' ? scene.points?.[index] : null;
       const position = newPos;
-      const clamped = window.clampToCanvas(position);
+      let clamped;
       if(point?.type === 'free'){
+        const gridOrigin = DRAW_CENTER ? [DRAW_CENTER[0], DRAW_CENTER[1]] : [0, 0];
+        const res = snapping.snap(position, {
+          points: [],
+          gridStep: window.GRID_STEP,
+          origin: gridOrigin,
+          axesDir: null
+        });
+        clamped = window.clampToCanvas(res.pos);
         point.pos[0]=clamped[0];
         point.pos[1]=clamped[1];
+        window.snapIndicator = res.source ? {pos: clamped} : null;
       } else if(type === 'angle' && scene.angles?.[index]?.[handleType] && !scene.angles[index][handleType].anchor){
+        clamped = window.clampToCanvas(position);
         scene.angles[index][handleType].pos = clamped;
+        window.snapIndicator = null;
       } else {
         return;
       }
       window.selectedSceneElement._handleStartPos = clamped;
-      window.snapIndicator = null;
+      window.setLastCanvasCoordinates?.(clamped);
       markEdited('task');
       window.updateAppState();
       return;
@@ -3111,6 +3140,7 @@ window.tasks = [];
     });
     useNewPos = res.pos;
     window.snapIndicator = res.source ? {pos: res.pos} : null;
+    window.setLastCanvasCoordinates?.(useNewPos);
     
     // Build guidelines if enabled
     if(window.enableGuidelines){
@@ -3487,6 +3517,7 @@ window.tasks = [];
       } else {
         window.currentGuidelines = null;
       }
+      window.setLastCanvasCoordinates?.(usePos);
       window.fm.syncInputs(inputsContainer);
       ensureInputMeta();
     }
@@ -3647,6 +3678,7 @@ window.tasks = [];
       const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
       // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
       snapPos = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+      window.setLastCanvasCoordinates?.(snapPos);
       window.fm.forces[targetIndex].handleMouseDown(snapPos);
       if(window.enableGuidelines){ window.currentGuidelines = snapping.buildGuidelines(snapPos, snapPos, window.currentTask.scene.plane); }
       // CHANGED: sync first, then focus/select the freshly rendered input
@@ -3671,6 +3703,7 @@ window.tasks = [];
     const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
     // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
     clickPos = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+    window.setLastCanvasCoordinates?.(clickPos);
     const consumed = f.handleMouseDown(clickPos);
     // CHANGED: focus/select after syncInputs to avoid losing focus due to re-render
     window.fm.syncInputs(inputsContainer);
@@ -3691,6 +3724,7 @@ window.tasks = [];
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
         // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
         np = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+        window.setLastCanvasCoordinates?.(np);
         window.fm.forces[window.fm.activeIndex].handleMouseDown(np);
         // CHANGED: sync then focus new blank's input
         window.fm.syncInputs(inputsContainer);

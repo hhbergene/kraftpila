@@ -55,6 +55,82 @@ test('real ellipse change handlers preserve zero, validate finite arcs, and neve
   assert.deepEqual(s.remaps,[]);
 });
 
+test('scene coordinate fields edit geometry and preserve plane direction when moving its through point',()=>{
+  const cases=[
+    {type:'rect',target:{bottomCenter:[10,20]},vector:'bottomCenter',axis:0,expected:[42.5,20]},
+    {type:'ellipse',target:{center:[10,20]},vector:'center',axis:1,expected:[10,42.5]},
+    {type:'segment',target:{a:[10,20],b:[30,40]},vector:'b',axis:1,expected:[30,42.5]},
+    {type:'arrow',target:{a:[10,20],b:[30,40]},vector:'a',axis:0,expected:[42.5,20]},
+    {type:'text',target:{pos:[10,20]},vector:'pos',axis:0,expected:[42.5,20]}
+  ];
+  for(const entry of cases){
+    const edits=[], updates=[];
+    const input={dataset:{field:'coordinates',type:entry.type,idx:'0',vector:entry.vector,
+      axis:String(entry.axis)},type:'number',tagName:'INPUT',value:'42.5',
+      addEventListener(event,fn){this[event]=fn;},
+      setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
+    const window={currentTask:{scene:{[entry.type+'s']:[entry.target]}},
+      markEdited:(...args)=>edits.push(args),updateAppState:()=>updates.push(true)};
+    const editor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [input] : []};
+    const context={window,updateScenePanel(){}};
+    vm.runInNewContext(wiring+';globalThis.wire=setupEditorInputs;',context);
+    context.wire(editor,entry.type,0,entry.target);
+    input.change({});
+    assert.deepEqual(Array.from(entry.target[entry.vector]),entry.expected);
+    assert.deepEqual(edits,[['task']]);
+    assert.equal(updates.length,1);
+  }
+
+  const ellipse={center:[100,100],width:80,height:40,t_vec:[1,0],n_vec:[0,-1]};
+  const axisInput={dataset:{field:'coordinates',type:'ellipse',idx:'0',vector:'axisA',axis:'0'},
+    type:'number',tagName:'INPUT',value:'150',addEventListener(event,fn){this[event]=fn;},
+    setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
+  const ellipseWindow={currentTask:{scene:{ellipses:[ellipse]}},markEdited(){},updateAppState(){},
+    geometry:{length:vector=>Math.hypot(...vector),normalFromTangent:t=>[-t[1],t[0]],
+      tangentFromNormal:n=>[-n[1],n[0]]}};
+  const ellipseEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [axisInput] : []};
+  const ellipseContext={window:ellipseWindow,updateScenePanel(){}};
+  vm.runInNewContext(wiring+';globalThis.wire=setupEditorInputs;',ellipseContext);
+  ellipseContext.wire(ellipseEditor,'ellipse',0,ellipse);
+  axisInput.change({});
+  assert.equal(ellipse.width,100);
+  assert.deepEqual(Array.from(ellipse.t_vec),[1,0]);
+  assert.ok(Math.abs(ellipse.n_vec[0])<1e-10 && Math.abs(ellipse.n_vec[1]-1)<1e-10);
+  const axisBInput={dataset:{field:'coordinates',type:'ellipse',idx:'0',vector:'axisB',axis:'1'},
+    type:'number',tagName:'INPUT',value:'150',addEventListener(event,fn){this[event]=fn;},
+    setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
+  const axisBEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [axisBInput] : []};
+  ellipseContext.wire(axisBEditor,'ellipse',0,ellipse);
+  axisBInput.change({});
+  assert.equal(ellipse.height,100);
+  assert.ok(Math.abs(ellipse.n_vec[0])<1e-10 && Math.abs(ellipse.n_vec[1]-1)<1e-10);
+  assert.ok(Math.abs(ellipse.t_vec[0]+1)<1e-10 && Math.abs(ellipse.t_vec[1])<1e-10);
+
+  const plane={through:[10,20],dirPoint:[10,-40],n_vec:[0,-1],t_vec:[1,0]};
+  const directionInput={dataset:{field:'coordinates',type:'plane',idx:'',vector:'through',axis:'0'},
+    type:'number',tagName:'INPUT',value:'42.5',addEventListener(event,fn){this[event]=fn;},
+    setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
+  const planeWindow={currentTask:{scene:{plane}},markEdited(){},updateAppState(){},
+    geometry:{length:vector=>Math.hypot(...vector),tangentFromNormal:normal=>[-normal[1],normal[0]]}};
+  const planeEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [directionInput] : []};
+  const planeContext={window:planeWindow,updateScenePanel(){}};
+  vm.runInNewContext(wiring+';globalThis.wire=setupEditorInputs;',planeContext);
+  planeContext.wire(planeEditor,'plane',undefined,plane);
+  directionInput.change({});
+  assert.deepEqual(Array.from(plane.through),[42.5,20]);
+  assert.deepEqual(Array.from(plane.dirPoint),[42.5,-40]);
+
+  const planeDirectionInput={dataset:{field:'coordinates',type:'plane',idx:'',vector:'dirPoint',axis:'1'},
+    type:'number',tagName:'INPUT',value:'50',addEventListener(event,fn){this[event]=fn;},
+    setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
+  const planeDirectionEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [planeDirectionInput] : []};
+  planeContext.wire(planeDirectionEditor,'plane',undefined,plane);
+  planeDirectionInput.change({});
+  assert.deepEqual(Array.from(plane.dirPoint),[42.5,50]);
+  assert.ok(Math.abs(plane.n_vec[0])<1e-10 && Math.abs(plane.n_vec[1]-1)<1e-10);
+  assert.ok(Math.abs(plane.t_vec[0]+1)<1e-10 && Math.abs(plane.t_vec[1])<1e-10);
+});
+
 test('real ellipse and circle fill change handlers enable, recolor, and remove fill',()=>{
   for(const type of ['ellipse','circle']){
     const s=setup(type);

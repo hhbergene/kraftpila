@@ -352,11 +352,15 @@
     if(state.mode === 'intersection'){
       const hit=state.hits?.map(h=>({h,d:Math.hypot(pos[0]-h.pos[0],pos[1]-h.pos[1])}))
         .filter(x=>x.d <= 14).sort((a,b)=>a.d-b.d)[0]?.h;
-      if(hit) confirmIntersection(state,hit);
+      if(hit){
+        window.setLastCanvasCoordinates?.(hit.pos);
+        confirmIntersection(state,hit);
+      }
       return;
     }
     if(state.mode === 'anchor'){
       const candidate=nearest(pos,candidates(state.task,state.pointsOnly));
+      window.setLastCanvasCoordinates?.(candidate?.pos || pos);
       finishAnchor(state,null,null,false,()=>{
         const point=candidate ? null : model().createPoint(state.task,pos.slice());
         const spec=candidate ? candidate.anchor : {type:'point',ref:point.id,point:'center'};
@@ -364,6 +368,7 @@
       });
       return;
     }
+    window.setLastCanvasCoordinates?.(pos);
     window.autoSave?.();
     cancel();
     const point=model().createPoint(state.task,pos.slice());

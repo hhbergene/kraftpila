@@ -249,6 +249,17 @@ function updateScenePanel(){
   // Helper to get editor HTML for each type
   function getEditorHTML(type, obj, index) {
     if(type === 'angle' || type === 'point') return '';
+    function coordinatesHTML(vector, position, label, pointLabel = label) {
+      return `
+        <div class="scene-editor-row">
+          <label class="scene-coordinate-point">${pointLabel}</label>
+          <label class="scene-coordinate-axis">x:</label>
+          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="0" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[0] ?? 0}" step="any" aria-label="${label} x" />
+          <label class="scene-coordinate-axis">y:</label>
+          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="1" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[1] ?? 0}" step="any" aria-label="${label} y" />
+        </div>
+      `;
+    }
     function fillHTML(){
       return `<div class="scene-editor-row"><label>Fyll:</label>
         <input type="checkbox" class="scene-editor-input" data-field="fillEnabled" data-type="${type}" data-idx="${index}" ${obj.fill_color ? 'checked' : ''} />
@@ -267,6 +278,7 @@ function updateScenePanel(){
     if(type === 'text') {
       const textObj = obj;
       return `
+        ${coordinatesHTML('pos', textObj.pos, 'Tekst', '')}
         <div class="scene-editor-row">
           <label>Txt:</label>
           <input type="text" class="scene-editor-input" data-field="txt" data-type="text" data-idx="${index}" value="${textObj.txt || ''}" />
@@ -298,6 +310,7 @@ function updateScenePanel(){
     } else if(type === 'rect') {
       const rectObj = obj;
       return `
+        ${coordinatesHTML('bottomCenter', rectObj.bottomCenter, 'Rektangel', 'O')}
         <div class="scene-editor-row">
           <label>Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="rect" data-idx="${index}" value="${expandHexColor(rectObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
@@ -319,7 +332,15 @@ function updateScenePanel(){
       `;
     } else if(type === 'ellipse') {
       const ellObj = obj;
+      const center = ellObj.center || [0, 0];
+      const tangent = ellObj.t_vec || [1, 0];
+      const normal = ellObj.n_vec || [0, -1];
+      const axisA = [center[0] + tangent[0] * ellObj.width / 2, center[1] + tangent[1] * ellObj.width / 2];
+      const axisB = [center[0] + normal[0] * ellObj.height / 2, center[1] + normal[1] * ellObj.height / 2];
       return `
+        ${coordinatesHTML('center', center, 'Ellipse', 'O')}
+        ${coordinatesHTML('axisA', axisA, 'A')}
+        ${coordinatesHTML('axisB', axisB, 'B')}
         <div class="scene-editor-row" title="Parametervinkler: 0° langs lokal bredderetning; positivt mot klokka. 0–360° er hel ellipse. Like verdier er tom bue.">
           <label style="min-width:0;">Start °:</label><input type="number" class="scene-editor-input" data-field="startAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.startAngleDeg ?? 0}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
           <label style="min-width:0;">Slutt °:</label><input type="number" class="scene-editor-input" data-field="endAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.endAngleDeg ?? 360}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
@@ -357,6 +378,8 @@ function updateScenePanel(){
     } else if(type === 'segment') {
       const segObj = obj;
       return `
+        ${coordinatesHTML('a', segObj.a, 'Segment', 'A')}
+        ${coordinatesHTML('b', segObj.b, 'Segment', 'B')}
         <div class="scene-editor-row">
           <label>Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="segment" data-idx="${index}" value="${expandHexColor(segObj.color || '#222222')}" style="width:40px; padding:2px;" />
@@ -379,6 +402,8 @@ function updateScenePanel(){
     } else if(type === 'arrow') {
       const arrObj = obj;
       return `
+        ${coordinatesHTML('a', arrObj.a, 'Pil', 'A')}
+        ${coordinatesHTML('b', arrObj.b, 'Pil', 'B')}
         <div class="scene-editor-row">
           <label>Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="arrow" data-idx="${index}" value="${expandHexColor(arrObj.color || '#00f')}" style="width:40px; padding:2px;" />
@@ -400,7 +425,13 @@ function updateScenePanel(){
       `;
     } else if(type === 'plane') {
       const planeObj = obj;
+      const directionPoint = planeObj.dirPoint || [
+        planeObj.through[0] + (planeObj.n_vec?.[0] || 0) * 3 * (window.GRID_STEP || 20),
+        planeObj.through[1] + (planeObj.n_vec?.[1] ?? -1) * 3 * (window.GRID_STEP || 20)
+      ];
       return `
+        ${coordinatesHTML('through', planeObj.through, 'Plan', 'O')}
+        ${coordinatesHTML('dirPoint', directionPoint, 'Plan', 'P')}
         <div class="scene-editor-row">
           <label>Synlig:</label>
           <input type="checkbox" class="scene-editor-input" data-field="draw" data-type="plane" data-idx="${index}" ${planeObj.draw ? 'checked' : ''} />
@@ -443,6 +474,84 @@ function updateScenePanel(){
         const idx = parseInt(input.dataset.idx);
         // Use window.currentTask.scene directly instead of closure to avoid stale references
         const currentScene = window.currentTask?.scene;
+        if(field === 'coordinates'){
+          const vector = input.dataset.vector;
+          const axis = Number(input.dataset.axis);
+          const value = Number(input.value);
+          if(input.value.trim() === '' || !Number.isFinite(value) || ![0, 1].includes(axis)){
+            input.setCustomValidity('Oppgi en gyldig koordinat.');
+            input.reportValidity();
+            return;
+          }
+          const target = fieldType === 'plane'
+            ? currentScene?.plane
+            : currentScene?.[fieldType + 's']?.[idx];
+          if(!target) return;
+          input.setCustomValidity('');
+          if(fieldType === 'plane' && vector === 'through'){
+            const position = target.through;
+            const delta = value - position[axis];
+            position[axis] = value;
+            if(Array.isArray(target.dirPoint)) target.dirPoint[axis] += delta;
+          } else {
+            if(fieldType === 'plane' && vector === 'dirPoint' && !Array.isArray(target.dirPoint)){
+              const normal = target.n_vec || [0, -1];
+              const step = 3 * (window.GRID_STEP || 20);
+              target.dirPoint = [
+                target.through[0] + normal[0] * step,
+                target.through[1] + normal[1] * step
+              ];
+            }
+            if(fieldType === 'ellipse' && (vector === 'axisA' || vector === 'axisB')){
+              const center = target.center;
+              const basis = vector === 'axisA' ? target.t_vec || [1, 0] : target.n_vec || [0, -1];
+              const radius = (vector === 'axisA' ? target.width : target.height) / 2;
+              const endpoint = [center[0] + basis[0] * radius, center[1] + basis[1] * radius];
+              endpoint[axis] = value;
+              const direction = [endpoint[0] - center[0], endpoint[1] - center[1]];
+              const length = window.geometry.length(direction);
+              if(length <= 0.01){
+                input.setCustomValidity('A- og B-punktet må ligge et stykke fra sentrum.');
+                input.reportValidity();
+                return;
+              }
+              input.setCustomValidity('');
+              if(vector === 'axisA'){
+                target.width = length * 2;
+                target.t_vec = [direction[0] / length, direction[1] / length];
+                target.n_vec = window.geometry.normalFromTangent(target.t_vec);
+              } else {
+                target.height = length * 2;
+                target.n_vec = [direction[0] / length, direction[1] / length];
+                target.t_vec = window.geometry.tangentFromNormal(target.n_vec);
+              }
+              window.markEdited?.('task');
+              window.updateAppState?.();
+              return;
+            }
+            const position = target[vector];
+            if(!Array.isArray(position) || position.length < 2) return;
+            if(fieldType === 'plane' && vector === 'dirPoint'){
+              const nextPosition = position.slice();
+              nextPosition[axis] = value;
+              const direction = [nextPosition[0] - target.through[0], nextPosition[1] - target.through[1]];
+              const length = window.geometry.length(direction);
+              if(length <= 0.01){
+                input.setCustomValidity('Retningspunktet må ligge et stykke fra gjennom-punktet.');
+                input.reportValidity();
+                return;
+              }
+              position[axis] = value;
+              target.n_vec = [direction[0] / length, direction[1] / length];
+              target.t_vec = window.geometry.tangentFromNormal(target.n_vec);
+            } else {
+              position[axis] = value;
+            }
+          }
+          window.markEdited?.('task');
+          window.updateAppState?.();
+          return;
+        }
         if((fieldType === 'ellipse' || fieldType === 'circle') &&
            (field === 'fillEnabled' || field === 'fill_color' || field === 'startAngleDeg' || field === 'endAngleDeg')){
           const target = currentScene?.[fieldType + 's']?.[idx];

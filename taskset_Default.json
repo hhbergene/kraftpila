@@ -15,7 +15,7 @@
           "angleDeg": 0,
           "through": [
             500,
-            480
+            360
           ],
           "draw": true,
           "snapping": false,
@@ -33,14 +33,14 @@
             "width": 120,
             "height": 120,
             "center": [
-              520,
+              500,
               240
             ],
             "n_vec": [
               0,
               -1
             ],
-            "snapping": true,
+            "snapping": false,
             "t_vec": [
               1,
               0
@@ -146,7 +146,18 @@
           }
         ],
         "rects": [],
-        "points": []
+        "points": [
+          {
+            "id": "point-1",
+            "type": "free",
+            "pos": [
+              500,
+              240
+            ],
+            "visible": true,
+            "valid": true
+          }
+        ]
       },
       "expectedForces": [
         {
@@ -169,15 +180,15 @@
           },
           "drawn": {
             "anchor": [
-              520,
+              500,
               240
             ],
             "arrowBase": [
-              520,
+              500,
               240
             ],
             "arrowTip": [
-              520,
+              500,
               320
             ]
           }
@@ -205,8 +216,8 @@
         "plane": {
           "angleDeg": 0,
           "through": [
-            499,
-            499.6666660308838
+            500,
+            360
           ],
           "draw": true,
           "snapping": false,
@@ -235,7 +246,7 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": false
           }
         ],
         "texts": [
@@ -265,7 +276,7 @@
               500,
               40
             ],
-            "snapping": false,
+            "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3
           }
@@ -384,7 +395,7 @@
           "angleDeg": 0,
           "through": [
             500,
-            340
+            360
           ],
           "draw": true,
           "snapping": false,
@@ -403,7 +414,7 @@
             "height": 120,
             "center": [
               500,
-              280
+              300
             ],
             "n_vec": [
               0,
@@ -413,7 +424,7 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": false
           }
         ],
         "texts": [
@@ -453,15 +464,15 @@
           "drawn": {
             "anchor": [
               500,
-              340
+              360
             ],
             "arrowBase": [
               520,
-              340
+              360
             ],
             "arrowTip": [
               520,
-              240
+              260
             ]
           }
         }
@@ -471,15 +482,15 @@
           "name": "G",
           "anchor": [
             500,
-            280
+            300
           ],
           "arrowBase": [
             480,
-            280
+            300
           ],
           "arrowTip": [
             480,
-            380
+            400
           ],
           "moveable": false,
           "anchorSpec": {
@@ -549,7 +560,7 @@
               360
             ],
             "angleDeg": 0,
-            "snapping": true,
+            "snapping": false,
             "n_vec": [
               0,
               -1
@@ -1008,7 +1019,7 @@
               360
             ],
             "angleDeg": 0,
-            "snapping": true,
+            "snapping": false,
             "n_vec": [
               0,
               -1
@@ -1026,7 +1037,7 @@
               240
             ],
             "angleDeg": 0,
-            "snapping": true,
+            "snapping": false,
             "n_vec": [
               0,
               -1
@@ -1312,7 +1323,7 @@
           "angleDeg": 0,
           "through": [
             500,
-            480
+            360
           ],
           "draw": true,
           "snapping": false,
@@ -1362,11 +1373,11 @@
           {
             "a": [
               500,
-              420
+              300
             ],
             "b": [
               380,
-              360
+              240
             ],
             "snapping": true,
             "color": "#545454",
@@ -1379,7 +1390,7 @@
             "height": 120,
             "bottomCenter": [
               500,
-              480
+              360
             ],
             "angleDeg": 0,
             "n_vec": [
@@ -1394,18 +1405,7 @@
             "color": "#000000"
           }
         ],
-        "points": [
-          {
-            "id": "point-1",
-            "type": "free",
-            "pos": [
-              886.2000045776367,
-              426
-            ],
-            "visible": false,
-            "valid": true
-          }
-        ],
+        "points": [],
         "arrows": [
           {
             "a": [
@@ -1436,15 +1436,15 @@
           "drawn": {
             "anchor": [
               380,
-              360
+              240
             ],
             "arrowBase": [
               380,
-              360
+              240
             ],
             "arrowTip": [
               300,
-              320
+              200
             ]
           }
         },
@@ -1463,15 +1463,15 @@
           "drawn": {
             "anchor": [
               500,
-              480
+              360
             ],
             "arrowBase": [
               520,
-              480
+              360
             ],
             "arrowTip": [
               520,
-              340
+              220
             ]
           }
         },
@@ -1490,15 +1490,15 @@
           "drawn": {
             "anchor": [
               580,
-              480
+              360
             ],
             "arrowBase": [
               580,
-              460
+              340
             ],
             "arrowTip": [
               660,
-              460
+              340
             ]
           }
         }
@@ -1508,15 +1508,15 @@
           "name": "G",
           "anchor": [
             500,
-            420
+            300
           ],
           "arrowBase": [
             480,
-            420
+            300
           ],
           "arrowTip": [
             480,
-            600
+            460
           ],
           "moveable": false,
           "anchorSpec": {
@@ -2134,7 +2134,7 @@
           {
             "txt": "Tegn snordragene S_1 og S_2",
             "pos": [
-              200,
+              400,
               80
             ],
             "size": 14,
@@ -2142,23 +2142,23 @@
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              200,
+              400,
               80
             ]
           },
           {
             "txt": "Kassen henger i ro.",
             "pos": [
-              200,
-              99
+              400,
+              60
             ],
             "size": 14,
             "align": "left",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              200,
-              99
+              400,
+              60
             ]
           }
         ],
@@ -2169,7 +2169,7 @@
               240
             ],
             "b": [
-              240,
+              100,
               40
             ],
             "snapping": true,
@@ -2214,7 +2214,7 @@
             "width": 920,
             "height": 20,
             "bottomCenter": [
-              540,
+              500,
               40
             ],
             "angleDeg": 0,
@@ -2242,8 +2242,8 @@
             "point": "top_center"
           },
           "dir": [
-            -0.8,
-            -0.6
+            -0.899,
+            -0.438
           ],
           "drawn": {
             "anchor": [
@@ -2255,8 +2255,8 @@
               240
             ],
             "arrowTip": [
-              420,
-              180
+              380,
+              181.53846153846155
             ]
           }
         },
@@ -2282,8 +2282,8 @@
               240
             ],
             "arrowTip": [
-              580,
-              200
+              616.9230769230769,
+              181.53846153846155
             ]
           }
         }
@@ -2301,7 +2301,7 @@
           ],
           "arrowTip": [
             500,
-            400
+            420
           ],
           "moveable": false,
           "anchorSpec": {
@@ -2542,12 +2542,12 @@
               360
             ],
             "arrowBase": [
-              540,
-              340
+              520,
+              350
             ],
             "arrowTip": [
-              500,
-              260
+              480,
+              270
             ]
           }
         }
@@ -4195,9 +4195,9 @@
     }
   ],
   "metadata": {
-    "name": "taskset",
-    "exported": "2026-10-24T17:53:06.299Z",
+    "name": "Default",
+    "exported": "2026-10-24T21:30:20.024Z",
     "count": 17,
-    "appVersion": "2026-10-24 19:03"
+    "appVersion": "2026-10-24 20:00"
   }
 }

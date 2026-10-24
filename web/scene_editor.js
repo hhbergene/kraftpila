@@ -13,8 +13,8 @@
   const finitePos = pos => Array.isArray(pos) && pos.length >= 2 && pos.every(Number.isFinite);
   const model = () => window.sceneModel;
   const key = spec => spec ? `${spec.type}:${spec.ref}:${spec.point || spec.segment}` : '';
-  function candidates(task, pointsOnly){
-    return (model()?.candidates(task) || []).map(c => {
+  function candidates(task, pointsOnly, includeNonSnapping=false){
+    return (model()?.candidates(task,includeNonSnapping) || []).map(c => {
       const anchor = c.anchor || {type: c.type || c.kind, ref:c.ref, point:c.point, segment:c.segment};
       const resolved = model().resolveAnchor(task, anchor);
       return {...c, type:anchor.type, anchor, pos:resolved.pos || c.pos, segment:resolved.segment};
@@ -428,7 +428,7 @@
       const notice=row(parent,'Frikoblet:');
       notice.appendChild(element('span',slot.detachedReason));
     }
-    const list=candidates(window.currentTask,name === 'vertex');
+    const list=candidates(window.currentTask,name === 'vertex',true);
     const r=row(parent,label), select=element('select',null,{className:'scene-angle-anchor-select'});
     select.style.minWidth='0';
     select.style.width='100%';
@@ -522,7 +522,7 @@
       row(parent,'Stil:').appendChild(style);
       style.addEventListener('change',()=>{obj.body=style.value; edited('task');});
     } else {
-      row(parent,'Type:').appendChild(element('span',obj.type==='intersection' ? 'Skjæringspunkt' : 'Fritt punkt'));
+      row(parent,'Type:').appendChild(element('span',obj.isOrigin ? 'Origin' : obj.type==='intersection' ? 'Skjæringspunkt' : 'Fritt punkt'));
       row(parent,'ID:').appendChild(element('span',obj.id));
       if(obj.type !== 'intersection'){
         numberField(parent,'x:',obj.pos[0],v=>{obj.pos[0]=v; edited('task');});
@@ -534,18 +534,21 @@
         parent.appendChild(change);
       }
       checkbox(parent,'Synlig for eleven',obj.visible,v=>{obj.visible=v; edited('task');});
+      checkbox(parent,'Snap',obj.snapping!==false,v=>{obj.snapping=v; edited('task');});
     }
-    const remove=element('button','🗑 Slett',{type:'button',className:'scene-delete-element-btn'});
-    remove.addEventListener('click',()=>{
-      cancel();
-      const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
-      if(idx < 0) return;
-      model().remapReferences(window.currentTask,type,idx,'delete');
-      array.splice(idx,1);
-      window.selectedSceneElement=null;
-      edited('task','forces');
-    });
-    parent.appendChild(remove);
+    if(!obj.isOrigin){
+      const remove=element('button','🗑 Slett',{type:'button',className:'scene-delete-element-btn'});
+      remove.addEventListener('click',()=>{
+        cancel();
+        const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
+        if(idx < 0) return;
+        model().remapReferences(window.currentTask,type,idx,'delete');
+        array.splice(idx,1);
+        window.selectedSceneElement=null;
+        edited('task','forces');
+      });
+      parent.appendChild(remove);
+    }
   }
   function confirmIntersection(state,hit){
     window.autoSave?.();

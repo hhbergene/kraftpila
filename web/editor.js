@@ -700,8 +700,13 @@ window.tasks = [];
       // Parse key to get type and index (e.g., 'rect0' -> {type:'rect', index:0}, 'plane' -> {type:'plane', index:0})
       const match = key.match(/^([a-z]+)(\d*)$/);
       if(!match) return;
-      const type = match[1];
-      const index = match[2] ? parseInt(match[2]) : 0;  // Default to 0 for elements without index (plane, origin)
+      let type = match[1];
+      let index = match[2] ? parseInt(match[2]) : 0;
+      if(type === 'origin'){
+        type = 'point';
+        index = window.currentTask?.scene?.points?.findIndex(point => point?.isOrigin) ?? -1;
+        if(index < 0) return;
+      }
       
       // Check if this element is selected
       const isSelected = window.selectedSceneElement && 
@@ -1076,17 +1081,6 @@ window.tasks = [];
     
     const scene = task.scene;
     
-    // Origin - always has 'center' point
-    const origin = task.origin || scene.origin;
-    if(origin && Array.isArray(origin) && origin.length >= 2){
-      candidates.push({
-        ref: 'origin',
-        type: 'point',
-        point: 'center',
-        pos: [origin[0], origin[1]]
-      });
-    }
-    
     // Rects - points and segments
     if(Array.isArray(scene.rects)){
       scene.rects.forEach((r, i) => {
@@ -1409,9 +1403,7 @@ window.tasks = [];
         const scene = window.currentTask.scene;
         let elementOrigin = null;
         
-        if(type === 'origin' && scene?.origin){
-          elementOrigin = scene.origin;
-        } else if(type === 'plane' && scene?.plane){
+        if(type === 'plane' && scene?.plane){
           elementOrigin = scene.plane.through;
         } else if(type === 'rect' && scene?.rects?.[index]){
           elementOrigin = scene.rects[index].bottomCenter;
@@ -2983,7 +2975,8 @@ window.tasks = [];
       
       // Sjekk om ankeret er knyttet til det flytta scene-elementet
       const isLinkedToElement = (
-        anchor.type === 'point' && anchor.ref === `${elementType}${elementIndex}` ||
+        anchor.type === 'point' && (anchor.ref === `${elementType}${elementIndex}` ||
+          elementType === 'origin' && anchor.ref === 'origin') ||
         anchor.type === 'segment' && anchor.ref === `${elementType}${elementIndex}`
       );
       
@@ -3020,9 +3013,26 @@ window.tasks = [];
     const scene = window.currentTask.scene;
 
     if(type === 'point' || type === 'angle'){
-      const clamped = window.clampToCanvas(newPos);
-      if(type === 'point' && scene.points?.[index]?.type === 'free'){
-        scene.points[index].pos = clamped;
+      const point = type === 'point' ? scene.points?.[index] : null;
+      let position = newPos;
+      if(point?.isOrigin){
+        const res=snapping.snap(newPos,{
+          points:[],
+          gridStep:window.GRID_STEP,
+          origin:DRAW_CENTER ? [DRAW_CENTER[0],DRAW_CENTER[1]] : [0,0],
+          axesDir:null
+        });
+        position=res.pos;
+        window.snapIndicator=res.source ? {pos:res.pos} : null;
+      }
+      const clamped = window.clampToCanvas(position);
+      if(point?.type === 'free'){
+        const oldPos=point.pos.slice();
+        point.pos[0]=clamped[0];
+        point.pos[1]=clamped[1];
+        if(point.isOrigin){
+          syncForcesWithSceneElement('origin',0,[clamped[0]-oldPos[0],clamped[1]-oldPos[1]]);
+        }
       } else if(type === 'angle' && scene.angles?.[index]?.[handleType] && !scene.angles[index][handleType].anchor){
         scene.angles[index][handleType].pos = clamped;
       } else {
@@ -3565,8 +3575,8 @@ window.tasks = [];
             }
           } else if(type === 'plane' && scene.plane){
             window.draggingHandle._snapOriginAtDragStart = [scene.plane.through[0], scene.plane.through[1]];
-          } else if(type === 'origin' && scene.origin){
-            window.draggingHandle._snapOriginAtDragStart = [scene.origin[0], scene.origin[1]];
+          } else if(type === 'point' && scene.points?.[index]?.isOrigin){
+            window.draggingHandle._snapOriginAtDragStart = scene.points[index].pos.slice();
           }
         }
         
@@ -3632,9 +3642,11 @@ window.tasks = [];
             // Show arrange buttons when selected
             const header = item.querySelector('.scene-item-header');
             if(header){
-              header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-                btn.style.display = 'inline-block';
-              });
+              if(item.dataset.fixedOrigin !== 'true'){
+                header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
+                  btn.style.display = 'inline-block';
+                });
+              }
             }
             break;
           }

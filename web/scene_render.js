@@ -580,6 +580,29 @@
     if(stored) return {valid:stored.valid,reason:stored.reason};
     return {valid:point.valid!==false,reason:point.reason||null};
   }
+  function ensureOriginPoint(task,scene){
+    if(!Array.isArray(scene.points)) scene.points=[];
+    let point=scene.points.find(p=>p?.isOrigin || p?.id==='origin');
+    if(!point){
+      const legacyPos=validPos(task.origin) ? task.origin : validPos(scene.origin) ? scene.origin : null;
+      const fallback=validPos(window.DRAW_CENTER) ? window.DRAW_CENTER : [500,340];
+      point={id:'origin',type:'free',isOrigin:true,pos:cp(legacyPos||fallback),visible:false,snapping:false};
+      scene.points.push(point);
+    }else{
+      point.id='origin';
+      point.type='free';
+      point.isOrigin=true;
+      if(!validPos(point.pos)){
+        const legacyPos=validPos(task.origin) ? task.origin : validPos(scene.origin) ? scene.origin : null;
+        point.pos=cp(legacyPos || (validPos(window.DRAW_CENTER) ? window.DRAW_CENTER : [500,340]));
+      }
+      if(point.visible===undefined) point.visible=false;
+      if(point.snapping===undefined) point.snapping=false;
+    }
+    task.origin=point.pos;
+    scene.origin=point.pos;
+    return point;
+  }
   function angleGeometry(angle,task){
     const reasons=[];
     const ep=(which)=>{
@@ -631,7 +654,7 @@
   function update(task){
     if(!task || !task.scene) return;
     const scene=task.scene;
-    if(!Array.isArray(scene.points)) scene.points=[];
+    ensureOriginPoint(task,scene);
     const sources=geometrySources(task);
     const signature=JSON.stringify(sources.map(s=>[s.key,s.value]));
     let state=taskRuntime.get(task);
@@ -702,7 +725,7 @@
     // Resolve angle anchors after dynamic points have been updated.
     (scene.angles||[]).forEach(a=>angleGeometry(a,task));
   }
-  function candidates(task){
+  function candidates(task,includeNonSnapping=false){
     update(task);
     const out=[],lookup=buildAllScenePointsBase(task);
     Object.keys(lookup).forEach(ref=>{
@@ -720,7 +743,7 @@
       out.push(c);
     });
     (task?.scene?.points||[]).forEach(p=>{
-      if(p?.id&&validPos(p.pos)) out.push({key:`point:${p.id}`,kind:'point',label:`${p.id} center`,ref:p.id,pos:cp(p.pos),anchor:{type:'point',ref:p.id,point:'center'}});
+      if(p?.id&&(includeNonSnapping||p.snapping!==false)&&validPos(p.pos)) out.push({key:`point:${p.id}`,kind:'point',label:`${p.id} center`,ref:p.id,pos:cp(p.pos),anchor:{type:'point',ref:p.id,point:'center'}});
     });
     return out;
   }
@@ -789,6 +812,7 @@
     const scene=task?.scene;if(!scene)return;
     const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
     const deletedPoint=prefix==='point'&&action==='delete' ? scene.points?.[index] : null;
+    if(deletedPoint?.isOrigin) return;
     const remapSpec=(spec,angle,part)=>{
       if(!spec)return;
       const a=spec.anchor||spec;
@@ -949,14 +973,6 @@
     const lookup = {};
     if(!task) return lookup;
     if(window.sceneModel) window.sceneModel.update(task);
-    // Add origin if defined
-    if(task.origin){
-      lookup['origin'] = {
-        snapping: true,
-        points: { center: task.origin },
-        segments: {}
-      };
-    }
     // Add plane if defined (use endpoints as 'a' and 'b')
     if(task.scene && task.scene.plane && task.scene.plane.draw){
       const plane = task.scene.plane;
@@ -1044,7 +1060,7 @@
       });
     }
     (task.scene.points||[]).forEach((p,i)=>{
-      if(p?.id&&validPos(p.pos)){
+      if(p?.id&&p.snapping!==false&&validPos(p.pos)){
         lookup[p.id]={snapping:true,points:{center:cp(p.pos)},segments:{}};
         lookup[`point${i}`]={snapping:true,points:{center:cp(p.pos)},segments:{}};
       }
@@ -1062,15 +1078,6 @@
     if(!task || !task.scene) return lookup;
     
     const scene = task.scene;
-    
-    // Origin (check both task.origin and scene.origin for compatibility)
-    const origin = task.origin || (scene && scene.origin);
-    if(origin && Array.isArray(origin) && origin.length >= 2){
-      lookup['origin'] = {
-        points: { center: [origin[0], origin[1]] },
-        segments: {}
-      };
-    }
     
     // Plane (use endpoints a and b, plus segment) - hoverable regardless of draw state
     if(scene.plane && scene.plane.through && Array.isArray(scene.plane.through)){

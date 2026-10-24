@@ -907,17 +907,6 @@ window.TASKS = [];
     
     const scene = task.scene;
     
-    // Origin - always has 'center' point
-    const origin = task.origin || scene.origin;
-    if(origin && Array.isArray(origin) && origin.length >= 2){
-      candidates.push({
-        ref: 'origin',
-        type: 'point',
-        point: 'center',
-        pos: [origin[0], origin[1]]
-      });
-    }
-    
     // Rects - points and segments
     if(Array.isArray(scene.rects)){
       scene.rects.forEach((r, i) => {

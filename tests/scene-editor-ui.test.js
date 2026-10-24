@@ -387,7 +387,7 @@ test('no segments through vertex means free fallbacks; Enter creates no helper p
   s.nodes['app-canvas'].fire('mousedown',{pos:[0,0]});
   s.field('Start:').fire('keydown',{key:'Enter'});
   s.field('Slutt:').fire('keydown',{key:'Enter'});
-  assert.equal(s.task.scene.points.length,0);
+  assert.equal(s.task.scene.points.filter(point=>!point.isOrigin).length,0);
   assert.equal(s.angle.start.anchor,undefined);
   assert.equal(s.angle.end.anchor,undefined);
   assert.ok(Math.abs(s.window.sceneModel.angleGeometry(s.angle,s.task).degrees-30)<1e-8);

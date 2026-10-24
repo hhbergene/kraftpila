@@ -328,14 +328,14 @@ test('right angles render rotated square markers in both modes and lookup follow
         for(const editor of [true,false]){
           const {context,events}=recordingCanvas();
           window.drawScene(context,task,editor);
-          const stroke=events.find(e=>e.method==='stroke');
+          const stroke=events.find(e=>e.method==='stroke'&&e.path.some(p=>p.method==='moveTo'));
           assert.deepEqual(stroke.path.map(p=>p.method),['moveTo','lineTo','lineTo']);
           assert.deepEqual(stroke.path.map(p=>p.args),[Array.from(a),Array.from(corner),Array.from(b)]);
         }
         angle.end.pos=[100+80*Math.cos(end+0.001),80+80*Math.sin(end+0.001)];
         const {context,events}=recordingCanvas();
         window.drawScene(context,task,false);
-        assert.equal(events.find(e=>e.method==='stroke').path[0].method,'arc');
+        assert.equal(events.find(e=>e.method==='stroke'&&e.path[0].method==='arc'&&e.path[0].args[2]===radius).path[0].method,'arc');
         assert.ok(window.buildAllScenePoints(task).angle0.curves.arc.length>2);
       }
     }

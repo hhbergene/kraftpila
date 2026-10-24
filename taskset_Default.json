@@ -150,7 +150,24 @@
           }
         ],
         "rects": [],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -299,7 +316,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -347,7 +381,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "origin",
+            "ref": "ellipse0",
             "point": "center"
           }
         }
@@ -448,7 +482,24 @@
         ],
         "segments": [],
         "rects": [],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -623,7 +674,24 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              360
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          360
+        ]
       },
       "expectedForces": [
         {
@@ -824,7 +892,24 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
@@ -983,7 +1068,11 @@
         }
       ],
       "taskTitle": "Kloss med konstant fart på horisontalt underlag",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1791480987572_yjio90r9e",
@@ -1127,15 +1216,32 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
           "name": "N_A",
           "anchor": {
-            "type": "point",
+            "type": "segment",
             "ref": "rect0",
-            "point": "bottom_center"
+            "segment": "bottom"
           },
           "dir": [
             0,
@@ -1173,7 +1279,21 @@
           ],
           "aliases": [
             "G"
-          ]
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              480,
+              300
+            ],
+            "arrowTip": [
+              480,
+              380
+            ]
+          }
         },
         {
           "name": "N_B*",
@@ -1186,7 +1306,21 @@
             0,
             1
           ],
-          "nameBase": "N"
+          "nameBase": "N",
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              480,
+              240
+            ],
+            "arrowTip": [
+              480,
+              280
+            ]
+          }
         }
       ],
       "initialForces": [
@@ -1197,11 +1331,11 @@
             200
           ],
           "arrowBase": [
-            480,
+            460,
             200
           ],
           "arrowTip": [
-            480,
+            460,
             240
           ],
           "moveable": false,
@@ -1276,7 +1410,11 @@
         }
       ],
       "taskTitle": "Kloss på kloss i ro horisontalt",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1791600000003_ai0004abc",
@@ -1335,8 +1473,8 @@
               420
             ],
             "b": [
-              360,
-              340
+              380,
+              360
             ],
             "snapping": true,
             "color": "#545454",
@@ -1364,7 +1502,34 @@
             "color": "#000000"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "point-1",
+            "type": "free",
+            "pos": [
+              886.2000045776367,
+              426
+            ],
+            "visible": false,
+            "valid": true
+          },
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -1375,21 +1540,21 @@
             "segment": "segment"
           },
           "dir": [
-            -0.866,
-            -0.5
+            -0.894,
+            -0.447
           ],
           "drawn": {
             "anchor": [
-              430,
-              380
+              380,
+              360
             ],
             "arrowBase": [
-              500,
-              420
+              380,
+              360
             ],
             "arrowTip": [
-              431,
-              380
+              300,
+              320
             ]
           }
         },
@@ -1415,7 +1580,7 @@
             ],
             "arrowTip": [
               520,
-              440
+              340
             ]
           }
         },
@@ -1432,16 +1597,16 @@
           ],
           "drawn": {
             "anchor": [
-              500,
+              580,
               480
             ],
             "arrowBase": [
               580,
-              480
+              460
             ],
             "arrowTip": [
-              630,
-              480
+              660,
+              460
             ]
           }
         }
@@ -1454,12 +1619,12 @@
             420
           ],
           "arrowBase": [
-            500,
+            480,
             420
           ],
           "arrowTip": [
-            500,
-            500
+            480,
+            600
           ],
           "moveable": false,
           "anchorSpec": {
@@ -1604,7 +1769,24 @@
           }
         ],
         "rects": [],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -1926,7 +2108,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -2180,7 +2379,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -2430,7 +2646,24 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
@@ -2524,7 +2757,11 @@
       ],
       "taskTitle": "Kloss på glatt skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1791600000002_ai0003abc",
@@ -2668,7 +2905,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -2876,7 +3130,24 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
@@ -3018,7 +3289,11 @@
       },
       "taskTitle": "Kloss på skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1791480987575_d5vxa3521",
@@ -3140,7 +3415,24 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
@@ -3267,7 +3559,11 @@
       ],
       "taskTitle": "Bil i horisontal sving",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse"
+      "subTitle": "Sirkelbevegelse",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1792664909003_dnr0pvg73",
@@ -3422,7 +3718,24 @@
             "linked": false
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              340
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          340
+        ]
       },
       "expectedForces": [
         {
@@ -3517,7 +3830,11 @@
       ],
       "taskTitle": "task_1791480987575_d5vxa3521.",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse"
+      "subTitle": "Sirkelbevegelse",
+      "origin": [
+        500,
+        340
+      ]
     },
     {
       "id": "task_1791600000000_ai0001abc",
@@ -3676,7 +3993,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              500,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          500,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -4008,7 +4342,24 @@
             "color": "#acadaf"
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "origin",
+            "type": "free",
+            "isOrigin": true,
+            "pos": [
+              400,
+              240
+            ],
+            "visible": false,
+            "snapping": false,
+            "valid": true
+          }
+        ],
+        "origin": [
+          400,
+          240
+        ]
       },
       "expectedForces": [
         {
@@ -4121,8 +4472,8 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-23T14:28:28.938Z",
+    "exported": "2026-10-24T11:47:51.124Z",
     "count": 17,
-    "appVersion": "2026-10-23 16:19"
+    "appVersion": "2026-10-24 10:53"
   }
 }

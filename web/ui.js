@@ -121,6 +121,7 @@ function updateScenePanel(){
   if(!scenePanel || !window.currentTask || !window.currentTask.scene) return;
   scenePanel.innerHTML = '';
   
+  window.sceneModel?.update(window.currentTask);
   const scene = window.currentTask.scene;
   if(window.sceneEditor) window.sceneEditor.checkTask();
   
@@ -149,21 +150,23 @@ function updateScenePanel(){
     else if(type === 'segment') typeCount = (scene.segments || []).length;
     else if(type === 'arrow') typeCount = (scene.arrows || []).length;
     else if(type === 'angle') typeCount = (scene.angles || []).length;
-    else if(type === 'point') typeCount = (scene.points || []).length;
+    else if(type === 'point') typeCount = (scene.points || []).filter(point => !point?.isOrigin).length;
     else if(type === 'text') typeCount = (scene.texts || []).filter(t => !t._isShortLines).length;
     
     const isFirst = index === 0;
     const isLast = index === typeCount - 1;
+    const isFixedOrigin = type === 'point' && obj?.isOrigin === true;
+    if(isFixedOrigin) item.dataset.fixedOrigin = 'true';
     
     // Header with label and controls
     const header = document.createElement('div');
     header.className = 'scene-item-header';
     header.innerHTML = `
       <span class="scene-item-icon">${getItemIcon(type)}</span>
-      <span class="scene-item-label">${label}${index !== undefined ? ` [${index}]` : ''}</span>
+      <span class="scene-item-label">${label}${index !== undefined && !isFixedOrigin ? ` [${index}]` : ''}</span>
       <div class="scene-item-controls">
-        <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill opp" data-arrange="up" style="display:none; opacity:${isFirst ? '0.4' : '1'}; cursor:${isFirst ? 'default' : 'pointer'};">▲</button>
-        <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill ned" data-arrange="down" style="display:none; opacity:${isLast ? '0.4' : '1'}; cursor:${isLast ? 'default' : 'pointer'};">▼</button>
+        <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill opp" data-arrange="up" style="display:none; opacity:${isFirst || isFixedOrigin ? '0.4' : '1'}; cursor:${isFirst || isFixedOrigin ? 'default' : 'pointer'};">▲</button>
+        <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill ned" data-arrange="down" style="display:none; opacity:${isLast || isFixedOrigin ? '0.4' : '1'}; cursor:${isLast || isFixedOrigin ? 'default' : 'pointer'};">▼</button>
         <button class="scene-item-control-btn" title="Synlig" data-control="visible" style="display:none;">👁</button>
         <button class="scene-item-control-btn" title="Snap" data-control="snap" style="display:none;">🧲</button>
       </div>
@@ -188,9 +191,11 @@ function updateScenePanel(){
       window.setActivePanel('scene');
       
       // Show arrange buttons when selected
-      header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
-        btn.style.display = 'inline-block';
-      });
+      if(!isFixedOrigin){
+        header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
+          btn.style.display = 'inline-block';
+        });
+      }
     });
     
     // Arrange button handlers (up/down arrows)
@@ -204,6 +209,8 @@ function updateScenePanel(){
         const array = currentScene?.[arrayKey];
         
         if(!array) return;
+        if(type === 'point' && (obj?.isOrigin ||
+           array[index + (direction === 'up' ? -1 : 1)]?.isOrigin)) return;
         
         if(direction === 'up' && index > 0) {
           window.sceneEditor?.cancel();
@@ -234,6 +241,7 @@ function updateScenePanel(){
     }
     
     scenePanel.appendChild(item);
+    return item;
   }
   
   // Helper to get icon for each type
@@ -670,9 +678,11 @@ function updateScenePanel(){
     }
   }
   
-  // Origin (one per task)
-  if(scene.origin) {
-    addItem('Origin', 'origin', undefined, scene.origin);
+  // Origin (one per task), represented as a required point at the top of the panel.
+  const originPoint = scene.points?.find(point => point?.isOrigin);
+  if(originPoint) {
+    const originItem = addItem('Origin', 'point', scene.points.indexOf(originPoint), originPoint);
+    scenePanel.insertBefore(originItem, scenePanel.firstChild);
   }
   
   // Plane (one per task)
@@ -725,7 +735,9 @@ function updateScenePanel(){
   }
   
   // Step 5: Restore selected element after DOM rebuild
-  (scene.points || []).forEach((point, idx) => addItem('Punkt', 'point', idx, point));
+  (scene.points || []).forEach((point, idx) => {
+    if(!point?.isOrigin) addItem('Punkt', 'point', idx, point);
+  });
   (scene.angles || []).forEach((angle, idx) => addItem('Vinkel', 'angle', idx, angle));
   if(window.selectedSceneElement && scenePanel){
     const items = scenePanel.querySelectorAll('.scene-item');
@@ -736,7 +748,7 @@ function updateScenePanel(){
         item.classList.add('selected');
         // Show arrange buttons when selected
         const header = item.querySelector('.scene-item-header');
-        if(header){
+        if(header && item.dataset.fixedOrigin !== 'true'){
           header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
             btn.style.display = 'inline-block';
           });

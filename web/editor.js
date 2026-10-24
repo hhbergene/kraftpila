@@ -208,9 +208,9 @@ window.tasks = [];
   function drawSceneElementHighlights(ctx){
     if(!window.sceneLookup) return;
     
-    // Helper to build lookup key - singleton elements (plane, origin) use type only
+    // Helper to build lookup key - the plane is a singleton element.
     function getLookupKey(type, index){
-      if(type === 'plane' || type === 'origin') return type;
+      if(type === 'plane') return type;
       return `${type}${index}`;
     }
     
@@ -346,11 +346,7 @@ window.tasks = [];
         if(angle[field] && !angle[field].anchor && resolved[field]) drawHandle(...resolved[field]);
       });
     }
-    else if(type === 'origin' && scene.origin){
-      const [x, y] = scene.origin;
-      drawHandle(x, y);
-    } 
-    else if(type === 'plane' && scene.plane){
+    else     if(type === 'plane' && scene.plane){
       // Draw handle at through point
       const [x, y] = scene.plane.through;
       drawHandle(x, y);
@@ -702,12 +698,6 @@ window.tasks = [];
       if(!match) return;
       let type = match[1];
       let index = match[2] ? parseInt(match[2]) : 0;
-      if(type === 'origin'){
-        type = 'point';
-        index = window.currentTask?.scene?.points?.findIndex(point => point?.isOrigin) ?? -1;
-        if(index < 0) return;
-      }
-      
       // Check if this element is selected
       const isSelected = window.selectedSceneElement && 
                         window.selectedSceneElement.type === type && 
@@ -1069,7 +1059,7 @@ window.tasks = [];
    * Build list of all possible anchor candidates from scene.
    * Returns array of {ref, type, point, pos} or {ref, type, segment, pos} objects.
    * type is always 'point' or 'segment'
-   * ref is like 'origin', 'rect0', 'ellipse1', etc.
+   * ref is like 'point-1', 'rect0', 'ellipse1', etc.
    * point is like 'center', 'top_center', etc.
    * segment is like 'top', 'bottom', etc.
    * pos is the [x, y] coordinate for distance matching.
@@ -1240,7 +1230,7 @@ window.tasks = [];
    * Validates that all expectedForces have anchor specs defined.
    * Ensures initialForces are NOT in the expectedForces array.
    * Attempts to match expectedForces to scene elements based on their drawn positions.
-   * If no match found, assigns a default anchor (origin).
+   * If no match is found, keeps the drawn position or uses the canvas center.
    * Returns {valid: boolean, message: string}
    */
   window.cleanupTaskForEvaluation = function(){
@@ -1299,14 +1289,12 @@ window.tasks = [];
               messages_for_this_force.push(`matched ${bestMatch.ref}.${bestMatch.segment}`);
             }
           } else {
-            // No close match found - use origin default
-            expectedForce.anchor = { type: 'point', ref: 'origin', point: 'center' };
-            messages_for_this_force.push('no close match, used origin default');
+            expectedForce.anchor = {type:'custom',pos:drawnForce.arrowBase.slice()};
+            messages_for_this_force.push('no close scene anchor; kept drawn position');
           }
         } else {
-          // No drawn force found - use origin default
-          expectedForce.anchor = { type: 'point', ref: 'origin', point: 'center' };
-          messages_for_this_force.push('no drawn force found, used origin default');
+          expectedForce.anchor = {type:'custom',pos:(window.DRAW_CENTER || [500,340]).slice()};
+          messages_for_this_force.push('no drawn force found; used canvas center');
         }
         
         if(messages_for_this_force.length){
@@ -2261,7 +2249,7 @@ window.tasks = [];
       if(!window.currentTask.expectedForces) window.currentTask.expectedForces = [];
       
       // Try to auto-detect best anchor based on force's drawn position
-      let anchorSpec = { type: 'point', ref: 'origin', point: 'center' };
+      let anchorSpec = {type:'custom',pos:(force.anchor || force.arrowBase || window.DRAW_CENTER || [500,340]).slice()};
       
       if(force.arrowBase && window.currentTask.scene){
         const bestMatch = window.findBestAnchor(force.arrowBase, window.currentTask, 60);
@@ -2557,7 +2545,6 @@ window.tasks = [];
       if (!scene) return null;
       
       const sig = {
-        origin: scene.origin ? JSON.stringify(scene.origin) : null,
         plane: scene.plane ? JSON.stringify(scene.plane) : null,
         rects: scene.rects ? JSON.stringify(scene.rects) : null,
         circles: scene.circles ? JSON.stringify(scene.circles) : null,
@@ -2796,7 +2783,7 @@ window.tasks = [];
   
   /**
    * Detects if a mouse position is near any handle of the currently selected scene element.
-   * Checks all possible handles for the element type (origin, plane, rect, ellipse, circle, segment, arrow, text).
+   * Checks all possible handles for the element type (plane, rect, ellipse, circle, segment, arrow, text, point).
    * 
    * @param {Array<number>} pos - The mouse position [x, y] in canvas coordinates
    * @returns {Object|null} Handle info object if a handle is near the position:
@@ -2844,11 +2831,7 @@ window.tasks = [];
         }
       }
     }
-    else if(type === 'origin' && scene?.origin){
-      const [x, y] = scene.origin;
-      if(isNear(x, y)) return {type: 'origin', index, handleType: 'center'};
-    }
-    else if(type === 'plane' && scene?.plane){
+    else     if(type === 'plane' && scene?.plane){
       const [x, y] = scene.plane.through;
       if(isNear(x, y)) return {type: 'plane', index, handleType: 'through'};
       
@@ -2975,8 +2958,7 @@ window.tasks = [];
       
       // Sjekk om ankeret er knyttet til det flytta scene-elementet
       const isLinkedToElement = (
-        anchor.type === 'point' && (anchor.ref === `${elementType}${elementIndex}` ||
-          elementType === 'origin' && anchor.ref === 'origin') ||
+        anchor.type === 'point' && anchor.ref === `${elementType}${elementIndex}` ||
         anchor.type === 'segment' && anchor.ref === `${elementType}${elementIndex}`
       );
       
@@ -3014,25 +2996,11 @@ window.tasks = [];
 
     if(type === 'point' || type === 'angle'){
       const point = type === 'point' ? scene.points?.[index] : null;
-      let position = newPos;
-      if(point?.isOrigin){
-        const res=snapping.snap(newPos,{
-          points:[],
-          gridStep:window.GRID_STEP,
-          origin:DRAW_CENTER ? [DRAW_CENTER[0],DRAW_CENTER[1]] : [0,0],
-          axesDir:null
-        });
-        position=res.pos;
-        window.snapIndicator=res.source ? {pos:res.pos} : null;
-      }
+      const position = newPos;
       const clamped = window.clampToCanvas(position);
       if(point?.type === 'free'){
-        const oldPos=point.pos.slice();
         point.pos[0]=clamped[0];
         point.pos[1]=clamped[1];
-        if(point.isOrigin){
-          syncForcesWithSceneElement('origin',0,[clamped[0]-oldPos[0],clamped[1]-oldPos[1]]);
-        }
       } else if(type === 'angle' && scene.angles?.[index]?.[handleType] && !scene.angles[index][handleType].anchor){
         scene.angles[index][handleType].pos = clamped;
       } else {
@@ -3047,9 +3015,7 @@ window.tasks = [];
     
     // Store element's position before move for displacement calculation
     let oldPos = null;
-    if(type === 'origin' && scene.origin){
-      oldPos = [scene.origin[0], scene.origin[1]];
-    } else if(type === 'rect' && scene.rects?.[index]){
+    if(type === 'rect' && scene.rects?.[index]){
       oldPos = [scene.rects[index].bottomCenter[0], scene.rects[index].bottomCenter[1]];
     } else if(type === 'ellipse' && scene.ellipses?.[index]){
       oldPos = [scene.ellipses[index].center[0], scene.ellipses[index].center[1]];
@@ -3084,9 +3050,7 @@ window.tasks = [];
     let snapOrigin = DRAW_CENTER ? [DRAW_CENTER[0], DRAW_CENTER[1]] : [0, 0];
     let guidelineOrigin = null;
     
-    if(type === 'origin'){
-      guidelineOrigin = scene.origin;
-    } else if(type === 'rect'){
+    if(type === 'rect'){
       guidelineOrigin = scene.rects?.[index]?.bottomCenter;
     } else if(type === 'ellipse'){
       guidelineOrigin = scene.ellipses?.[index]?.center;
@@ -3155,22 +3119,7 @@ window.tasks = [];
     const snappedDx = useNewPos[0] - startPos[0];
     const snappedDy = useNewPos[1] - startPos[1];
     
-    if(type === 'origin' && handleType === 'center' && scene.origin){
-      // For center moves, set absolute position rather than using delta
-      // This ensures perfect grid alignment
-      const clampedPos = window.clampToCanvas(useNewPos);
-      scene.origin[0] = clampedPos[0];
-      scene.origin[1] = clampedPos[1];
-      window.selectedSceneElement._handleStartPos = clampedPos;
-      
-      // Synkroniser krefter
-      if(oldPos){
-        const displacement = [useNewPos[0] - oldPos[0], useNewPos[1] - oldPos[1]];
-        syncForcesWithSceneElement('origin', 0, displacement);
-        oldPos = [useNewPos[0], useNewPos[1]];
-      }
-    }
-    else if(type === 'plane' && scene.plane){
+    if(type === 'plane' && scene.plane){
       if(handleType === 'through'){
         // Move plane through point - set absolute position for grid alignment
         const clampedPos = window.clampToCanvas(useNewPos);
@@ -3575,8 +3524,6 @@ window.tasks = [];
             }
           } else if(type === 'plane' && scene.plane){
             window.draggingHandle._snapOriginAtDragStart = [scene.plane.through[0], scene.plane.through[1]];
-          } else if(type === 'point' && scene.points?.[index]?.isOrigin){
-            window.draggingHandle._snapOriginAtDragStart = scene.points[index].pos.slice();
           }
         }
         

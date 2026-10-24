@@ -33,8 +33,12 @@ test('page titles show the generated build time and prefer page-specific version
 function setup(){
   const elements=[];
   const storage=new Map();
+  const confirmations=[];
+  const alerts=[];
   const window={PLAYER_BUILD_TIME:'2026-10-22 12:59',EDITOR_BUILD_TIME:'2026-10-22 12:59',
-    tasks:[{id:'first'},{id:'second'}],currentTaskIndex:1};
+    tasks:[{id:'first'},{id:'second'}],currentTaskIndex:1,
+    confirm:message=>{confirmations.push(message);return true;},
+    alert:message=>alerts.push(message)};
   const document={createElement(){
     const element={children:[],listeners:{},style:{},appendChild(child){this.children.push(child);},
       addEventListener(name,handler){this.listeners[name]=handler;},remove(){this.removed=true;}};
@@ -48,7 +52,7 @@ function setup(){
     key:index=>Array.from(storage.keys())[index]};
   const context={window,document,localStorage,console,Math,Promise,Object,Array,String,JSON,Set,Map,encodeURI};
   vm.runInNewContext(source,context);
-  return {window,document,localStorage,elements,context};
+  return {window,document,localStorage,elements,context,confirmations,alerts};
 }
 
 test('task schema loads the default set once without requesting the removed Intro file',async()=>{
@@ -101,7 +105,7 @@ test('help window retains task title while the toolbar shows only task number',(
 test('scene-panel title editing updates only the shared title and refreshes the task UI',()=>{
   const uiSource=fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
   const start=uiSource.indexOf('  // Task metadata fields (Id, Title, Category)');
-  const end=uiSource.indexOf('  // Origin (one per task)',start);
+  const end=uiSource.indexOf('  // Plane (one per task)',start);
   const snippet=uiSource.slice(start,end);
   const titleInput={value:'Ny tittel',addEventListener(event,handler){this.change=handler;}};
   const subtitleInput={value:'',addEventListener(){}};
@@ -185,4 +189,47 @@ test('outdated localStorage stays untouched until approval and is filtered after
   assert.equal(Object.hasOwn(filtered,'obsolete'),false);
   assert.deepEqual(JSON.parse(localStorage.getItem('tk_taskOrder')),['task-a']);
   assert.equal(localStorage.getItem('tk_app_version'),window.PLAYER_BUILD_TIME);
+});
+
+test('full reset from the storage warning clears only this mode and loads current defaults',async()=>{
+  const {window,localStorage,elements,confirmations}=setup();
+  localStorage.setItem('tk_app_version','2025-01-01 09:00');
+  localStorage.setItem('tk_task_task-a',JSON.stringify({id:'task-a'}));
+  localStorage.setItem('tk_taskOrder','["task-a"]');
+  localStorage.setItem('editor_task_other',JSON.stringify({id:'other'}));
+  localStorage.setItem('unrelated-site-key','preserve');
+  let prepared=false;
+  const schema=[{id:'task-default',title:'Ny oppgave'}];
+  const pending=window.AppVersioning.checkStorage('player',schema,()=>{prepared=true;});
+  const reset=elements.find(element=>element.textContent==='Full reset');
+  assert.ok(reset,'storage warning offers Full reset');
+  reset.listeners.click();
+
+  assert.equal(await pending,true);
+  assert.equal(confirmations.length,1);
+  assert.match(confirmations[0],/sletter alle lokale elevmodus-data/);
+  assert.equal(prepared,false,'full reset skips migration of the outdated stored tasks');
+  assert.equal(localStorage.getItem('tk_task_task-a'),null);
+  assert.equal(localStorage.getItem('tk_taskOrder'),null);
+  assert.equal(localStorage.getItem('tk_app_version'),window.PLAYER_BUILD_TIME);
+  assert.equal(localStorage.getItem('editor_task_other'),'{"id":"other"}');
+  assert.equal(localStorage.getItem('unrelated-site-key'),'preserve');
+});
+
+test('cancelling full reset leaves storage unchanged and warning open',async()=>{
+  const {window,document,localStorage,elements}=setup();
+  window.confirm=()=>false;
+  localStorage.setItem('tk_app_version','2025-01-01 09:00');
+  localStorage.setItem('tk_task_task-a',JSON.stringify({id:'task-a'}));
+  const pending=window.AppVersioning.checkStorage('player',[{id:'task-a'}]);
+  let settled=false;
+  pending.then(()=>{settled=true;});
+  const reset=elements.find(element=>element.textContent==='Full reset');
+  reset.listeners.click();
+  await Promise.resolve();
+
+  assert.equal(settled,false,'the warning remains available after cancelling confirmation');
+  assert.equal(localStorage.getItem('tk_app_version'),'2025-01-01 09:00');
+  assert.equal(localStorage.getItem('tk_task_task-a'),'{"id":"task-a"}');
+  assert.equal(document.body.modal.removed,undefined);
 });

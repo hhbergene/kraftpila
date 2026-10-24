@@ -580,29 +580,6 @@
     if(stored) return {valid:stored.valid,reason:stored.reason};
     return {valid:point.valid!==false,reason:point.reason||null};
   }
-  function ensureOriginPoint(task,scene){
-    if(!Array.isArray(scene.points)) scene.points=[];
-    let point=scene.points.find(p=>p?.isOrigin || p?.id==='origin');
-    if(!point){
-      const legacyPos=validPos(task.origin) ? task.origin : validPos(scene.origin) ? scene.origin : null;
-      const fallback=validPos(window.DRAW_CENTER) ? window.DRAW_CENTER : [500,340];
-      point={id:'origin',type:'free',isOrigin:true,pos:cp(legacyPos||fallback),visible:false,snapping:false};
-      scene.points.push(point);
-    }else{
-      point.id='origin';
-      point.type='free';
-      point.isOrigin=true;
-      if(!validPos(point.pos)){
-        const legacyPos=validPos(task.origin) ? task.origin : validPos(scene.origin) ? scene.origin : null;
-        point.pos=cp(legacyPos || (validPos(window.DRAW_CENTER) ? window.DRAW_CENTER : [500,340]));
-      }
-      if(point.visible===undefined) point.visible=false;
-      if(point.snapping===undefined) point.snapping=false;
-    }
-    task.origin=point.pos;
-    scene.origin=point.pos;
-    return point;
-  }
   function angleGeometry(angle,task){
     const reasons=[];
     const ep=(which)=>{
@@ -654,7 +631,7 @@
   function update(task){
     if(!task || !task.scene) return;
     const scene=task.scene;
-    ensureOriginPoint(task,scene);
+    if(!Array.isArray(scene.points)) scene.points=[];
     const sources=geometrySources(task);
     const signature=JSON.stringify(sources.map(s=>[s.key,s.value]));
     let state=taskRuntime.get(task);
@@ -812,7 +789,6 @@
     const scene=task?.scene;if(!scene)return;
     const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
     const deletedPoint=prefix==='point'&&action==='delete' ? scene.points?.[index] : null;
-    if(deletedPoint?.isOrigin) return;
     const remapSpec=(spec,angle,part)=>{
       if(!spec)return;
       const a=spec.anchor||spec;

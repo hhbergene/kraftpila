@@ -329,7 +329,6 @@ function realAngleSetup(segments=[]){
     vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),s.window);
   }
   s.window.getMousePos=e=>e.pos;
-  s.task.origin=[0,0];
   s.task.scene.segments=segments;
   const angle={vertex:{pos:[0,0]},start:{pos:[30,0]},end:{pos:[30*Math.cos(Math.PI/6),-15]},
     radius:30,symbol:'α'};
@@ -387,7 +386,7 @@ test('no segments through vertex means free fallbacks; Enter creates no helper p
   s.nodes['app-canvas'].fire('mousedown',{pos:[0,0]});
   s.field('Start:').fire('keydown',{key:'Enter'});
   s.field('Slutt:').fire('keydown',{key:'Enter'});
-  assert.equal(s.task.scene.points.filter(point=>!point.isOrigin).length,0);
+  assert.equal(s.task.scene.points.length,0);
   assert.equal(s.angle.start.anchor,undefined);
   assert.equal(s.angle.end.anchor,undefined);
   assert.ok(Math.abs(s.window.sceneModel.angleGeometry(s.angle,s.task).degrees-30)<1e-8);
@@ -570,7 +569,9 @@ test('angle lists rank from selected other anchors, show complete groups, and na
   const select=label=>s.parent.children.find(r=>r.children[0]?.textContent===label)
     .children.find(c=>c.tagName==='SELECT');
   assert.deepEqual(select('Start:').children.filter(c=>c.tagName==='OPTGROUP').map(c=>c.label),['Alle ankrene']);
-  s.angle.vertex.anchor={type:'point',ref:'origin',point:'center'};
+  s.task.scene.points.push({id:'a-point',type:'free',pos:[0,0],snapping:false});
+  s.window.sceneModel.update(s.task);
+  s.angle.vertex.anchor={type:'point',ref:'a-point',point:'center'};
   s.rebuild();
   const start=select('Start:');
   assert.deepEqual(start.children.filter(c=>c.tagName==='OPTGROUP').map(c=>c.label),['5 nærmeste','Alle ankrene']);
@@ -582,7 +583,7 @@ test('angle lists rank from selected other anchors, show complete groups, and na
   assert.deepEqual(list.children.filter(c=>c.className==='scene-anchor-group').map(c=>c.textContent),
     ['5 nærmeste','Alle ankrene']);
   const rows=list.children.filter(c=>c.dataset.value!==undefined);
-  const copies=rows.filter(c=>c.dataset.value==='point:origin:center');
+  const copies=rows.filter(c=>c.dataset.value==='point:a-point:center');
   assert.equal(copies.length,2);
   copies[1].fire('mouseenter');
   assert.equal(copies[1]['aria-selected'],'true');

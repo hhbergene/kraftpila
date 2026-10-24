@@ -4,10 +4,6 @@
       "id": "task_1791480987568_u6brmhjow",
       "title": "Tegn tyngdekraften på en fallende ball",
       "category": "Fysikk 1",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "På en ball som faller fritt mot bakken virker det bare en kraft:",
         "G - Tyngdekraften",
@@ -150,24 +146,7 @@
           }
         ],
         "rects": [],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -215,10 +194,6 @@
       "id": "task_1791480987568_2u5txto26",
       "title": "Snordrag på ball",
       "category": "Fysikk 1",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En ball henger i ro i en snor. Det virker to krefter:",
         "G - Tyngdekraften",
@@ -316,24 +291,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -413,10 +371,6 @@
       "id": "task_1791480987569_qg12erkik",
       "title": "Normalkraften fra underlaget",
       "category": "Fysikk 1",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "På en ball som ligger i ro på bakken virker det to krefter:",
         "G - Tyngdekraften",
@@ -482,24 +436,7 @@
         ],
         "segments": [],
         "rects": [],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -577,10 +514,6 @@
       "id": "task_1791480987570_9dzqpjzzk",
       "title": "Kloss i ro på horisontalt underlag",
       "category": "Fysikk 1",
-      "origin": [
-        500,
-        360
-      ],
       "help_lines": [
         "En kloss ligger i ro på et horisontalt underlag.",
         "Tegn kreftene som virker på klossen."
@@ -674,24 +607,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              360
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          360
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -744,7 +660,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -892,24 +809,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -960,7 +860,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -992,7 +893,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0
           },
           "drawn": {
             "anchor": [
@@ -1068,11 +970,7 @@
         }
       ],
       "taskTitle": "Kloss med konstant fart på horisontalt underlag",
-      "taskSubTitle": "",
-      "origin": [
-        500,
-        340
-      ]
+      "taskSubTitle": ""
     },
     {
       "id": "task_1791480987572_yjio90r9e",
@@ -1216,24 +1114,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -1241,7 +1122,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "dir": [
             0,
@@ -1300,7 +1182,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "top"
+            "segment": "top",
+            "u": 0.5
           },
           "dir": [
             0,
@@ -1363,7 +1246,8 @@
           "anchorSpec": {
             "type": "segment",
             "ref": "rect1",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           }
         }
       ],
@@ -1410,20 +1294,12 @@
         }
       ],
       "taskTitle": "Kloss på kloss i ro horisontalt",
-      "taskSubTitle": "",
-      "origin": [
-        500,
-        340
-      ]
+      "taskSubTitle": ""
     },
     {
       "id": "task_1791600000003_ai0004abc",
       "title": "Trekke kasse med vinkel",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En kasse trekkes mot venstre langs et horisontalt underlag med en snor festet i senter av kassen slik at kassen får konstant fart",
         "Snordraget-S og tyngdekraften-G er tegnet in. ",
@@ -1512,23 +1388,7 @@
             ],
             "visible": false,
             "valid": true
-          },
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
           }
-        ],
-        "origin": [
-          500,
-          240
         ]
       },
       "expectedForces": [
@@ -1537,7 +1397,8 @@
           "anchor": {
             "type": "segment",
             "ref": "segment0",
-            "segment": "segment"
+            "segment": "segment",
+            "u": 1
           },
           "dir": [
             -0.894,
@@ -1563,7 +1424,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "dir": [
             0,
@@ -1589,7 +1451,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 1
           },
           "dir": [
             1,
@@ -1665,10 +1528,6 @@
       "id": "task_1791600000004_ai0005abc",
       "title": "Summer 4 krefter",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "Fire krefter virker på en masse: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre ",
         "Tegn ΣF - Summen av kreftene. "
@@ -1769,24 +1628,7 @@
           }
         ],
         "rects": [],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -1842,7 +1684,8 @@
           "anchorSpec": {
             "type": "segment",
             "ref": "plane",
-            "segment": "plane"
+            "segment": "plane",
+            "u": 0.5
           }
         },
         {
@@ -1863,7 +1706,8 @@
           "anchorSpec": {
             "type": "segment",
             "ref": "plane",
-            "segment": "plane"
+            "segment": "plane",
+            "u": 0.5
           }
         },
         {
@@ -1884,7 +1728,8 @@
           "anchorSpec": {
             "type": "segment",
             "ref": "plane",
-            "segment": "plane"
+            "segment": "plane",
+            "u": 0.5
           }
         },
         {
@@ -1905,7 +1750,8 @@
           "anchorSpec": {
             "type": "segment",
             "ref": "plane",
-            "segment": "plane"
+            "segment": "plane",
+            "u": 0.5
           }
         }
       ],
@@ -1960,10 +1806,6 @@
       "id": "task_1791600000005_ai0006abc",
       "title": "Hengende kasse -/",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En kasse henger i ro, festet med to snorer: en som går skrått opp til taket, og en som går vannrett til veggen.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -2108,24 +1950,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -2161,7 +1986,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "left"
+            "segment": "left",
+            "u": 0.4999961128834744
           },
           "dir": [
             -1,
@@ -2169,16 +1995,16 @@
           ],
           "drawn": {
             "anchor": [
-              440,
-              300
+              440.00046644854365,
+              300.00000000362627
             ],
             "arrowBase": [
-              440,
-              300
+              440.00046644854365,
+              300.00000000362627
             ],
             "arrowTip": [
-              360,
-              300
+              360.00046644854365,
+              300.00000000362627
             ]
           }
         }
@@ -2250,10 +2076,6 @@
       "id": "task_1791600000006_ai0007abc",
       "title": "Hengende kasse \\,-'",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En kasse henger i ro, festet med to snorer til taket. Snorene går i ulike retninger langs rutenettet.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -2379,24 +2201,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -2646,24 +2451,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -2716,7 +2504,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -2757,20 +2546,12 @@
       ],
       "taskTitle": "Kloss på glatt skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering",
-      "origin": [
-        500,
-        340
-      ]
+      "subTitle": "Dekomponering"
     },
     {
       "id": "task_1791600000002_ai0003abc",
       "title": "Kjeglependel",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En ball henger i en snor festet taket. Ballen beveger seg i en sirkelbevegelse med sentrum på loddlinja fra festepunktet. ",
         "Kreftene som virker på ballen er tegnet inn:",
@@ -2905,24 +2686,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -3130,24 +2894,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -3200,7 +2947,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -3232,7 +2980,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 1
           },
           "drawn": {
             "anchor": [
@@ -3289,11 +3038,7 @@
       },
       "taskTitle": "Kloss på skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering",
-      "origin": [
-        500,
-        340
-      ]
+      "subTitle": "Dekomponering"
     },
     {
       "id": "task_1791480987575_d5vxa3521",
@@ -3415,24 +3160,7 @@
             ]
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -3485,7 +3213,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -3517,7 +3246,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0
           },
           "drawn": {
             "anchor": [
@@ -3559,11 +3289,7 @@
       ],
       "taskTitle": "Bil i horisontal sving",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse",
-      "origin": [
-        500,
-        340
-      ]
+      "subTitle": "Sirkelbevegelse"
     },
     {
       "id": "task_1792664909003_dnr0pvg73",
@@ -3718,24 +3444,7 @@
             "linked": false
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              340
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          340
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -3788,7 +3497,8 @@
           "anchor": {
             "type": "segment",
             "ref": "rect0",
-            "segment": "bottom"
+            "segment": "bottom",
+            "u": 0.5
           },
           "drawn": {
             "anchor": [
@@ -3830,20 +3540,12 @@
       ],
       "taskTitle": "task_1791480987575_d5vxa3521.",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse",
-      "origin": [
-        500,
-        340
-      ]
+      "subTitle": "Sirkelbevegelse"
     },
     {
       "id": "task_1791600000000_ai0001abc",
       "title": "Hengende ball _/",
       "category": "Fysikk 2",
-      "origin": [
-        500,
-        240
-      ],
       "help_lines": [
         "En ball henger i ro, festet med to snorer: en som går på skrå opp til taket, og en som går vannrett til veggen.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -3993,24 +3695,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              500,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          500,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -4120,10 +3805,6 @@
       "id": "task_1791600000001_ai0002abc",
       "title": "Hengende ball \\,-'",
       "category": "Fysikk 2",
-      "origin": [
-        400,
-        240
-      ],
       "help_lines": [
         "En ball henger i ro, festet med to snorer til taket. Snorene danner vinklene 45° og 30° med taket.",
         "G - Tyngdekraften (er tegnet inn)",
@@ -4342,24 +4023,7 @@
             "color": "#acadaf"
           }
         ],
-        "points": [
-          {
-            "id": "origin",
-            "type": "free",
-            "isOrigin": true,
-            "pos": [
-              400,
-              240
-            ],
-            "visible": false,
-            "snapping": false,
-            "valid": true
-          }
-        ],
-        "origin": [
-          400,
-          240
-        ]
+        "points": []
       },
       "expectedForces": [
         {
@@ -4472,8 +4136,8 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-24T11:47:51.124Z",
+    "exported": "2026-10-24T13:34:30.855Z",
     "count": 17,
-    "appVersion": "2026-10-24 10:53"
+    "appVersion": "2026-10-24 13:54"
   }
 }

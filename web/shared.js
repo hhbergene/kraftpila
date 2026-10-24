@@ -591,6 +591,32 @@ window.AppVersioning = (function(){
         resolve({approved:true, data:schema.objectKeys.size ? filter(wrappedData,schema).tasks : data});
       });
       box.appendChild(open);
+      if(source === 'localStorage'){
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.textContent = 'Full reset';
+        reset.addEventListener('click',() => {
+          if(!window.confirm(`Full reset sletter alle lokale ${mode === 'editor' ? 'editor' : 'elevmodus'}-data i denne nettleseren. Andre nettsteders data berøres ikke. Fortsette?`)) return;
+          const keys=[];
+          for(let index=0; index<localStorage.length; index++){
+            const key=localStorage.key(index);
+            if(key?.startsWith(modeInfo[mode].prefix)) keys.push(key);
+          }
+          for(const key of keys){
+            try{
+              localStorage.removeItem(key);
+            }catch(error){
+              console.error(`Kunne ikke slette lokal data ${key} ved full reset:`,error);
+              window.alert(`Full reset ble avbrutt fordi lokal data ikke kunne slettes: ${key}`);
+              return;
+            }
+          }
+          stamp(mode);
+          overlay.remove();
+          resolve({approved:true,reset:true});
+        });
+        box.appendChild(reset);
+      }
       overlay.appendChild(box);
       document.body.appendChild(overlay);
     });
@@ -621,6 +647,7 @@ window.AppVersioning = (function(){
     const tasks = taskEntries.map(entry => entry.task);
     return confirmMismatch({mode,source:'localStorage',oldTime:storedTime,data:tasks,reference}).then(result => {
       if(!result.approved) return false;
+      if(result.reset) return true;
       if(prepare) prepare();
       const currentTaskEntries = [];
       for(let index=0; index<localStorage.length; index++){

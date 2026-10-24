@@ -522,7 +522,7 @@
       row(parent,'Stil:').appendChild(style);
       style.addEventListener('change',()=>{obj.body=style.value; edited('task');});
     } else {
-      row(parent,'Type:').appendChild(element('span',obj.isOrigin ? 'Origin' : obj.type==='intersection' ? 'Skjæringspunkt' : 'Fritt punkt'));
+      row(parent,'Type:').appendChild(element('span',obj.type==='intersection' ? 'Skjæringspunkt' : 'Fritt punkt'));
       row(parent,'ID:').appendChild(element('span',obj.id));
       if(obj.type !== 'intersection'){
         numberField(parent,'x:',obj.pos[0],v=>{obj.pos[0]=v; edited('task');});
@@ -536,19 +536,17 @@
       checkbox(parent,'Synlig for eleven',obj.visible,v=>{obj.visible=v; edited('task');});
       checkbox(parent,'Snap',obj.snapping!==false,v=>{obj.snapping=v; edited('task');});
     }
-    if(!obj.isOrigin){
-      const remove=element('button','🗑 Slett',{type:'button',className:'scene-delete-element-btn'});
-      remove.addEventListener('click',()=>{
-        cancel();
-        const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
-        if(idx < 0) return;
-        model().remapReferences(window.currentTask,type,idx,'delete');
-        array.splice(idx,1);
-        window.selectedSceneElement=null;
-        edited('task','forces');
-      });
-      parent.appendChild(remove);
-    }
+    const remove=element('button','🗑 Slett',{type:'button',className:'scene-delete-element-btn'});
+    remove.addEventListener('click',()=>{
+      cancel();
+      const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
+      if(idx < 0) return;
+      model().remapReferences(window.currentTask,type,idx,'delete');
+      array.splice(idx,1);
+      window.selectedSceneElement=null;
+      edited('task','forces');
+    });
+    parent.appendChild(remove);
   }
   function confirmIntersection(state,hit){
     window.autoSave?.();
@@ -619,7 +617,7 @@
       return {mode:'anchor',pointsOnly:false,
         alive:()=>!!force && window.fm?.forces?.includes(force),
         detach:()=>{
-          const pos=(force.anchor || force.arrowBase || window.currentTask.origin).slice();
+          const pos=(force.anchor || force.arrowBase || window.DRAW_CENTER || [500,340]).slice();
           applyForceAnchor(window.fm.forces.indexOf(force),{type:'custom',pos},pos,false);
         },
         apply:(spec,pos,newPoint)=>applyForceAnchor(window.fm.forces.indexOf(force),spec,pos,newPoint)};

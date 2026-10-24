@@ -175,9 +175,9 @@ window.TASKS = [];
   function drawSceneElementHighlights(ctx){
     if(!window.sceneLookup) return;
     
-    // Helper to build lookup key - singleton elements (plane, origin) use type only
+    // Helper to build lookup key - the plane is the only singleton scene element
     function getLookupKey(type, index){
-      if(type === 'plane' || type === 'origin') return type;
+      if(type === 'plane') return type;
       return `${type}${index}`;
     }
     
@@ -288,11 +288,7 @@ window.TASKS = [];
       ctx.fill();
     }
     
-    if(type === 'origin' && scene.origin){
-      const [x, y] = scene.origin;
-      drawHandle(x, y);
-    } 
-    else if(type === 'plane' && scene.plane){
+    if(type === 'plane' && scene.plane){
       // Draw handle at through point
       const [x, y] = scene.plane.through;
       drawHandle(x, y);
@@ -895,7 +891,7 @@ window.TASKS = [];
    * Build list of all possible anchor candidates from scene.
    * Returns array of {ref, type, point, pos} or {ref, type, segment, pos} objects.
    * type is always 'point' or 'segment'
-   * ref is like 'origin', 'rect0', 'ellipse1', etc.
+   * ref is like 'point-1', 'rect0', 'ellipse1', etc.
    * point is like 'center', 'top_center', etc.
    * segment is like 'top', 'bottom', etc.
    * pos is the [x, y] coordinate for distance matching.
@@ -1040,120 +1036,9 @@ window.TASKS = [];
     return bestMatch;
   };
   
-  /**
-   * Cleanup task for evaluation in editor mode.
-   * Validates that all expectedForces have anchor specs defined.
-   * Ensures initialForces are NOT in the expectedForces array.
-   * Attempts to match expectedForces to scene elements based on their drawn positions.
-   * If no match found, assigns a default anchor (origin).
-   * Returns {valid: boolean, message: string}
-   */
+  // Kept as a no-op for compatibility with code that calls the editor API.
   window.cleanupTaskForEvaluation = function(){
-    // Player mode: cleanup not needed
     return { valid: true, message: '' };
-    
-    const task = window.currentTask;
-    const messages = [];
-    
-    // Ensure expectedForces array exists
-    if(!task.expectedForces){
-      task.expectedForces = [];
-    }
-    
-    // Build map of drawn forces by name for anchor matching
-    const drawnForcesByName = new Map();
-    if(window.fm && window.fm.forces){
-      window.fm.forces.forEach(f => {
-        if(f.name && f.arrowBase){
-          const key = f.name.toLowerCase().trim();
-          drawnForcesByName.set(key, f);
-        }
-      });
-    }
-    
-    // Validate and set default/smart anchors for all expectedForces
-    for(let i = 0; i < task.expectedForces.length; i++){
-      const expectedForce = task.expectedForces[i];
-      const messages_for_this_force = [];
-      
-      // Try to find matching drawn force and auto-detect best anchor
-      if(!expectedForce.anchor && expectedForce.name){
-        const key = expectedForce.name.toLowerCase().trim();
-        const drawnForce = drawnForcesByName.get(key);
-        
-        if(drawnForce && drawnForce.arrowBase){
-          // Try to find closest scene element/point to this force's arrowBase
-          const bestMatch = window.findBestAnchor(drawnForce.arrowBase, task, 60);
-          
-          if(bestMatch){
-            // Build anchor spec from best match
-            if(bestMatch.type === 'point'){
-              expectedForce.anchor = {
-                type: 'point',
-                ref: bestMatch.ref,
-                point: bestMatch.point
-              };
-              messages_for_this_force.push(`matched ${bestMatch.ref}.${bestMatch.point}`);
-            } else if(bestMatch.type === 'segment'){
-              expectedForce.anchor = {
-                type: 'segment',
-                ref: bestMatch.ref,
-                segment: bestMatch.segment
-              };
-              messages_for_this_force.push(`matched ${bestMatch.ref}.${bestMatch.segment}`);
-            }
-          } else {
-            // No close match found - use origin default
-            expectedForce.anchor = { type: 'point', ref: 'origin', point: 'center' };
-            messages_for_this_force.push('no close match, used origin default');
-          }
-        } else {
-          // No drawn force found - use origin default
-          expectedForce.anchor = { type: 'point', ref: 'origin', point: 'center' };
-          messages_for_this_force.push('no drawn force found, used origin default');
-        }
-        
-        if(messages_for_this_force.length){
-          messages.push(`expectedForces[${i}] "${expectedForce.name}": ${messages_for_this_force.join(', ')}`);
-        }
-      }
-      
-      // Also ensure dir is set (default to [0,1] for gravity-like forces)
-      if(!expectedForce.dir){
-        expectedForce.dir = [0, 1];
-        messages.push(`expectedForces[${i}] "${expectedForce.name}": satte standard retning [0,1]`);
-      }
-    }
-    
-    // Ensure initialForces array exists
-    if(!task.initialForces){
-      task.initialForces = [];
-    }
-    
-    // Remove any initialForces from expectedForces (they should not be mixed)
-    const initialForceNames = new Set();
-    task.initialForces.forEach(f => {
-      if(f.name) initialForceNames.add(f.name.toLowerCase().trim());
-    });
-    
-    const expectedBeforeFilter = task.expectedForces.length;
-    task.expectedForces = task.expectedForces.filter(f => {
-      const isInitial = f.name && initialForceNames.has(f.name.toLowerCase().trim());
-      if(isInitial){
-        messages.push(`Fjernet "${f.name}" fra expectedForces (dette er en initialForce)`);
-      }
-      return !isInitial;
-    });
-    
-    if(task.expectedForces.length < expectedBeforeFilter){
-      messages.push(`${expectedBeforeFilter - task.expectedForces.length} initialForce(r) fjernet fra expectedForces`);
-    }
-    
-    // If there are validation messages, warning but allow evaluation
-    const valid = messages.length === 0;
-    const message = messages.join(' | ');
-    
-    return { valid, message };
   };
 
   window.updateAppState = function(){
@@ -1205,9 +1090,7 @@ window.TASKS = [];
         const scene = window.currentTask.scene;
         let elementOrigin = null;
         
-        if(type === 'origin' && scene?.origin){
-          elementOrigin = scene.origin;
-        } else if(type === 'plane' && scene?.plane){
+        if(type === 'plane' && scene?.plane){
           elementOrigin = scene.plane.through;
         } else if(type === 'rect' && scene?.rects?.[index]){
           elementOrigin = scene.rects[index].bottomCenter;
@@ -1515,7 +1398,7 @@ window.TASKS = [];
       if(!window.currentTask.expectedForces) window.currentTask.expectedForces = [];
       
       // Try to auto-detect best anchor based on force's drawn position
-      let anchorSpec = { type: 'point', ref: 'origin', point: 'center' };
+      let anchorSpec = {type:'custom',pos:(force.anchor || force.arrowBase || window.DRAW_CENTER || [500,340]).slice()};
       
       if(force.arrowBase && window.currentTask.scene){
         const bestMatch = window.findBestAnchor(force.arrowBase, window.currentTask, 60);
@@ -1726,7 +1609,7 @@ window.TASKS = [];
   
   /**
    * Detects if a mouse position is near any handle of the currently selected scene element.
-   * Checks all possible handles for the element type (origin, plane, rect, ellipse, circle, segment, arrow, text).
+   * Checks all possible handles for the element type (plane, rect, ellipse, circle, segment, arrow, text, point).
    * 
    * @param {Array<number>} pos - The mouse position [x, y] in canvas coordinates
    * @returns {Object|null} Handle info object if a handle is near the position:
@@ -1748,11 +1631,7 @@ window.TASKS = [];
       return Math.sqrt(dx*dx + dy*dy) <= tolerance;
     }
     
-    if(type === 'origin' && scene?.origin){
-      const [x, y] = scene.origin;
-      if(isNear(x, y)) return {type: 'origin', index, handleType: 'center'};
-    }
-    else if(type === 'plane' && scene?.plane){
+    if(type === 'plane' && scene?.plane){
       const [x, y] = scene.plane.through;
       if(isNear(x, y)) return {type: 'plane', index, handleType: 'through'};
       
@@ -1887,9 +1766,7 @@ window.TASKS = [];
     
     // Store element's position before move for displacement calculation
     let oldPos = null;
-    if(type === 'origin' && scene.origin){
-      oldPos = [scene.origin[0], scene.origin[1]];
-    } else if(type === 'rect' && scene.rects?.[index]){
+    if(type === 'rect' && scene.rects?.[index]){
       oldPos = [scene.rects[index].bottomCenter[0], scene.rects[index].bottomCenter[1]];
     } else if(type === 'ellipse' && scene.ellipses?.[index]){
       oldPos = [scene.ellipses[index].center[0], scene.ellipses[index].center[1]];
@@ -1924,9 +1801,7 @@ window.TASKS = [];
     let snapOrigin = DRAW_CENTER ? [DRAW_CENTER[0], DRAW_CENTER[1]] : [0, 0];
     let guidelineOrigin = null;
     
-    if(type === 'origin'){
-      guidelineOrigin = scene.origin;
-    } else if(type === 'rect'){
+    if(type === 'rect'){
       guidelineOrigin = scene.rects?.[index]?.bottomCenter;
     } else if(type === 'ellipse'){
       guidelineOrigin = scene.ellipses?.[index]?.center;
@@ -1995,21 +1870,7 @@ window.TASKS = [];
     const snappedDx = useNewPos[0] - startPos[0];
     const snappedDy = useNewPos[1] - startPos[1];
     
-    if(type === 'origin' && handleType === 'center' && scene.origin){
-      // For center moves, set absolute position rather than using delta
-      // This ensures perfect grid alignment
-      scene.origin[0] = useNewPos[0];
-      scene.origin[1] = useNewPos[1];
-      window.selectedSceneElement._handleStartPos = useNewPos;
-      
-      // Synkroniser krefter
-      if(oldPos){
-        const displacement = [useNewPos[0] - oldPos[0], useNewPos[1] - oldPos[1]];
-        syncForcesWithSceneElement('origin', 0, displacement);
-        oldPos = [useNewPos[0], useNewPos[1]];
-      }
-    }
-    else if(type === 'plane' && scene.plane){
+    if(type === 'plane' && scene.plane){
       if(handleType === 'through'){
         // Move plane through point - set absolute position for grid alignment
         scene.plane.through[0] = useNewPos[0];

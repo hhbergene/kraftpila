@@ -7,9 +7,9 @@ const source=fs.readFileSync(path.join(__dirname,'..','web','author_validation.j
 
 function setup(){
   const confirmations=[];
-  const window={buildAllScenePoints:()=>({origin:{points:{center:[0,0]},segments:{edge:[[0,0],[10,0]]}}})};
+  const window={buildAllScenePoints:()=>({ellipse0:{points:{center:[0,0]},segments:{edge:[[0,0],[10,0]]}}})};
   vm.runInNewContext(source,{window,confirm:message=>{confirmations.push(message);return false;}});
-  const force=name=>({name,anchor:{type:'point',ref:'origin',point:'center'}});
+  const force=name=>({name,anchor:{type:'point',ref:'ellipse0',point:'center'}});
   const task={id:'one',title:'Test',help_lines:['Beskrivelse'],expectedForces:[force('N'),force('G')],
     relations:[{lhs:[{name:'N'}],rhs:[{name:'G',component:'vertical'}],ratio:1,tol_rel:0.15}]};
   return {window,task,confirmations};
@@ -29,7 +29,7 @@ test('custom and broken scene anchors warn, even when custom coordinates are val
   const warnings=window.collectAuthorWarnings(task);
   assert.ok(warnings.includes('Advarsel: Kraft N mangler anchor (type custom).'));
   assert.ok(warnings.some(text=>text.includes('G har anchor') && text.includes('manglende')));
-  task.expectedForces[0].anchor={type:'segment',ref:'origin',segment:'edge'};
+  task.expectedForces[0].anchor={type:'segment',ref:'ellipse0',segment:'edge'};
   assert.ok(!window.collectAuthorWarnings(task).some(text=>text.includes('Kraft N')));
 });
 

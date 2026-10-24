@@ -115,6 +115,42 @@ window.ICONS = {
   settings: '⚙'
 };
 
+window.getSnapChecklistDefaults = function(task){
+  const plane=task?.scene?.plane;
+  let inclined=false;
+  if(plane){
+    const tangent=Array.isArray(plane.t_vec)
+      ? plane.t_vec
+      : [Math.cos((Number(plane.angleDeg)||0)*Math.PI/180),-Math.sin((Number(plane.angleDeg)||0)*Math.PI/180)];
+    const length=Math.hypot(...tangent);
+    if(Number.isFinite(length)&&length>1e-10){
+      const x=Math.abs(tangent[0]/length),y=Math.abs(tangent[1]/length);
+      inclined=x>1e-8&&y>1e-8;
+    }
+  }
+  return {
+    snapEnabled:true,
+    guidelinesEnabled:true,
+    showForceCoordinates:false,
+    snapForceEndpoints:true,
+    snapSameAxisComponents:true,
+    snapCrossAxisComponents:false,
+    snapLocalComponents:false,
+    snapForceLengths:false,
+    snapComponentToLength:inclined
+  };
+};
+
+window.getTaskSnapChecklist = function(task){
+  const defaults=window.getSnapChecklistDefaults(task);
+  const saved=task?.snapChecklist;
+  if(!saved||typeof saved!=='object'||Array.isArray(saved)) return defaults;
+  for(const key of Object.keys(defaults)){
+    if(typeof saved[key]==='boolean') defaults[key]=saved[key];
+  }
+  return defaults;
+};
+
 /**
  * Calculate dynamic width and height for feedback panel based on content
  * @param {Array<Object>} lines - Feedback lines with text property

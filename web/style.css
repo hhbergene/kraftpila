@@ -169,11 +169,23 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 /* Movable/resizable relations window, positioned and bounded to the visible canvas by ui.js */
 #relations-modal { position:fixed; left:0; top:var(--top-bar-height); width:520px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1100; overflow:hidden; }
 #relations-modal.hidden { display:none; }
+#snap-checklist-modal { position:fixed; left:0; top:var(--top-bar-height); width:440px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1300; overflow:hidden; }
+#snap-checklist-modal.hidden { display:none; }
 .relations-header { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid rgba(0,0,0,0.2); padding:8px 10px; background:#f3f3f3; cursor:move; touch-action:none; user-select:none; }
 .relations-header h3 { margin:0; font-size:14px; font-weight:600; }
 #relations-close { border:1px solid #777; background:#fafafa; border-radius:4px; height:24px; width:24px; cursor:pointer; font-size:12px; }
 #relations-close:hover { background:#ffecec; }
 .relations-body { flex:1 1 auto; min-height:0; overflow:auto; padding:10px 12px 22px; }
+.snap-checklist-body { display:flex; flex-direction:column; gap:9px; font-size:13px; }
+.snap-checklist-body label { display:flex; align-items:flex-start; gap:8px; line-height:1.35; }
+.snap-checklist-body label input { flex:0 0 auto; margin:1px 0 0; }
+.snap-checklist-body strong:not(:first-child) { margin-top:8px; }
+.snap-checklist-actions { display:flex; justify-content:flex-end; gap:8px; padding-top:10px; }
+.snap-checklist-actions button, .settings-checklist-button { padding:6px 10px; border:1px solid #888; border-radius:4px; background:#f5f5f5; cursor:pointer; }
+.snap-checklist-button { position:relative; width:32px; height:32px; padding:0; border:1px solid #888; border-radius:4px; background:#f5f5f5; cursor:pointer; }
+.snap-checklist-magnet { display:block; font-size:19px; line-height:30px; }
+.snap-checklist-check { position:absolute; right:0; bottom:-3px; color:#1976d2; font-size:16px; font-weight:700; line-height:16px; text-shadow:0 0 2px white; }
+.settings-checklist-button { align-self:flex-start; }
 
 /* Help canvas and editor */
 #help-canvas { display:block; border:none; background:transparent; }

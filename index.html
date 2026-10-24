@@ -95,6 +95,7 @@
           <span>Vis kraft-koordinater</span>
           <input type="checkbox" id="settings-show-force-coordinates" />
         </label>
+        <button id="settings-snap-checklist" class="settings-checklist-button">Sjekkliste for snapping 🧲☐</button>
         <label class="settings-row">
           <span id="settings-comment-label">Kommentar til oppgave</span>
           <textarea id="settings-task-comment" placeholder="Skriv kommentar..." style="flex:1; padding:6px 8px; font-size:13px; border:1px solid #888; border-radius:4px; resize:vertical; min-height:60px; font-family:inherit;"></textarea>
@@ -112,6 +113,30 @@
           <input type="file" id="taskset-upload-input" accept=".json" style="display:none;" />
         </div>
       </div>
+    </div>
+    <div id="snap-checklist-modal" class="hidden">
+      <div class="relations-header">
+        <h3>Sjekkliste for snapping</h3>
+        <button id="snap-checklist-close" title="Avbryt">✖</button>
+      </div>
+      <div class="relations-body snap-checklist-body">
+        <strong>Innstillinger for denne oppgaven</strong>
+        <label><input type="checkbox" data-snap-checklist="snapEnabled"> Snap aktiv</label>
+        <label><input type="checkbox" data-snap-checklist="guidelinesEnabled"> Guidelines</label>
+        <label><input type="checkbox" data-snap-checklist="showForceCoordinates"> Vis kraft-koordinater</label>
+        <strong>Sammenligning mellom krefter</strong>
+        <label><input type="checkbox" data-snap-checklist="snapForceEndpoints"> Snap til endepunkter på andre kraftpiler</label>
+        <label><input type="checkbox" data-snap-checklist="snapSameAxisComponents"> Match samme x-/y-komponent (x–x, y–y)</label>
+        <label><input type="checkbox" data-snap-checklist="snapCrossAxisComponents"> Match kryssende x-/y-komponenter (x–y)</label>
+        <label><input type="checkbox" data-snap-checklist="snapLocalComponents"> Match komponenter langs scenegeometri</label>
+        <label><input type="checkbox" data-snap-checklist="snapForceLengths"> Match total kraftlengde</label>
+        <label><input type="checkbox" data-snap-checklist="snapComponentToLength"> Match komponent mot total kraftlengde</label>
+        <div class="snap-checklist-actions">
+          <button id="snap-checklist-save">Bruk for denne oppgaven</button>
+          <button id="snap-checklist-cancel">Avbryt</button>
+        </div>
+      </div>
+      <div class="help-resize-handle" aria-hidden="true"></div>
     </div>
     <!-- Taskset upload modal (player mode) -->
     <div id="taskset-upload-modal" class="hidden modal">

@@ -941,16 +941,16 @@ function setupHelpPanelPositioning(){
   window.updateHelpPanelLayout();
 }
 
-// Make the relations window movable and resizable within the canvas, like the task window
-function setupRelationsPanelPositioning(){
-  const panel = document.getElementById('relations-modal');
+// Make floating editor windows movable and resizable within the canvas.
+function setupFloatingPanelPositioning(panelId,width,closeButtonId,cancelButtonId){
+  const panel = document.getElementById(panelId);
   const header = panel?.querySelector('.relations-header');
   const resizeHandle = panel?.querySelector('.help-resize-handle');
   const canvasContainer = document.getElementById('canvas-container');
   if(!panel || !header || !canvasContainer) return;
 
   const position = { x: null, y: 0 };
-  const size = { width: 520, height: null };
+  const size = { width, height: null };
   let action = null;
 
   function layout(){
@@ -1015,8 +1015,8 @@ function setupRelationsPanelPositioning(){
     resizeHandle.addEventListener('pointercancel', finish);
   }
 
-  document.getElementById('relations-close')?.addEventListener('click', ()=>{
-    document.getElementById('relations-cancel')?.click();
+  document.getElementById(closeButtonId)?.addEventListener('click', ()=>{
+    document.getElementById(cancelButtonId)?.click();
   });
 
   // Re-apply layout whenever the window is shown, and when the viewport changes
@@ -1092,4 +1092,5 @@ function drawHelpLinesCanvas(){
 }
 
 setupHelpPanelPositioning();
-setupRelationsPanelPositioning();
+setupFloatingPanelPositioning('relations-modal',520,'relations-close','relations-cancel');
+setupFloatingPanelPositioning('snap-checklist-modal',440,'snap-checklist-close','snap-checklist-cancel');

@@ -3502,7 +3502,7 @@ window.tasks = [];
           ? active.anchor : (active.arrowBase || window.DRAW_CENTER);
         window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, snapDirection ? {t_vec:snapDirection} : null);
         if(active.drawing || active.dragging==='arrowTip'){
-          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP));
+          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP,window.currentTask));
         }
       } else {
         window.currentGuidelines = null;
@@ -4134,6 +4134,34 @@ window.tasks = [];
   const relationsList = document.getElementById('relations-list');
   const relationsSave = document.getElementById('relations-save');
   const relationsCancel = document.getElementById('relations-cancel');
+  const btnEditSnapChecklist = document.getElementById('btn-edit-snap-checklist');
+  const snapChecklistModal = document.getElementById('snap-checklist-modal');
+  const snapChecklistSave = document.getElementById('snap-checklist-save');
+  const snapChecklistCancel = document.getElementById('snap-checklist-cancel');
+
+  function populateSnapChecklist(){
+    if(!window.currentTask||!snapChecklistModal) return;
+    const checklist=window.getTaskSnapChecklist(window.currentTask);
+    snapChecklistModal.querySelectorAll('[data-snap-checklist]').forEach(input=>{
+      input.checked=checklist[input.dataset.snapChecklist]===true;
+    });
+    snapChecklistModal.classList.remove('hidden');
+  }
+
+  if(btnEditSnapChecklist&&snapChecklistModal&&snapChecklistSave&&snapChecklistCancel){
+    btnEditSnapChecklist.addEventListener('click',populateSnapChecklist);
+    snapChecklistCancel.addEventListener('click',()=>snapChecklistModal.classList.add('hidden'));
+    snapChecklistSave.addEventListener('click',()=>{
+      if(!window.currentTask) return;
+      const checklist={};
+      snapChecklistModal.querySelectorAll('[data-snap-checklist]').forEach(input=>{
+        checklist[input.dataset.snapChecklist]=!!input.checked;
+      });
+      window.currentTask.snapChecklist=checklist;
+      markEdited('task');
+      snapChecklistModal.classList.add('hidden');
+    });
+  }
   
   if(btnSaveTask){
     btnSaveTask.addEventListener('click', ()=>{

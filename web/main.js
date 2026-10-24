@@ -488,7 +488,7 @@ window.TASKS = [];
   // Load persisted settings
   try {
     const raw = localStorage.getItem('tk_settings');
-    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; }
+    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; }
   } catch {}
   // Player mode only - editor mode functionality is in editor.js
   window.editorMode = false;
@@ -1269,6 +1269,61 @@ window.TASKS = [];
     updatePanelHeights();
   };
 
+  function snapChecklistOverrideKey(taskId){
+    return `tk_snapChecklistOverride_${taskId}`;
+  }
+
+  function applySnapChecklist(task){
+    const checklist=window.getTaskSnapChecklist(task);
+    let override=null;
+    try{
+      const saved=localStorage.getItem(snapChecklistOverrideKey(task.id));
+      if(saved) override=JSON.parse(saved);
+    }catch(error){
+      console.warn(`Could not load snap checklist override for task ${task.id}:`,error);
+    }
+    if(override&&typeof override==='object'&&!Array.isArray(override)){
+      for(const key of Object.keys(checklist)){
+        if(typeof override[key]==='boolean') checklist[key]=override[key];
+      }
+    }
+    window.currentSnapChecklist=checklist;
+    window.enableSnap=checklist.snapEnabled;
+    window.enableGuidelines=checklist.guidelinesEnabled;
+    window.settings.show_force_coordinates=checklist.showForceCoordinates;
+    const snap=document.getElementById('settings-snap');
+    const guidelines=document.getElementById('settings-guidelines');
+    const coordinates=document.getElementById('settings-show-force-coordinates');
+    if(snap) snap.checked=checklist.snapEnabled;
+    if(guidelines) guidelines.checked=checklist.guidelinesEnabled;
+    if(coordinates) coordinates.checked=checklist.showForceCoordinates;
+    return checklist;
+  }
+
+  function saveSnapChecklistOverride(checklist){
+    if(!window.currentTask) return;
+    const normalized=window.getSnapChecklistDefaults(window.currentTask);
+    for(const key of Object.keys(normalized)){
+      if(typeof checklist[key]==='boolean') normalized[key]=checklist[key];
+    }
+    window.currentSnapChecklist=normalized;
+    window.enableSnap=normalized.snapEnabled;
+    window.enableGuidelines=normalized.guidelinesEnabled;
+    window.settings.show_force_coordinates=normalized.showForceCoordinates;
+    try{
+      localStorage.setItem(snapChecklistOverrideKey(window.currentTask.id),JSON.stringify(normalized));
+    }catch(error){
+      console.warn(`Could not save snap checklist override for task ${window.currentTask.id}:`,error);
+    }
+    const snap=document.getElementById('settings-snap');
+    const guidelines=document.getElementById('settings-guidelines');
+    const coordinates=document.getElementById('settings-show-force-coordinates');
+    if(snap) snap.checked=normalized.snapEnabled;
+    if(guidelines) guidelines.checked=normalized.guidelinesEnabled;
+    if(coordinates) coordinates.checked=normalized.showForceCoordinates;
+    window.updateAppState();
+  }
+
   function loadTask(index){
     if(!window.tasks || !window.tasks.length) return;
     window.currentTaskIndex = (index + window.tasks.length) % window.tasks.length;
@@ -1294,6 +1349,7 @@ window.TASKS = [];
       window.currentTask = window.tasks[window.currentTaskIndex];
     }
 
+    applySnapChecklist(window.currentTask);
     window.sceneLookup = window.buildAllScenePoints(window.currentTask);
     
     // Use snap-enabled lookup for snapping
@@ -2239,7 +2295,7 @@ window.TASKS = [];
           ? active.anchor : (active.arrowBase || window.DRAW_CENTER);
         window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, snapDirection ? {t_vec:snapDirection} : null);
         if(active.drawing || active.dragging==='arrowTip'){
-          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP));
+          window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP,window.currentTask));
         }
       } else {
         window.currentGuidelines = null;
@@ -2541,6 +2597,10 @@ window.TASKS = [];
         window.snapIndicator = null;
         window.currentGuidelines = null;
         clearFeedback();
+        if(window.currentTask){
+          try{ localStorage.removeItem(snapChecklistOverrideKey(window.currentTask.id)); }
+          catch(error){ console.warn(`Could not reset snap checklist override for task ${window.currentTask.id}:`,error); }
+        }
         // Delete saved forces for this task (initialForces are restored from task definition)
         const taskKey = `tk_forces_${window.currentTask.id}`;
         try{
@@ -2645,13 +2705,44 @@ window.TASKS = [];
   const sSnap = document.getElementById('settings-snap');
   const sGuides = document.getElementById('settings-guidelines');
   const sShowForceCoords = document.getElementById('settings-show-force-coordinates');
-  function persist(){ try{ localStorage.setItem('tk_settings', JSON.stringify(window.settings)); }catch{} }
+  function persist(){
+    const {show_force_coordinates,...globalSettings}=window.settings;
+    try{ localStorage.setItem('tk_settings', JSON.stringify(globalSettings)); }
+    catch(error){ console.warn('Could not save settings:',error); }
+  }
   
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
   if(usr){ usr.addEventListener('input', ()=>{ window.settings.username = usr.value; persist(); updateUserDisplay(); }); }
-  if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
-  if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
-  if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }
+  if(sSnap){ sSnap.addEventListener('change', ()=>saveSnapChecklistOverride({...window.currentSnapChecklist,snapEnabled:!!sSnap.checked})); }
+  if(sGuides){ sGuides.addEventListener('change', ()=>saveSnapChecklistOverride({...window.currentSnapChecklist,guidelinesEnabled:!!sGuides.checked})); }
+  if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>saveSnapChecklistOverride({...window.currentSnapChecklist,showForceCoordinates:!!sShowForceCoords.checked})); }
+
+  const snapChecklistModal=document.getElementById('snap-checklist-modal');
+  const snapChecklistButton=document.getElementById('settings-snap-checklist');
+  const snapChecklistSave=document.getElementById('snap-checklist-save');
+  const snapChecklistCancel=document.getElementById('snap-checklist-cancel');
+  if(snapChecklistButton&&snapChecklistModal){
+    snapChecklistButton.addEventListener('click',()=>{
+      const checklist=window.currentSnapChecklist||window.getTaskSnapChecklist(window.currentTask);
+      snapChecklistModal.querySelectorAll('[data-snap-checklist]').forEach(input=>{
+        input.checked=checklist[input.dataset.snapChecklist]===true;
+      });
+      snapChecklistModal.classList.remove('hidden');
+    });
+  }
+  if(snapChecklistSave&&snapChecklistModal){
+    snapChecklistSave.addEventListener('click',()=>{
+      const checklist={};
+      snapChecklistModal.querySelectorAll('[data-snap-checklist]').forEach(input=>{
+        checklist[input.dataset.snapChecklist]=!!input.checked;
+      });
+      saveSnapChecklistOverride(checklist);
+      snapChecklistModal.classList.add('hidden');
+    });
+  }
+  if(snapChecklistCancel&&snapChecklistModal){
+    snapChecklistCancel.addEventListener('click',()=>snapChecklistModal.classList.add('hidden'));
+  }
   
   // Task comment handler - save only in task.comment
   const taskCommentInput = document.getElementById('settings-task-comment');

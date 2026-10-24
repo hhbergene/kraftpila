@@ -15,6 +15,277 @@ function runtime(){
   return window;
 }
 
+function localSetup(){
+  const window=runtime();
+  const t=[0.8,-0.6],n=[0.6,0.8];
+  const task={
+    scene:{segments:[{a:[0,0],b:[80,-60],snapping:true}]},
+    snapChecklist:{
+      snapLocalComponents:true,
+      snapForceLengths:true,
+      snapComponentToLength:true
+    }
+  };
+  const reference={anchor:[0,0],arrowBase:[1000,1000],arrowTip:[1000,1100],isExpected:false};
+  const force={anchor:[0,0],arrowBase:[400.25,300.5],arrowTip:[448.25,364.5]};
+  const options={task,force,forces:[force,reference],origin:force.arrowBase,tip:true};
+  return {window,t,n,task,force,reference,options};
+}
+
+test('snap checklist defaults enable only direct components, with component-to-length on for inclined planes',()=>{
+  const window=runtime();
+  const standard=window.getTaskSnapChecklist({scene:{plane:{angleDeg:0}}});
+  assert.equal(standard.snapForceEndpoints,true);
+  assert.equal(standard.snapSameAxisComponents,true);
+  assert.equal(standard.snapCrossAxisComponents,false);
+  assert.equal(standard.snapLocalComponents,false);
+  assert.equal(standard.snapForceLengths,false);
+  assert.equal(standard.snapComponentToLength,false);
+  assert.equal(window.getTaskSnapChecklist({scene:{plane:{angleDeg:25}}}).snapComponentToLength,true);
+  assert.equal(window.getTaskSnapChecklist({scene:{plane:{t_vec:[0,1]}}}).snapComponentToLength,false);
+  assert.equal(window.getTaskSnapChecklist({scene:{plane:{t_vec:[0.8,-0.6]}}}).snapComponentToLength,true);
+});
+
+test('global cross-axis component matching is disabled by default and independently configurable',()=>{
+  const window=runtime(),origin=[600,300];
+  const force={anchor:origin,arrowBase:origin.slice()};
+  const reference={arrowBase:[40,50],arrowTip:[86,-26]};
+  const task={scene:{}};
+  const options={force,task,forces:[force,reference],origin,tip:true};
+  const disabled=window.snapping.snapForce([676,301],options);
+  assert.notEqual(disabled.source,'force-component');
+  task.snapChecklist={snapCrossAxisComponents:true};
+  const enabled=window.snapping.snapForce([676,301],options);
+  assert.equal(enabled.source,'force-component');
+  assert.deepEqual(Array.from(enabled.pos),[676,300]);
+  task.snapChecklist={snapCrossAxisComponents:false};
+  window.currentTask=task;
+  window.currentSnapChecklist={...window.getTaskSnapChecklist(task),snapCrossAxisComponents:true};
+  assert.equal(window.snapping.snapForce([676,301],options).source,'force-component');
+  window.editorMode=true;
+  window.currentSnapChecklist={...window.currentSnapChecklist,snapCrossAxisComponents:false};
+  assert.notEqual(window.snapping.snapForce([676,301],options).source,'force-component');
+});
+
+test('local snapping matches force length to either component, with both signs and shifted bases',()=>{
+  const {window,t,n,force,options}=localSetup();
+  for(const [axis,size] of [[t,60],[n,80]]){
+    for(const sign of [-1,1]){
+      const expected=force.arrowBase.map((v,i)=>v+sign*size*axis[i]);
+      const pos=expected.map(v=>v+0.7);
+      const result=window.snapping.snapForce(pos,options);
+      assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+    }
+  }
+  const result=window.snapping.snapForce([449.25,365.5],options);
+  assert.equal(result.source,'force-component');
+  const body=window.snapping.snapForce([449.25,365.5],{...options,tip:false});
+  assert.notEqual(body.source,'force-component');
+  window.enableSnap=false;
+  assert.deepEqual(window.snapping.snapForce([449.25,365.5],options).pos,[449.25,365.5]);
+});
+
+test('local component and magnitude matching ignores names, expected forces and relations',()=>{
+  const {window,task,force,reference,options}=localSetup();
+  const pos=[449.25,365.5],before=window.snapping.snapForce(pos,options);
+  task.expectedForces=[{name:'answer',dir:[1,0],drawn:{arrowBase:[0,0],arrowTip:[11,12]}}];
+  task.relations=[{lhs:[{name:'G'}],rhs:[{name:'N'}],ratio:9}];
+  force.name='unmatched';reference.name='anything';
+  assert.deepEqual(window.snapping.snapForce(pos,options),before);
+  task.scene.segments[0].snapping=false;
+  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+  task.scene.segments[0].snapping=true;
+  force.anchor=[123,456];
+  const fromReference=window.snapping.snapForce([440.45,370.7],options);
+  assert.ok(Math.abs(window.geometry.dot(
+    fromReference.pos.map((v,i)=>v-force.arrowBase[i]),[0.6,0.8])-80)<1e-8);
+  reference.anchor=[789,123];
+  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+});
+
+test('local measures compare across axes and magnitudes, with gridded and constrained length snapping',()=>{
+  const {window,t,n,force,reference,options}=localSetup();
+  reference.arrowTip=[1048,1064]; // length 80, normal component 80
+  let expected=force.arrowBase.map((v,i)=>v+80*t[i]);
+  let result=window.snapping.snapForce(expected.map(v=>v+0.3),options);
+  assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+  force.anchor=[321,654]; // only reference supplies local axes
+  expected=[force.arrowBase[0]+Math.sqrt(60*60-20*20),force.arrowBase[1]+20];
+  reference.arrowTip=[1000,1100]; // tangent component 60
+  result=window.snapping.snapForce(expected.map(v=>v+0.2),options);
+  assert.equal(result.source,'force-length');
+  assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+  force.anchor=[0,0];
+  reference.arrowTip=[1048,1064]; // magnitude 80
+  expected=force.arrowBase.map((v,i)=>v+80*n[i]);
+  result=window.snapping.snapForce(expected.map(v=>v+0.3),options);
+  assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+});
+
+test('local matches decompose all component contributors, not magnitude-only contributors',()=>{
+  const {window,task,force,reference,options}=localSetup();
+  const lines=window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task);
+  const referenceLines=lines.filter(line=>line.color===window.forceArrowColor(reference,true));
+  assert.equal(referenceLines.length,4);
+  const corners=[[1048,1064],[952,1036]];
+  for(const corner of corners){
+    assert.ok(referenceLines.some(line=>window.geometry.distance(line.b,corner)<1e-8));
+  }
+  // N contributes both magnitude and normal component; full nonzero decomposition is retained.
+  assert.ok(lines.some(line=>line.color===window.forceArrowColor(force,true) &&
+    window.geometry.distance(line.a,force.arrowBase)<1e-8 &&
+    window.geometry.distance(line.b,force.arrowTip)<1e-8));
+  const pureLength={anchor:[123,456],arrowBase:[400.25,300.5],arrowTip:[400.25+80*Math.cos(0.2),300.5+80*Math.sin(0.2)]};
+  const onlyReference=window.snapping.buildMatchedComponentGuidelines(pureLength,[pureLength,reference],20,task);
+  assert.ok(onlyReference.length>0);
+  assert.ok(onlyReference.every(line=>line.color===window.forceArrowColor(reference,true)));
+  pureLength.arrowTip[0]+=0.001;
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(pureLength,[pureLength,reference],20,task).length,0);
+  const duplicate=window.snapping.buildMatchedComponentGuidelines(force,[force,reference,reference],20,task);
+  assert.deepEqual(duplicate,lines);
+  window.enableSnap=false;
+  const visual=window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task);
+  assert.ok(visual.length>0);
+  assert.ok(visual.every(line=>line.lineWidth===2));
+});
+
+test('whole force lengths snap without local axes and retain the eight-pixel cutoff',()=>{
+  const window=runtime(),origin=[400,300],unit=[Math.cos(0.3),Math.sin(0.3)];
+  const force={anchor:[123,456],arrowBase:origin};
+  const reference={arrowBase:[1000,1000],arrowTip:[1030,1040]};
+  const options={
+    force,
+    task:{scene:{},snapChecklist:{snapForceLengths:true}},
+    forces:[force,reference],
+    origin,
+    tip:true
+  };
+  for(const sign of [-1,1]){
+    const expected=[origin[0]+sign*Math.sqrt(50*50-20*20),origin[1]+sign*20];
+    const result=window.snapping.snapForce(origin.map((v,i)=>v+sign*51*unit[i]),options);
+    assert.equal(result.source,'force-length');
+    assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+  }
+  assert.notEqual(window.snapping.snapForce(origin.map((v,i)=>v+58.001*unit[i]),options).source,'force-length');
+  assert.ok(window.snapping.snapForce(origin,options).pos.every(Number.isFinite));
+  reference.arrowTip=reference.arrowBase;
+  assert.equal(window.snapping.snapForce([449,315],options).source,'origin-grid');
+});
+
+test('matching either component preserves grid snapping on the free coordinate throughout a sweep',()=>{
+  const window=runtime();
+  for(const gridStep of [20,40]){
+    for(const origin of [[400,300],[400.25,300.5]]){
+      for(const axis of [0,1]){
+        for(const size of [73,80]){
+          for(const sign of [-1,1]){
+            const reference={arrowBase:[1000,1000],arrowTip:[1000,1000]};
+            reference.arrowTip[axis]+=size;
+            const force={anchor:[123,456],arrowBase:origin};
+            const options={force,task:{scene:{}},forces:[force,reference],origin,gridStep,tip:true};
+            for(let free=105;free<=245;free+=0.7){
+              const pos=origin.slice();
+              pos[axis]+=sign*(size+0.1);pos[1-axis]+=free;
+              const result=window.snapping.snapForce(pos,options);
+              const expected=origin.slice();
+              expected[axis]+=sign*size;
+              expected[1-axis]+=Math.round(free/gridStep)*gridStep;
+              assert.ok(window.geometry.distance(result.pos,expected)<1e-8,
+                JSON.stringify({gridStep,origin,axis,size,sign,pos,result,expected}));
+            }
+            window.enableSnap=false;
+            const raw=origin.map(v=>v+13.3);
+            assert.equal(window.snapping.snapForce(raw,options).pos,raw);
+            window.enableSnap=true;
+          }
+        }
+      }
+    }
+  }
+});
+
+test('local component and length candidates stay on relative grid lines, including tangencies',()=>{
+  const {window,force,reference,options}=localSetup();
+  force.anchor=[123,456];
+  for(const gridStep of [20,40]){
+    const result=window.snapping.snapForce([440.45,370.7],{...options,gridStep});
+    assert.equal(result.source,'force-component');
+    assert.ok(window.geometry.distance(result.pos,[440.25,370.5])<1e-8);
+  }
+  const origin=force.arrowBase;
+  options.task={scene:{},snapChecklist:{
+    snapLocalComponents:true,snapForceLengths:true,snapComponentToLength:true
+  }};
+  reference.arrowTip=[1050,1000];
+  for(const delta of [[0,50],[50,0],[-50,0],[0,-50],[Math.sqrt(2100),20]]){
+    const expected=origin.map((v,i)=>v+delta[i]);
+    const result=window.snapping.snapForce(expected,options);
+    assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+    assert.ok(Math.abs(window.geometry.distance(result.pos,origin)-50)<1e-8);
+  }
+  for(let angle=0;angle<2*Math.PI;angle+=0.07){
+    const pos=origin.map((v,i)=>v+50.2*[Math.cos(angle),Math.sin(angle)][i]);
+    const result=window.snapping.snapForce(pos,options);
+    const delta=result.pos.map((v,i)=>v-origin[i]);
+    assert.ok(delta.some(v=>Math.abs(v/20-Math.round(v/20))<1e-8));
+    if(result.source==='force-length'){
+      assert.ok(Math.abs(Math.hypot(...delta)-50)<1e-8);
+      assert.ok(window.geometry.distance(result.pos,pos)<=Math.hypot(8,10)+1e-8);
+    }
+  }
+});
+
+test('multiple matching reference components all decompose without duplicate geometry',()=>{
+  const {window,task,force,reference}=localSetup();
+  force.anchor=[123,456];
+  force.arrowTip=[400.25+80*Math.cos(0.2),300.5+80*Math.sin(0.2)];
+  const second={...reference,arrowBase:[1200,1200],arrowTip:[1200,1300]};
+  const before=JSON.stringify([force,reference,second]);
+  const lines=window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task);
+  assert.equal(lines.length,8);
+  for(const owner of [reference,second]){
+    assert.equal(lines.filter(line=>window.geometry.distance(line.a,owner.arrowBase)<1e-8).length,2);
+  }
+  assert.equal(JSON.stringify([force,reference,second]),before);
+  task.scene.segments.push({...task.scene.segments[0]});
+  assert.deepEqual(window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task),lines);
+  task.scene.segments.forEach(segment=>segment.snapping=false);
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task).length,0);
+});
+
+test('inclined plane and banked turn geometry support component matches without reading relations',()=>{
+  const data=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
+  const inclined=data.tasks.find(task=>task.title==='Kloss på skråplan');
+  const banked=data.tasks.find(task=>task.title==='Bil i dosert sving uten friksjon');
+  for(const task of [inclined,banked]){
+    assert.ok(task);
+    const window=runtime();
+    task.snapChecklist={
+      ...window.getSnapChecklistDefaults(task),
+      snapLocalComponents:true,
+      snapComponentToLength:true
+    };
+    const rect=task.scene.rects[0];
+    const anchor=Object.values(window.rectPoints(rect))[0];
+    const directions=window.forceSnapDirections(task,anchor);
+    assert.equal(directions.length,2);
+    const gravity={anchor,arrowBase:[1000,1000],arrowTip:[1000,1123],isExpected:false};
+    for(const direction of task===inclined ? directions : [rect.n_vec]){
+      const length=task===inclined
+        ? Math.abs(window.geometry.dot([0,123],direction)) : 123/Math.abs(direction[1]);
+      const force={anchor,arrowBase:anchor.slice(),isExpected:true};
+      const expected=anchor.map((v,i)=>v+length*direction[i]);
+      const snapped=window.snapping.snapForce(expected.map(v=>v+0.1),{
+        task,force,origin:anchor,forces:[force,gravity],tip:true
+      });
+      assert.ok(window.geometry.distance(snapped.pos,expected)<1e-8);
+      force.arrowTip=snapped.pos;
+      const lines=window.snapping.buildMatchedComponentGuidelines(force,[force,gravity],20,task);
+      assert.ok(lines.length>0);
+    }
+  }
+});
+
 test('enabled scene points outrank closer grid points, retaining exact coordinates',()=>{
   const window=runtime();
   const anchor=[530.25,248.5];
@@ -204,24 +475,30 @@ for(const file of ['main.js','editor.js']){
       force.drawing=drawing;
       force.dragging=drawing ? null : 'arrowTip';
       window.move(force,[647,339]);
-      assert.deepEqual(Array.from(force.arrowTip),[646,339]);
-      assert.equal(window.currentGuidelines.length,4);
+      assert.deepEqual(Array.from(force.arrowTip),[646,340]);
+      assert.equal(window.currentGuidelines.length,6);
       assert.deepEqual(Array.from(window.currentGuidelines[2].a),[600,300]);
-      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[600,339]);
-      assert.deepEqual(Array.from(window.currentGuidelines[3].a),[646,339]);
+      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[600,340]);
+      assert.deepEqual(Array.from(window.currentGuidelines[3].a),[646,340]);
       assert.deepEqual(Array.from(window.currentGuidelines[3].b),[646,300]);
       window.move(force,[646,380]);
       assert.deepEqual(Array.from(force.arrowTip),[646,380]);
-      assert.equal(window.currentGuidelines.length,6);
+      assert.equal(window.currentGuidelines.length,10);
       assert.deepEqual(Array.from(window.currentGuidelines[2].b),[600,380]);
       assert.deepEqual(Array.from(window.currentGuidelines[3].a),[646,380]);
       assert.deepEqual(Array.from(window.currentGuidelines[3].b),[646,300]);
       assert.deepEqual(Array.from(window.currentGuidelines[4].b),[646,300]);
       assert.deepEqual(Array.from(window.currentGuidelines[5].b),[600,380]);
+      window.fm.forces[1].arrowTip=[86,-23]; // y component -73, between grid lines
+      window.move(force,[639,228]);
+      assert.deepEqual(Array.from(force.arrowTip),[640,227]);
+      assert.deepEqual(Array.from(window.currentGuidelines[2].a),[600,300]);
+      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[640,300]);
+      window.fm.forces[1].arrowTip=[86,-30];
     }
     window.enableGuidelines=false;
     window.move(force,[647,339]);
-    assert.deepEqual(Array.from(force.arrowTip),[646,339]);
+    assert.deepEqual(Array.from(force.arrowTip),[646,340]);
     assert.equal(window.currentGuidelines,null);
     window.enableSnap=false;
     window.enableGuidelines=true;
@@ -232,7 +509,7 @@ for(const file of ['main.js','editor.js']){
     for(const drawing of [true,false]){
       force.drawing=drawing;force.dragging=drawing?null:'arrowTip';
       window.move(force,[600,220]);
-      assert.equal(window.currentGuidelines.length,3);
+      assert.equal(window.currentGuidelines.length,4);
       const marker=window.currentGuidelines[2];
       assert.deepEqual(Array.from(marker.a),[590,220]);
       assert.deepEqual(Array.from(marker.b),[610,220]);
@@ -244,6 +521,21 @@ for(const file of ['main.js','editor.js']){
       assert.equal(window.currentGuidelines,null);
       window.enableGuidelines=true;
     }
+    const local=localSetup();
+    window.currentTask=local.task;
+    window.enableSnap=true;
+    window.enableGuidelines=true;
+    force.anchor=[0,0];force.arrowBase=local.force.arrowBase.slice();
+    force.drawing=true;force.dragging=null;
+    window.fm.forces=[force,local.reference];
+    window.move(force,[449.25,365.5]);
+    assert.ok(window.geometry.distance(force.arrowTip,[448.25,364.5])<1e-8);
+    assert.ok(window.currentGuidelines.some(line=>
+      window.geometry.distance(line.a,local.reference.arrowBase)<1e-8 &&
+      window.geometry.distance(line.b,[1048,1064])<1e-8));
+    window.enableGuidelines=false;
+    window.move(force,[449.25,365.5]);
+    assert.equal(window.currentGuidelines,null);
   });
 
   test('matched component guides keep the old match-line orientation and form a rectangle',()=>{
@@ -304,10 +596,10 @@ test('component outlines share the exact arrow color for expected, initial and h
 });
 }
 
-test('real tasks use only enabled scene geometry, never expected directions or relation answers',()=>{
+test('scene directions depend on enabled geometry, not expected directions or relation answers',()=>{
   const window=runtime();
-  const data=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
-  const task=data.tasks.find(t=>t.id.endsWith('01abc'));
+  const task={scene:{segments:[{a:[530,248],b:[650,40],snapping:true}]},
+    expectedForces:[{dir:[1,0]}],relations:[{ratio:2}]};
   const force={anchor:[530,248],arrowBase:[530,248]};
   const pos=[530+80*120/208,168];
   const options={force,task,origin:force.arrowBase,tip:true};
@@ -322,16 +614,7 @@ test('real tasks use only enabled scene geometry, never expected directions or r
   assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
   task.scene.segments=[];
   assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
-  const task2=data.tasks.find(t=>t.id.endsWith('02abc'));
-  for(const segment of task2.scene.segments){
-    assert.equal(window.forceSnapDirections(task2,segment.a).length,2);
-  }
-  const task3=data.tasks.find(t=>t.id.endsWith('03abc'));
-  const anchor=[520,280];
-  const result3=window.snapping.snapForce([580,280],{
-    task:task3,force:{anchor},origin:anchor,tip:true
-  });
-  assert.deepEqual(Array.from(result3.pos),[580,280]);
+  assert.equal(window.forceSnapDirections(task,[530,248]).length,0);
 });
 
 test('rotated rectangles and curves provide local axes, boundary tangents and true ellipse normals',()=>{
@@ -551,7 +834,7 @@ test('axial Tip markers use grid quarters and match components of diagonal refer
 test('component snapping uses both signs of vector differences, not absolute endpoints or matching',()=>{
   const {window,reference,options}=componentSetup();
   for(const [pos,expected] of [
-    [[647,339],[646,339]],[[553,339],[554,339]],
+    [[647,339],[646,340]],[[553,339],[554,340]],
     [[639,379],[640,380]],[[639,221],[640,220]]
   ]){
     const result=window.snapping.snapForce(pos,options);
@@ -574,12 +857,16 @@ test('component snapping uses both signs of vector differences, not absolute end
   assert.equal(window.snapping.snapForce(pos,options).pos,pos);
 });
 
-test('component eligibility is inclusive at eight pixels and respects nearest candidate priority',()=>{
+test('component eligibility retains the eight-pixel gate and compares full grid-rounded distances',()=>{
   const {window,options,reference}=componentSetup();
-  // Reference x=50 leaves an eight-pixel candidate closer than the nearest grid point.
+  // Rounding the free coordinate counts towards distance: a nearby grid point can win.
   reference.arrowTip=[90,-30];
-  assert.equal(window.snapping.snapForce([642,330],options).source,'force-component');
-  assert.equal(window.snapping.snapForce([658,330],options).source,'force-component');
+  assert.equal(window.snapping.snapForce([642,330],options).source,'origin-grid');
+  assert.equal(window.snapping.snapForce([658,330],options).source,'origin-grid');
+  const matched=window.snapping.snapForce([650,330],options);
+  assert.equal(matched.source,'force-component');
+  assert.equal(matched.pos[0],650);
+  assert.equal(Math.abs(matched.pos[1]-330),10);
   assert.equal(window.snapping.snapForce([641.999,330],options).source,'origin-grid');
   assert.equal(window.snapping.snapForce([658.001,330],options).source,'origin-grid');
   assert.equal(window.snapping.snapForce([640,340],options).source,'origin-grid');
@@ -622,7 +909,7 @@ test('component extraction handles fractional, duplicate, zero and invalid geome
     {arrowBase:[0,0]}, {arrowTip:[Infinity,0]});
   const result=window.snapping.snapForce([647,339],options);
   assert.equal(result.source,'force-component');
-  assert.deepEqual(Array.from(result.pos),[646.25,339]);
+  assert.deepEqual(Array.from(result.pos),[646.25,340]);
   const zero=window.snapping.snapForce([629,301],options);
   assert.equal(zero.source,'origin-grid');
   assert.deepEqual(Array.from(zero.pos),[620,300]);

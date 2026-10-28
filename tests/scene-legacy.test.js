@@ -26,11 +26,11 @@ function sceneRuntime(){
 test('linked text overrides stale positions, persists coordinates and follows its chain only',()=>{
   const runtime=sceneRuntime();
   const texts=[
-    {txt:'root',pos:[100,100],size:20},
-    {txt:'child',linked:true,pos:[900,900],size:30},
-    {txt:'legacy child'},
-    {txt:'second root',pos:[400,200]},
-    {txt:'second child',linked:true,pos:[1,1]}
+    {id:'text-1',txt:'root',pos:[100,100],size:20},
+    {id:'text-2',txt:'child',linked:true,pos:[900,900],size:30},
+    {id:'text-3',txt:'legacy child'},
+    {id:'text-4',txt:'second root',pos:[400,200]},
+    {id:'text-5',txt:'second child',linked:true,pos:[1,1]}
   ];
   const task={scene:{texts}};
   runtime.updateTextPositions(task);
@@ -81,14 +81,15 @@ test('linked text positions resolve before rendering even after a hidden title',
 test('student scene rendering ignores and preserves editor-only groups',()=>{
   const runtime=sceneRuntime();
   const scene={
-    plane:{through:[0,100],angleDeg:0},
-    rects:[{bottomCenter:[100,100],width:80,height:60}],
+    planes:[{id:'plane-1',through:[0,100],angleDeg:0}],
+    activePlaneId:'plane-1',
+    rects:[{id:'rect-1',bottomCenter:[100,100],width:80,height:60}],
     ellipses:[],segments:[],arrows:[],points:[],angles:[],
-    texts:[{txt:'Visible scene label',pos:[120,80]}]
+    texts:[{id:'text-1',txt:'Visible scene label',pos:[120,80]}]
   };
   const plainTask={scene:JSON.parse(JSON.stringify(scene))};
   const groupedTask={scene:{...JSON.parse(JSON.stringify(scene)),groups:[
-    {description:'editor grouping only',members:[{type:'text',index:0},{type:'rect',index:0}]}
+    {description:'editor grouping only',members:[{type:'text',id:'text-1'},{type:'rect',id:'rect-1'}]}
   ]}};
   const originalGroups=JSON.stringify(groupedTask.scene.groups);
   const render=task=>{
@@ -110,8 +111,8 @@ test('task title scene text is hidden in both modes without deleting scene data'
   const drawn=[];
   runtime.drawFormattedText=(ctx,text)=>drawn.push(text);
   const task={title:'Oppgavetittel',scene:{texts:[
-    {txt:'Oppgavetittel',pos:[10,10]},
-    {txt:'Annen tekst',pos:[20,20]}
+    {id:'text-1',txt:'Oppgavetittel',pos:[10,10]},
+    {id:'text-2',txt:'Annen tekst',pos:[20,20]}
   ]}};
   const before=JSON.stringify(task.scene.texts);
   const ctx=new Proxy({},{
@@ -193,12 +194,12 @@ test('all existing tasksets retain legacy geometry and render in both modes', ()
     for(const source of tasks){
       if(!source.scene) continue;
       const task = JSON.parse(JSON.stringify(source));
-      const before = JSON.stringify([task.scene.plane, task.scene.rects, task.scene.ellipses, task.scene.segments, task.scene.arrows]);
+      const before = JSON.stringify([task.scene.planes, task.scene.rects, task.scene.ellipses, task.scene.segments, task.scene.arrows]);
       runtime.drawScene(ctx, task, true);
       runtime.drawScene(ctx, task, false);
       const lookup = runtime.buildAllScenePoints(task);
       assert.ok(lookup && typeof lookup === 'object');
-      assert.equal(JSON.stringify([task.scene.plane, task.scene.rects, task.scene.ellipses, task.scene.segments, task.scene.arrows]), before);
+      assert.equal(JSON.stringify([task.scene.planes, task.scene.rects, task.scene.ellipses, task.scene.segments, task.scene.arrows]), before);
       count++;
     }
   }
@@ -272,7 +273,7 @@ test('legacy circles migrate to locked ellipses and preserve their rendering sty
   assert.equal(Object.hasOwn(legacy.task.scene,'circles'),false);
   assert.deepEqual(JSON.parse(JSON.stringify(legacy.task.scene.ellipses[0])),{
     center:[10,20],width:10,height:10,t_vec:[1,0],n_vec:[0,-1],
-    color:'#999999',lockAxes:true
+    color:'#999999',lockAxes:true,id:'ellipse-1'
   });
   assert.equal(legacy.state.strokes[0].width,2);
   assert.equal(legacy.state.strokes[0].color,'#999999');
@@ -330,10 +331,10 @@ test('scene points support configurable marker, color, size, and line width with
 
 test('segment direction ignores its location and reversal selects the supplementary angle', () => {
   const runtime = sceneRuntime();
-  const task = {scene: {segments: [{a: [0, 0], b: [50, 0]}]}};
+  const task = {scene: {segments: [{id:'segment-1',a: [0, 0], b: [50, 0]}]}};
   const angle = {
     vertex: {pos: [100, 100]},
-    start: {pos: [150, 100], anchor: {type: 'segment', ref: 'segment0', segment: 'segment'}},
+    start: {pos: [150, 100], anchor: {type: 'segment', ref: 'segment-1', segment: 'segment'}},
     end: {pos: [150, 50]},
     radius: 20, symbol: 'a', showDegrees: true
   };
@@ -376,7 +377,10 @@ test('pupil evaluation resolves hidden points including invalid intersections at
     assert.equal(runtime.lastEvaluation.summary.expectedCount, 1);
     assert.equal(runtime.lastEvaluation.summary.foundCount, 1);
     assert.equal(runtime.lastEvaluation.summary.finalScore, 1);
-    if(type === 'intersection') assert.equal(point.valid, false);
+    if(type === 'intersection'){
+      assert.equal(point.valid,true);
+      assert.equal(point.type,'free');
+    }
   }
 });
 

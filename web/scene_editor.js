@@ -548,6 +548,30 @@
         row(parent,'Type:').appendChild(element('span','Skjæringspunkt'));
         row(parent,'ID:').appendChild(element('span',obj.id));
         (obj.sources || []).forEach(source=>row(parent,'Geometri:').appendChild(element('span',`${source.ref} ${source.segment || ''}`)));
+      }
+      const convert=element('button',obj.type==='intersection'
+        ? 'Gjør om til fritt punkt' : 'Gjør om til skjæringspunkt',{type:'button'});
+      convert.addEventListener('click',()=>{
+        if(obj.type!=='intersection'){
+          startIntersection(obj);
+          return;
+        }
+        const pos=finitePos(obj.pos) ? obj.pos : obj.lastValidPos;
+        if(!finitePos(pos)){
+          window.alert?.('Punktet har ingen gyldig posisjon som kan beholdes.');
+          return;
+        }
+        obj.pos=pos.slice();
+        obj.type='free';
+        delete obj.sources;
+        delete obj.branch;
+        delete obj.lastValidPos;
+        delete obj._deletedSource;
+        model().update(window.currentTask);
+        edited('task');
+      });
+      parent.appendChild(convert);
+      if(obj.type==='intersection'){
         const change=element('button','Velg skjæring på nytt',{type:'button'});
         change.addEventListener('click',()=>startIntersection(obj));
         parent.appendChild(change);
@@ -722,9 +746,15 @@
         const state=c===active.candidate || key(c.anchor)===key(active.candidate?.anchor) ? 'pickerHovered' : 'pickerCandidate';
         if(c.type==='segment'){
           const style=window.ANCHOR_MARKER_STYLES[state];
+          ctx.save();
           ctx.strokeStyle=style.color;
           ctx.lineWidth=style.lineWidth;
+          ctx.lineCap='round';
+          ctx.lineJoin='round';
+          ctx.shadowColor=style.glowColor || style.color;
+          ctx.shadowBlur=style.glowBlur || 0;
           ctx.beginPath();ctx.moveTo(...c.segment.a);ctx.lineTo(...c.segment.b);ctx.stroke();
+          ctx.restore();
         }else window.drawAnchorMarker(ctx,c.pos,state);
       });
       const positions=active.mode==='intersection' ? (active.hits || []).map(h=>h.pos) :

@@ -26,34 +26,71 @@ window.CANVAS_HEIGHT = window.HEIGHT + 2 * 200;   // 640 + 400 = 1040px
 window.offsetX = 200;         // Left/right margin (canvas extends from -200 to 1000)
 window.offsetY = 200;         // Top/bottom margin (canvas extends from -200 to 640)
 
-// ===== Scene Element Highlighting Constants =====
-window.HIGHLIGHT_SCENE_POINT_DIM_COLOR = '#aaaaaa';      // Dim color for selected element points
-window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS = 6;
-window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR = '#ffff00';   // Bright yellow for hovered element points
-window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS = 8;
-window.HIGHLIGHT_SCENE_LINE_DIM_COLOR = '#4488ff';       // Blue for segment lines (selected, dim)
-window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH = 4;
-window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR = '#66bbff';    // Bright cyan for segment lines (hovered)
-window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH = 6;
+window.EDITOR_HIGHLIGHT_STYLES = {
+  scene:{
+    selected:{
+      radius:5,color:'#778396',fill:true,opacity:0.75,
+      lineColor:'#778396',lineWidth:2,glowColor:'rgba(119,131,150,0.28)',glowBlur:1.5
+    },
+    hovered:{
+      radius:6,color:'#2583c5',fill:false,opacity:1,
+      lineColor:'#2583c5',lineWidth:2,glowColor:'rgba(37,131,197,0.35)',glowBlur:2
+    },
+    panel:{
+      radius:6,color:'#8052bd',fill:false,opacity:1,
+      lineColor:'#8052bd',lineWidth:2,glowColor:'rgba(128,82,189,0.35)',glowBlur:2
+    }
+  },
+  player:{
+    selected:{radius:6,color:'#aaaaaa',fill:true,opacity:1,lineColor:'#4488ff',lineWidth:4},
+    hovered:{radius:8,color:'#ffff00',fill:true,opacity:1,lineColor:'#66bbff',lineWidth:6}
+  },
+  picker:{
+    candidate:{radius:5,color:'#1599b5',fill:false,opacity:0.85,lineWidth:1.5},
+    hovered:{radius:6,color:'#087d9a',fill:false,opacity:1,lineWidth:2,glowColor:'rgba(8,125,154,0.3)',glowBlur:1.5},
+    preview:{radius:8,color:'#087d9a',fill:false,opacity:1,lineWidth:2,glowColor:'rgba(8,125,154,0.35)',glowBlur:2}
+  },
+  force:{
+    handleRadius:4,handleColor:'#1599b5',hoveredHandleColor:'#ff7d00'
+  }
+};
 
-// Adjust anchor marker styles here; scene highlighting uses the constants above.
+window.HIGHLIGHT_SCENE_POINT_DIM_COLOR = window.EDITOR_HIGHLIGHT_STYLES.player.selected.color;
+window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS = window.EDITOR_HIGHLIGHT_STYLES.player.selected.radius;
+window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR = window.EDITOR_HIGHLIGHT_STYLES.player.hovered.color;
+window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS = window.EDITOR_HIGHLIGHT_STYLES.player.hovered.radius;
+window.HIGHLIGHT_SCENE_LINE_DIM_COLOR = window.EDITOR_HIGHLIGHT_STYLES.player.selected.lineColor;
+window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH = window.EDITOR_HIGHLIGHT_STYLES.player.selected.lineWidth;
+window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR = window.EDITOR_HIGHLIGHT_STYLES.player.hovered.lineColor;
+window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH = window.EDITOR_HIGHLIGHT_STYLES.player.hovered.lineWidth;
+
 window.ANCHOR_MARKER_STYLES = {
   get sceneSelected(){
-    return {radius:window.HIGHLIGHT_SCENE_POINT_DIM_RADIUS,color:window.HIGHLIGHT_SCENE_POINT_DIM_COLOR,fill:true,opacity:1};
+    return window.EDITOR_HIGHLIGHT_STYLES.scene.selected;
   },
   get sceneHovered(){
-    return {radius:window.HIGHLIGHT_SCENE_POINT_BRIGHT_RADIUS,color:window.HIGHLIGHT_SCENE_POINT_BRIGHT_COLOR,fill:true,opacity:1};
+    return window.EDITOR_HIGHLIGHT_STYLES.scene.hovered;
+  },
+  get scenePanelHovered(){
+    return window.EDITOR_HIGHLIGHT_STYLES.scene.panel;
+  },
+  get playerSceneSelected(){
+    return window.EDITOR_HIGHLIGHT_STYLES.player.selected;
+  },
+  get playerSceneHovered(){
+    return window.EDITOR_HIGHLIGHT_STYLES.player.hovered;
   },
   get forceCandidate(){
-    return {radius:5,color:window.HIGHLIGHT_SCENE_POINT_DIM_COLOR,fill:true,opacity:0.5};
+    return {radius:4,color:window.EDITOR_HIGHLIGHT_STYLES.scene.selected.color,fill:true,opacity:0.45};
   },
   get forceHovered(){
-    return this.sceneHovered;
+    return {...this.sceneHovered,fill:false};
   },
-  pickerCandidate:{radius:6,color:'#1686ad',fill:false,opacity:1,lineWidth:2},
-  pickerHovered:{radius:6,color:'#e89100',fill:false,opacity:1,lineWidth:2},
+  get pickerCandidate(){ return window.EDITOR_HIGHLIGHT_STYLES.picker.candidate; },
+  get pickerHovered(){ return window.EDITOR_HIGHLIGHT_STYLES.picker.hovered; },
   get pickerPreview(){
-    return {...this.pickerHovered,radius:8};
+    return {...window.EDITOR_HIGHLIGHT_STYLES.picker.preview,
+      color:this.pickerHovered.color,lineWidth:this.pickerHovered.lineWidth};
   }
 };
 
@@ -63,6 +100,10 @@ window.drawAnchorMarker = function(ctx,pos,state){
   ctx.globalAlpha*=style.opacity;
   ctx.beginPath();
   ctx.arc(pos[0],pos[1],style.radius,0,Math.PI*2);
+  if(style.glowBlur){
+    ctx.shadowColor=style.glowColor || style.color;
+    ctx.shadowBlur=style.glowBlur;
+  }
   if(style.fill){
     ctx.fillStyle=style.color;
     ctx.fill();
@@ -158,16 +199,15 @@ window.normalizeSnapChecklist = function(task,saved,base){
     'snapForceLengths','snapComponentToLength'];
   const hasLegacy=legacyKeys.some(key=>typeof saved[key]==='boolean');
   // A legacy task starts with its old defaults; an override changes only its saved fields.
-  const plane=task?.scene?.plane;
   let inclined=false;
-  if(plane){
+  for(const plane of task?.scene?.planes||[]){
     const tangent=Array.isArray(plane.t_vec)
       ? plane.t_vec
       : [Math.cos((Number(plane.angleDeg)||0)*Math.PI/180),-Math.sin((Number(plane.angleDeg)||0)*Math.PI/180)];
     const length=Math.hypot(...tangent);
     if(Number.isFinite(length)&&length>1e-10){
       const x=Math.abs(tangent[0]/length),y=Math.abs(tangent[1]/length);
-      inclined=x>1e-8&&y>1e-8;
+      if(x>1e-8&&y>1e-8){inclined=true;break;}
     }
   }
   const legacy={
@@ -248,7 +288,10 @@ window.getAutomaticRelationRatio = function(task,relation,referenceForces){
         total+=Math.hypot(...vector);
         continue;
       }
-      const plane=task?.scene?.plane;
+      const plane=(task?.scene?.planes||[]).find(candidate=>candidate.id===term.planeId);
+      if((component==='normal'||component==='tangent')&&!plane){
+        return fail(`Komponenten ${component} mangler en gyldig plan-ID. Oppgi et forhold.`);
+      }
       const axis=component==='horizontal' ? [1,0] : component==='vertical' ? [0,-1]
         : component==='normal' ? plane?.n_vec : component==='tangent' ? plane?.t_vec : null;
       if(!point(axis)||Math.hypot(...axis)===0){
@@ -434,8 +477,8 @@ window.findSceneAnchorAtPosition = function(force, task){
     const distance = Math.hypot(position[0] - pos[0], position[1] - pos[1]);
     if(distance !== 0) return;
     let pointsInward = false;
-    if(anchor.type === 'segment' && /^rect(\d+)$/.test(anchor.ref)){
-      const rect = task.scene.rects?.[Number(anchor.ref.match(/^rect(\d+)$/)[1])];
+    if(anchor.type === 'segment'){
+      const rect = task.scene.rects?.find(element=>element?.id===anchor.ref);
       if(rect?.bottomCenter){
         const normal = rect.n_vec || [0, -1];
         const center = [rect.bottomCenter[0] + normal[0] * rect.height / 2,
@@ -635,15 +678,11 @@ window.loadSupportedTaskSchema = async function(){
     console.warn('Kunne ikke hente oppgavesettlisten for skjemakontroll:',error);
   }
   const results = await Promise.all(Array.from(taskFiles,async file => {
-    try{
-      const response = await fetch(encodeURI(file),{cache:'no-store'});
-      if(!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json();
-      return (Array.isArray(data) ? data : data.tasks || []).filter(task => task && task.id);
-    }catch(error){
-      console.warn(`Kunne ikke hente oppgaveskjema fra ${file}:`,error);
-      return [];
-    }
+    const response = await fetch(encodeURI(file),{cache:'no-store'});
+    if(!response.ok) throw new Error(`Kunne ikke hente oppgaveskjema fra ${file}: HTTP ${response.status}`);
+    const data = await response.json();
+    window.AppVersioning.validateTasksetFormat(data);
+    return (Array.isArray(data) ? data : data.tasks || []).filter(task => task && task.id);
   }));
   return results.flat();
 };
@@ -702,8 +741,8 @@ window.AppVersioning = (function(){
     const scene=task?.children.scene;
     if(scene){
       const groupExtension=collectSchema([
-        {description:'',members:[{type:'plane'}]},
-        {description:'',members:[{type:'text',index:0}]},
+        {description:'',members:[{type:'plane',id:'plane-1'}]},
+        {description:'',members:[{type:'text',id:'text-1'}]},
         {}
       ]);
       const mergeSchema=(target,extension)=>{
@@ -734,9 +773,16 @@ window.AppVersioning = (function(){
       groups.item=mergeSchema(groupItem,groupExtension);
       scene.objectKeys.add('groups');
       scene.children.groups=groups;
+      const sceneExtension=collectSchema([{
+        activePlaneId:'plane-1',
+        planes:[{id:'plane-1'}],rects:[{id:'rect-1'}],segments:[{id:'segment-1'}],
+        ellipses:[{id:'ellipse-1'}],arrows:[{id:'arrow-1'}],texts:[{id:'text-1'}],
+        points:[{id:'point-1'}],angles:[{id:'angle-1'}]
+      },{}]);
+      mergeSchema(scene,sceneExtension);
     }
     const optional = collectSchema([
-      {role:'force',componentOf:'',studentGiven:{}},
+      {role:'force',componentOf:'',studentGiven:{},planeId:''},
       {studentGiven:{name:false}},
       {studentGiven:{role:false}},
       {}
@@ -758,12 +804,21 @@ window.AppVersioning = (function(){
     }
     const relation = task?.children.relations?.item;
     if(relation){
-      const tolerances = collectSchema([{ratio:1,tol_rel:0.05,tol_abs:2},{}]);
+      const tolerances = collectSchema([{
+        ratio:1,tol_rel:0.05,tol_abs:2,
+        lhs:[{name:'F',component:'normal',planeId:'plane-1'}],
+        rhs:[{name:'G',component:'tangent',planeId:'plane-1'}]
+      },{}]);
       tolerances.objectKeys.forEach(key=>{
         relation.objectKeys.add(key);
         relation.children[key] = tolerances.children[key];
       });
       relation.requiredKeys = relation.requiredKeys.filter(key=>!tolerances.objectKeys.has(key));
+    }
+    if(task){
+      const sumF=collectSchema([{sumF:{x:0,y:0,n:0,t:0,planeId:'plane-1'}},{}]);
+      const sumFSchema=task.children.sumF;
+      if(sumFSchema) mergeSchema(sumFSchema,sumF.children.sumF);
     }
     return schema;
   }
@@ -850,6 +905,90 @@ window.AppVersioning = (function(){
     try{ localStorage.setItem(info.key,info.time); }catch(error){ console.warn('Kunne ikke lagre programversjon:',error); }
   }
 
+  function checkTasksetVersion(mode, version){
+    const info=modeInfo[mode];
+    if(!info || !Number.isInteger(version) || version<1){
+      throw new TypeError('Ugyldig modus eller taskset-formatversjon.');
+    }
+    const key=`${info.prefix}taskset_version`;
+    const stored=localStorage.getItem(key);
+    if(stored===String(version)) return false;
+    const keys=[];
+    for(let index=0;index<localStorage.length;index++){
+      const current=localStorage.key(index);
+      if(current?.startsWith(info.prefix)) keys.push(current);
+    }
+    try{
+      keys.forEach(current=>localStorage.removeItem(current));
+      localStorage.setItem(key,String(version));
+    }catch(error){
+      throw new Error(`Kunne ikke nullstille lokal ${mode==='editor'?'editor':'elev'}-data for taskset-format ${version}.`,{cause:error});
+    }
+    return keys.length>0;
+  }
+
+  function validateTasksetFormat(data){
+    const expectedVersion=window.TASKSET_FORMAT_VERSION;
+    const version=data?.metadata?.tasksetVersion ?? data?.tasksetVersion;
+    if(!Number.isInteger(expectedVersion)||version!==expectedVersion){
+      throw new Error(`Oppgavesettet bruker et eldre eller ukjent format (versjon ${version ?? 'mangler'}). Last ned siste oppgavesett.`);
+    }
+    const tasks=Array.isArray(data) ? data : Array.isArray(data?.tasks) ? data.tasks : [];
+    for(const task of tasks){
+      const scene=task?.scene;
+      if(!scene||typeof scene!=='object'||Array.isArray(scene)||Object.hasOwn(scene,'plane')||!Array.isArray(scene.planes)){
+        throw new Error(`Oppgave ${task?.id||'?'} mangler ny scene-/planstruktur.`);
+      }
+      const ids=new Set();
+      const collections=['planes','rects','segments','ellipses','arrows','texts','points','angles'];
+      collections.forEach(collection=>(scene[collection]||[]).forEach((element,index)=>{
+        if(!element||typeof element.id!=='string'||!element.id.trim()||ids.has(element.id)){
+          throw new Error(`Oppgave ${task.id} har manglende eller duplisert ID i scene.${collection}[${index}].`);
+        }
+        ids.add(element.id);
+      }));
+      if(scene.planes.length && !scene.planes.some(plane=>plane.id===scene.activePlaneId)){
+        throw new Error(`Oppgave ${task.id} har ingen gyldig activePlaneId.`);
+      }
+      const checkReferences=value=>{
+        if(Array.isArray(value)){value.forEach(checkReferences);return;}
+        if(!value||typeof value!=='object') return;
+        if(typeof value.ref==='string'&&!ids.has(value.ref)){
+          throw new Error(`Oppgave ${task.id} bruker scene-ID-en ${value.ref} som ikke finnes.`);
+        }
+        if(typeof value.anchorFrom==='string'&&!ids.has(value.anchorFrom)){
+          throw new Error(`Oppgave ${task.id} bruker scene-ID-en ${value.anchorFrom} som ikke finnes.`);
+        }
+        if(Array.isArray(value.members)){
+          value.members.forEach(member=>{
+            if(!member||typeof member.id!=='string'||!ids.has(member.id)){
+              throw new Error(`Oppgave ${task.id} har en ugyldig scenegruppe-referanse.`);
+            }
+          });
+        }
+        Object.values(value).forEach(checkReferences);
+      };
+      checkReferences(task);
+      const planeIds=new Set(scene.planes.map(plane=>plane.id));
+      const checkPlaneReferences=value=>{
+        if(Array.isArray(value)){value.forEach(checkPlaneReferences);return;}
+        if(!value||typeof value!=='object') return;
+        if(['planeNormal','planeTangent'].includes(value.dir)&&!planeIds.has(value.planeId)){
+          throw new Error(`Oppgave ${task.id} har en retning uten gyldig plan-ID.`);
+        }
+        if(['normal','tangent'].includes(value.component)&&!planeIds.has(value.planeId)){
+          throw new Error(`Oppgave ${task.id} har en komponent uten gyldig plan-ID.`);
+        }
+        Object.values(value).forEach(checkPlaneReferences);
+      };
+      checkPlaneReferences(task);
+      if((typeof task.sumF?.n==='number'||typeof task.sumF?.t==='number')&&!planeIds.has(task.sumF.planeId)){
+        throw new Error(`Oppgave ${task.id} har ΣF-komponenter uten gyldig plan-ID.`);
+      }
+    }
+    return true;
+  }
+
   function checkStorage(mode,reference,prepare){
     const info = modeInfo[mode];
     const keys = [];
@@ -911,8 +1050,11 @@ window.AppVersioning = (function(){
     time(mode){return modeInfo[mode].time;},
     stamp,
     read,
+    checkTasksetVersion,
+    validateTasksetFormat,
     checkStorage,
     checkImport(data,mode,source,reference){
+      validateTasksetFormat(data);
       const sourceTime = data?.metadata?.appVersion || data?.appVersion || null;
       if(sourceTime === modeInfo[mode].time) return Promise.resolve({approved:true,data});
       let tasks = Array.isArray(data) ? data : data?.tasks;

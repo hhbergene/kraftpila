@@ -9,6 +9,8 @@
 // Fallback uten ES-moduler slik at fil kan åpnes direkte via file://.
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
 
+window.AppVersioning.checkTasksetVersion('editor',window.TASKSET_FORMAT_VERSION);
+
 // Enable editor mode for this file
 window.editorMode = true;
 
@@ -111,11 +113,6 @@ window.tasks = [];
       window.fm.drawAll(ctx, shouldDrawActiveForceHandles());
     }
     
-    // Draw expected direction guides in editor mode
-    if(window.currentTask && window.fm){
-      drawExpectedDirectionGuides(ctx, window.currentTask, window.fm.forces);
-    }
-    
     // Draw selection handles for selected scene element
     if(shouldDrawSceneElementHandles()){
       drawSceneElementHandles(ctx, window.selectedSceneElement);
@@ -130,123 +127,61 @@ window.tasks = [];
     requestAnimationFrame(frame);
   }
   
-  // Step 5: Draw scene element hover/selection highlights
-  /**
-   * Draw thin yellow guide lines showing expected direction for expectedForces in editor mode
-   * Helps visualize what direction each force should have
-   */
-  function drawExpectedDirectionGuides(ctx, task, forces){
-    if(!task.expectedForces || !Array.isArray(task.expectedForces)) return;
-    
-    // Helper to get expected direction
-    function getExpDir(spec){
-      const d = spec.dir;
-      if(Array.isArray(d)) {
-        const len = geometry.length(d);
-        return len > 0 ? [d[0]/len, d[1]/len] : [1, 0];
-      }
-      const plane = task.scene?.plane;
-      if(d === 'planeNormal' && plane?.n_vec) {
-        const len = geometry.length(plane.n_vec);
-        return len > 0 ? [plane.n_vec[0]/len, plane.n_vec[1]/len] : [1, 0];
-      }
-      if(d === 'planeTangent' && plane?.t_vec) {
-        const len = geometry.length(plane.t_vec);
-        return len > 0 ? [plane.t_vec[0]/len, plane.t_vec[1]/len] : [1, 0];
-      }
-      return [1, 0];
-    }
-    
-    ctx.strokeStyle = '#ffff00'; // Bright yellow
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.6;
-    
-    task.expectedForces.forEach(spec => {
-      // Find drawn force with matching name
-      const drawnForce = forces.find(f => f && f.name && f.name.toLowerCase() === spec.name.toLowerCase());
-      if(!drawnForce || !drawnForce.arrowBase) return;
-      
-      const base = drawnForce.arrowBase;
-      const dir = getExpDir(spec);
-      const len = 80; // Length of guide line
-      
-      ctx.beginPath();
-      ctx.moveTo(base[0], base[1]);
-      ctx.lineTo(base[0] + dir[0] * len, base[1] + dir[1] * len);
-      ctx.stroke();
-    });
-    
-    ctx.globalAlpha = 1.0;
-  }
-
   function drawSceneElementHighlights(ctx){
     if(!window.sceneLookup) return;
+    const styles=window.EDITOR_HIGHLIGHT_STYLES.scene;
     
     // Helper to build lookup key - the plane is a singleton element.
     function getLookupKey(type, index){
       if(type === 'plane') return type;
       return `${type}${index}`;
     }
-    
-    // Draw selected element's points/segments (dim) always, but don't overdraw if hovered
-    if(window.selectedSceneElement && window.activePanel === 'scene' &&
-      window.hoveredInteraction?.domain!=='force'){
-      const key = getLookupKey(window.selectedSceneElement.type, window.selectedSceneElement.index);
-      const entry = window.sceneLookup[key];
-      const hoveredKey = window.hoveredSceneElement ? 
-        getLookupKey(window.hoveredSceneElement.type, window.hoveredSceneElement.index) : null;
-      const isSelectedHovered = hoveredKey === key;
-      
-      if(entry && entry.points){
-        Object.values(entry.points).forEach(point => {
-          if(point){
-            window.drawAnchorMarker(ctx,point,'sceneSelected');
-          }
+    function drawEntry(type,index,state,style){
+      const entry=window.sceneLookup[getLookupKey(type,index)];
+      if(!entry) return;
+      if(entry.points){
+        Object.values(entry.points).forEach(point=>{
+          if(point) window.drawAnchorMarker(ctx,point,state);
         });
       }
-      // Draw segment lines for selected element (dim, thicker line)
-      if(entry){
-        [...Object.values(entry.segments || {}), ...Object.values(entry.curves || {}).flat()].forEach(seg => {
-          if(Array.isArray(seg) && seg.length >= 2){
-            ctx.strokeStyle = window.HIGHLIGHT_SCENE_LINE_DIM_COLOR;
-            ctx.lineWidth = window.HIGHLIGHT_SCENE_LINE_DIM_WIDTH;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            ctx.moveTo(seg[0][0], seg[0][1]);
-            ctx.lineTo(seg[1][0], seg[1][1]);
-            ctx.stroke();
-          }
-        });
-      }
+      const segments=[...Object.values(entry.segments || {}),...Object.values(entry.curves || {}).flat()];
+      if(!segments.length) return;
+      ctx.save();
+      ctx.strokeStyle=style.lineColor;
+      ctx.lineWidth=style.lineWidth;
+      ctx.lineCap='round';
+      ctx.lineJoin='round';
+      ctx.shadowColor=style.glowColor || style.lineColor;
+      ctx.shadowBlur=style.glowBlur || 0;
+      segments.forEach(seg=>{
+        if(!Array.isArray(seg) || seg.length<2) return;
+        ctx.beginPath();
+        ctx.moveTo(seg[0][0],seg[0][1]);
+        ctx.lineTo(seg[1][0],seg[1][1]);
+        ctx.stroke();
+      });
+      ctx.restore();
     }
     
-    // Draw hovered element's points (bright)
-    if(window.hoveredSceneElement && window.hoveredInteraction?.domain!=='force'){
-      const key = getLookupKey(window.hoveredSceneElement.type, window.hoveredSceneElement.index);
-      const entry = window.sceneLookup[key];
-      if(entry && entry.points){
-        Object.values(entry.points).forEach(point => {
-          if(point){
-            window.drawAnchorMarker(ctx,point,'sceneHovered');
-          }
-        });
-      }
-      // Draw segment lines for hovered element (bright, thicker line)
-      if(entry){
-        [...Object.values(entry.segments || {}), ...Object.values(entry.curves || {}).flat()].forEach(seg => {
-          if(Array.isArray(seg) && seg.length >= 2){
-            ctx.strokeStyle = window.HIGHLIGHT_SCENE_LINE_BRIGHT_COLOR;
-            ctx.lineWidth = window.HIGHLIGHT_SCENE_LINE_BRIGHT_WIDTH;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            ctx.moveTo(seg[0][0], seg[0][1]);
-            ctx.lineTo(seg[1][0], seg[1][1]);
-            ctx.stroke();
-          }
-        });
-      }
+    // Draw the selected element before transient hover states.
+    if(window.selectedSceneElement && window.activePanel === 'scene' &&
+      window.hoveredInteraction?.domain!=='force'){
+      drawEntry(window.selectedSceneElement.type,window.selectedSceneElement.index,
+        'sceneSelected',styles.selected);
+    }
+    
+    // Canvas hover, panel hover, and picker previews use distinct visual states.
+    const panelHover=window.activePanel==='scene' ? window.scenePanelHoverTarget : null;
+    const panelHoverKey=panelHover ? getLookupKey(panelHover.type,panelHover.index) : null;
+    const hoveredKey=window.hoveredSceneElement
+      ? getLookupKey(window.hoveredSceneElement.type,window.hoveredSceneElement.index) : null;
+    if(window.hoveredSceneElement && hoveredKey!==panelHoverKey &&
+      window.hoveredInteraction?.domain!=='force'){
+      drawEntry(window.hoveredSceneElement.type,window.hoveredSceneElement.index,
+        'sceneHovered',styles.hovered);
+    }
+    if(panelHover && window.hoveredInteraction?.domain!=='force'){
+      drawEntry(panelHover.type,panelHover.index,'scenePanelHovered',styles.panel);
     }
   }
   
@@ -1066,13 +1001,14 @@ window.tasks = [];
    * Build list of all possible anchor candidates from scene.
    * Returns array of {ref, type, point, pos} or {ref, type, segment, pos} objects.
    * type is always 'point' or 'segment'
-   * ref is like 'point-1', 'rect0', 'ellipse1', etc.
+   * ref is the stable ID of the scene element.
    * point is like 'center', 'top_center', etc.
    * segment is like 'top', 'bottom', etc.
    * pos is the [x, y] coordinate for distance matching.
    */
   window.buildAnchorCandidates = function(task){
     if(window.sceneModel) return window.sceneModel.candidates(task);
+    throw new Error('Scene-ID-modellen er ikke initialisert.');
     const candidates = [];
     if(!task || !task.scene) return candidates;
     
@@ -4255,7 +4191,8 @@ window.tasks = [];
         category: 'Egendefinert',
         help_lines: [],
         scene: {
-          plane: { angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false },
+          planes: [{ id:'plane-1', angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false }],
+          activePlaneId: 'plane-1',
           rects: [],
           ellipses: [],
           segments: [],
@@ -4587,6 +4524,9 @@ window.tasks = [];
     }
     // List all forces
     const forces = window.fm.forces.filter(f=>f.name);
+    const planes=window.currentTask.scene?.planes||[];
+    const planeOptions=selected=>`<option value="">Velg plan</option>${planes.map((plane,index)=>
+      `<option value="${escapeHtml(plane.id)}" ${selected===plane.id?'selected':''}>Plan ${index+1}</option>`).join('')}`;
     // Build UI
     let html = '';
     html += '<div style="margin-bottom:8px;">Legg til eller rediger relasjoner mellom krefter:</div>';
@@ -4614,6 +4554,7 @@ window.tasks = [];
         html += `<option value="vertical" ${comp==='vertical'?'selected':''}>Vertikal</option>`;
         html += `<option value="horizontal" ${comp==='horizontal'?'selected':''}>Horisontal</option>`;
         html += `</select>`;
+        html += ` <select class="lhs-plane" data-term-idx="${termIdx}" ${['normal','tangent'].includes(comp)?'':'disabled'}>${planeOptions(term.planeId)}</select>`;
         html += ` <button class="remove-lhs-term" data-term-idx="${termIdx}" style="padding:2px 6px;">Fjern</button>`;
         html += `</div>`;
       });
@@ -4640,6 +4581,7 @@ window.tasks = [];
         html += `<option value="vertical" ${comp==='vertical'?'selected':''}>Vertikal</option>`;
         html += `<option value="horizontal" ${comp==='horizontal'?'selected':''}>Horisontal</option>`;
         html += `</select>`;
+        html += ` <select class="rhs-plane" data-term-idx="${termIdx}" ${['normal','tangent'].includes(comp)?'':'disabled'}>${planeOptions(term.planeId)}</select>`;
         html += ` <button class="remove-rhs-term" data-term-idx="${termIdx}" style="padding:2px 6px;">Fjern</button>`;
         html += `</div>`;
       });
@@ -4662,6 +4604,7 @@ window.tasks = [];
       const v = (typeof sfv[k] === 'number') ? sfv[k] : '';
       html += `<label style="margin-right:10px;">${label} = <input type="number" step="any" class="sumf-input" data-key="${k}" value="${v}" style="width:55px;" /></label>`;
     });
+    html += `<label>Plan for ΣF_n/ΣF_t: <select class="sumf-plane-input">${planeOptions(sfv.planeId)}</select></label>`;
     html += '</div>';
     relationsList.innerHTML = html;
     scrollContainer.scrollTop = scrollTop;
@@ -4670,6 +4613,10 @@ window.tasks = [];
         const v = parseFloat(inp.value);
         if(Number.isFinite(v)) relationsList._sumF[inp.dataset.key] = v;
         else delete relationsList._sumF[inp.dataset.key];
+      });
+      relationsList.querySelector('.sumf-plane-input')?.addEventListener('change',input=>{
+        if(input.target.value) relationsList._sumF.planeId=input.target.value;
+        else delete relationsList._sumF.planeId;
       });
     });
     
@@ -4730,7 +4677,7 @@ window.tasks = [];
         const compVal = row.querySelector(`.lhs-component[data-term-idx="${termIdx}"]`).value;
         relations[relIdx].lhs[termIdx].name = forceVal;
         relations[relIdx].lhs[termIdx].component = compVal;
-        refreshRelationsRatioInputs();
+        showRelationsEditor();
       });
     });
     relationsList.querySelectorAll('.rhs-force, .rhs-component').forEach(sel => {
@@ -4742,6 +4689,18 @@ window.tasks = [];
         const compVal = row.querySelector(`.rhs-component[data-term-idx="${termIdx}"]`).value;
         relations[relIdx].rhs[termIdx].name = forceVal;
         relations[relIdx].rhs[termIdx].component = compVal;
+        showRelationsEditor();
+      });
+    });
+    relationsList.querySelectorAll('.lhs-plane, .rhs-plane').forEach(select=>{
+      select.addEventListener('change',()=>{
+        const row=select.closest('.relation-row');
+        const side=select.classList.contains('lhs-plane')?'lhs':'rhs';
+        const relIdx=parseInt(row.dataset.idx),termIdx=parseInt(select.dataset.termIdx);
+        const term=relations[relIdx]?.[side]?.[termIdx];
+        if(!term) return;
+        if(select.value) term.planeId=select.value;
+        else delete term.planeId;
         refreshRelationsRatioInputs();
       });
     });
@@ -4807,6 +4766,9 @@ window.tasks = [];
           if(!term) return;
           term.name = select.value;
           term.component = row.querySelector(`${componentClass}[data-term-idx="${termIdx}"]`).value;
+          const plane=row.querySelector(`.${side}-plane[data-term-idx="${termIdx}"]`);
+          if(plane?.value) term.planeId=plane.value;
+          else delete term.planeId;
         });
       });
     });
@@ -4815,6 +4777,9 @@ window.tasks = [];
       if(Number.isFinite(value)) relationsList._sumF[input.dataset.key] = value;
       else delete relationsList._sumF[input.dataset.key];
     });
+    const planeId=relationsList.querySelector('.sumf-plane-input')?.value;
+    if(planeId) relationsList._sumF.planeId=planeId;
+    else delete relationsList._sumF.planeId;
   }
 
   function updateRelationTolerance(input,relation){
@@ -4861,6 +4826,20 @@ window.tasks = [];
       if(!input.reportValidity()) return false;
     }
     syncRelationsEditorInputs();
+    const planeIds=new Set((window.currentTask.scene?.planes||[]).map(plane=>plane.id));
+    for(const relation of relationsList._relations){
+      for(const term of [...(relation.lhs||[]),...(relation.rhs||[])]){
+        if(['normal','tangent'].includes(term.component)&&!planeIds.has(term.planeId)){
+          window.alert('Velg et plan for alle normal- og tangentkomponenter.');
+          return false;
+        }
+      }
+    }
+    if((Number.isFinite(relationsList._sumF?.n)||Number.isFinite(relationsList._sumF?.t))&&
+       !planeIds.has(relationsList._sumF.planeId)){
+      window.alert('Velg et plan for ΣF_n og ΣF_t.');
+      return false;
+    }
     for(const input of relationsList.querySelectorAll('.ratio-input')){
       const idx=parseInt(input.closest('.relation-row').dataset.idx);
       if(!window.readRelationRatioInput(input,window.currentTask,relationsList._relations[idx],window.fm.forces)) return false;
@@ -5118,6 +5097,7 @@ window.tasks = [];
 
   // Godtar eksportfil ({tasks:[...]}), ren liste, og backup-filen (editor_task_* i localStorage)
   function extractTasks(data){
+    window.AppVersioning.validateTasksetFormat(data);
     if(Array.isArray(data)) return data;
     if(data && Array.isArray(data.tasks)) return data.tasks;
     if(data && data.localStorage && typeof data.localStorage === 'object'){
@@ -5181,7 +5161,9 @@ window.tasks = [];
       tasksetOpenModal.classList.add('hidden');
       try {
         const data = await fetchJson(set.file);
-        await importTasks(extractTasks(data), set.name || set.file, data?.metadata?.appVersion || data?.appVersion);
+        await importTasks(extractTasks(data), set.name || set.file,
+          data?.metadata?.appVersion || data?.appVersion,
+          data?.metadata?.tasksetVersion ?? data?.tasksetVersion);
       } catch (err) {
         showTasksetError('Feil ved åpning av oppgavesett: ' + err.message);
       }
@@ -5276,7 +5258,8 @@ window.tasks = [];
           name: tasksetNameInput.value.trim() || 'taskset',
           exported: new Date().toISOString(),
           count: tasksToExport.length,
-          appVersion:window.AppVersioning.time('editor')
+          appVersion:window.AppVersioning.time('editor'),
+          tasksetVersion:window.TASKSET_FORMAT_VERSION
         }
       };
 
@@ -5316,7 +5299,9 @@ window.tasks = [];
         tasksetErrorDiv.style.display = 'none';
         try {
           const data = JSON.parse(event.target.result);
-          await importTasks(extractTasks(data), file.name, data?.metadata?.appVersion || data?.appVersion);
+          await importTasks(extractTasks(data), file.name,
+            data?.metadata?.appVersion || data?.appVersion,
+            data?.metadata?.tasksetVersion ?? data?.tasksetVersion);
         } catch (err) {
           showTasksetError('Feil ved lesing av fil: ' + err.message);
         }
@@ -5365,9 +5350,9 @@ window.tasks = [];
   }
 
   // Slår importerte oppgaver sammen med de eksisterende. Nye og erstattede oppgaver havner sist i listen.
-  async function importTasks(incoming, sourceName, sourceVersion){
+  async function importTasks(incoming, sourceName, sourceVersion, tasksetFormatVersion){
     const reviewed = await window.AppVersioning.checkImport(
-      {tasks:incoming,metadata:{appVersion:sourceVersion}},
+      {tasks:incoming,metadata:{appVersion:sourceVersion,tasksetVersion:tasksetFormatVersion}},
       'editor',
       sourceName,
       [...(window.currentTaskSchema || []), ...(window.tasks || [])]
@@ -5576,6 +5561,7 @@ window.tasks = [];
         // Comments are now part of task.comment, not stored separately
         timestamp: new Date().toISOString(),
         appVersion:window.AppVersioning.time('editor'),
+        tasksetVersion:window.TASKSET_FORMAT_VERSION,
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
         localStorage: {}
       };

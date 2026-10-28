@@ -39,9 +39,14 @@ function setup(overrides={}){
   };
   const modal={hidden:true,classList:{add(){modal.hidden=true;},remove(){modal.hidden=false;},
     contains(){return modal.hidden;}}};
-  const window={currentTask:{id:'test',relations:[
-    {lhs:[{name:'A'}],rhs:[{name:'B'}],ratio:1,...overrides}]},
-    fm:{forces:[{name:'A'},{name:'B'}]}};
+  const alerts=[];
+  const relation={lhs:[{name:'A'}],rhs:[{name:'B'}],ratio:1,...overrides};
+  [relation.lhs,relation.rhs].forEach(terms=>terms?.forEach(term=>{
+    if(['normal','tangent'].includes(term.component)) term.planeId ||= 'plane-1';
+  }));
+  const window={currentTask:{id:'test',scene:{planes:[{id:'plane-1'}],activePlaneId:'plane-1'},
+    relations:[relation]},
+    fm:{forces:[{name:'A'},{name:'B'}]},alert:message=>alerts.push(message)};
   const context={window,relationsList:list,relationsModal:modal,
     btnEditRelations:button(),relationsSave:button(),relationsCancel:button(),
     localStorage:{getItem:key=>storage.get(key) ?? null},
@@ -61,7 +66,7 @@ function setup(overrides={}){
   const end=source.indexOf('  // Task order manager modal logic',start);
   vm.runInContext(source.slice(start,end),context);
   context.btnEditRelations.click();
-  return {...context,list,modal,storage,add,context,controls,
+  return {...context,list,modal,storage,add,context,controls,alerts,
     field:key=>list.fields.find(field=>field.dataset.key===key)};
 }
 
@@ -90,6 +95,7 @@ test('relation match differences defer all writes, and merge preserves extra and
   const task=s.window.currentTask;
   task.snapChecklist={snapMatchLL:false,snapMatchXY:true,guidelinesEnabled:false,snapEnabled:false};
   s.list._relations[0].lhs[0].component='normal';
+  s.list._relations[0].lhs[0].planeId='plane-1';
   const before=JSON.stringify(task);
   s.relationsSave.click();
   assert.equal(s.controls['relation-snap-choice'].open,true);
@@ -119,6 +125,7 @@ test('replace removes extras, cancel writes nothing, and stale choices cannot af
   const task=s.window.currentTask;
   task.snapChecklist={snapMatchXY:true,showForceCoordinates:true};
   s.list._relations[0].rhs[0].component='tangent';
+  s.list._relations[0].rhs[0].planeId='plane-1';
   const before=JSON.stringify(task);
   s.relationsSave.click();
   s.controls['relation-snap-choice'].close();
@@ -145,6 +152,7 @@ test('task changes save automatically without a choice and keep the panel open',
   const s=setup();
   s.context.confirm=()=>{throw new Error('Unexpected confirmation');};
   s.list._relations[0].rhs[0].component='normal';
+  s.list._relations[0].rhs[0].planeId='plane-1';
   assert.equal(s.context.resolveRelationsEditorBeforeTaskChange('next'),true);
   assert.equal(s.controls['relation-snap-choice'].open,false);
   assert.equal(s.window.currentTask.snapChecklist.snapMatchLN,true);

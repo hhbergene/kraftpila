@@ -66,38 +66,41 @@ test('legacy origin-shaped points can be detached and deleted like ordinary poin
   assert.deepEqual(JSON.parse(JSON.stringify(force.anchor)),{type:'custom',pos:[30,50]});
 });
 
-test('legacy circles migrate to locked ellipses and remap force, angle, and intersection references',()=>{
+test('circles migrate to locked ellipses while preserving IDs and references',()=>{
   const runtime=sceneRuntime();
   const ellipses=[{center:[5,5],width:10,height:20}];
   const circles=[
-    {center:[10,10],radius:5,color:'#123456',snapping:false},
-    {center:[20,20],radius:8,fill_color:'#abcdef'}
+    {id:'circle-a',center:[10,10],radius:5,color:'#123456',snapping:false},
+    {id:'circle-b',center:[20,20],radius:8,fill_color:'#abcdef'}
   ];
-  const force={anchor:{type:'point',ref:'circle0',point:'center'}};
-  const laterForce={anchor:{type:'point',ref:'circle1',point:'center'}};
-  const angle={start:{pos:[0,0]},vertex:{pos:[0,0],anchor:{type:'point',ref:'circle1',point:'center'}},
+  const force={anchor:{type:'point',ref:'circle-a',point:'center'}};
+  const laterForce={anchor:{type:'point',ref:'circle-b',point:'center'}};
+  const angle={start:{pos:[0,0]},vertex:{pos:[0,0],anchor:{type:'point',ref:'circle-b',point:'center'}},
     end:{pos:[1,1]}};
   const intersection={type:'intersection',sources:[
-    {ref:'circle0',curve:true},{ref:'circle1',curve:true}
+    {ref:'circle-a',curve:true},{ref:'circle-b',curve:true}
   ]};
-  const task={scene:{ellipses,circles,angles:[angle],points:[intersection]},
+  const task={scene:{ellipses,circles,angles:[angle],points:[intersection],
+    groups:[{description:'',members:[{type:'circle',id:'circle-a'}]}]},
     forces:[force,laterForce]};
 
   assert.equal(runtime.sceneModel.migrateCirclesToEllipses(task),true);
   assert.equal(Object.hasOwn(task.scene,'circles'),false);
   assert.deepEqual(JSON.parse(JSON.stringify(ellipses.slice(1))),[
     {center:[10,10],color:'#123456',snapping:false,width:10,height:10,
-      t_vec:[1,0],n_vec:[0,-1],lockAxes:true},
+      t_vec:[1,0],n_vec:[0,-1],lockAxes:true,id:'circle-a'},
     {center:[20,20],fill_color:'#abcdef',width:16,height:16,
-      t_vec:[1,0],n_vec:[0,-1],color:'#999999',lockAxes:true}
+      t_vec:[1,0],n_vec:[0,-1],color:'#999999',lockAxes:true,id:'circle-b'}
   ]);
   assert.equal('radius' in ellipses[1],false);
-  assert.equal(force.anchor.ref,'ellipse1');
-  assert.equal(laterForce.anchor.ref,'ellipse2');
-  assert.equal(angle.vertex.anchor.ref,'ellipse2');
+  assert.equal(force.anchor.ref,'circle-a');
+  assert.equal(laterForce.anchor.ref,'circle-b');
+  assert.equal(angle.vertex.anchor.ref,'circle-b');
   assert.deepEqual(JSON.parse(JSON.stringify(intersection.sources)),[
-    {ref:'ellipse1',curve:true},{ref:'ellipse2',curve:true}
+    {ref:'circle-a',curve:true},{ref:'circle-b',curve:true}
   ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(task.scene.groups[0].members)),
+    [{type:'ellipse',id:'circle-a'}]);
   assert.equal(runtime.sceneModel.migrateCirclesToEllipses(task),false,
     'migration is idempotent after the legacy collection is removed');
 });
@@ -135,7 +138,7 @@ test('creating a new task in editor and player does not add an origin',()=>{
     assert.ok(window.currentTask);
     assert.equal(Object.hasOwn(window.currentTask,'origin'),false,file);
     assert.equal(Object.hasOwn(window.currentTask.scene,'origin'),false,file);
-    assert.deepEqual(Array.from(window.currentTask.scene.plane.through),[500,340]);
+    assert.deepEqual(Array.from(window.currentTask.scene.planes[0].through),[500,340]);
     if(file==='main.js') assert.equal(saved,true);
   }
 });

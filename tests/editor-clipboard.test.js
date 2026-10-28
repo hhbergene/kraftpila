@@ -66,6 +66,7 @@ function setup(){
     window.currentTaskIndex=window.tasks.length-1;
     window.currentTask=t;
     window.fm=new window.ForcesManager();
+    window.sceneModel.update(t);
     return t;
   }
   function load(index){
@@ -92,6 +93,7 @@ function setup(){
   vm.runInContext(read('editor_clipboard.js'),context);
   const clipboard=window.editorClipboard;
   function select(type,index=0){
+    window.sceneModel.update(window.currentTask);
     window.activePanel='scene';
     window.selectedSceneElement={type,index};
   }
@@ -132,12 +134,12 @@ test('accumulates deep independent scene copies, with no implicit forces or task
 
 test('Ctrl+C in an open group adds unique member copies once; Ctrl+V keeps normal paste behavior',()=>{
   const s=setup();
-  const text={txt:'Grouped text',pos:[20,30]};
-  const arrow={a:[100,100],b:[160,100]};
+  const text={id:'text-1',txt:'Grouped text',pos:[20,30]};
+  const arrow={id:'arrow-1',a:[100,100],b:[160,100]};
   s.window.currentTask.scene.texts=[text];
   s.window.currentTask.scene.arrows=[arrow];
   s.window.currentTask.scene.groups=[{description:'',members:[
-    {type:'text',index:0},{type:'arrow',index:0},{type:'text',index:0}
+    {type:'text',id:'text-1'},{type:'arrow',id:'arrow-1'},{type:'text',id:'text-1'}
   ]}];
 
   s.select('text');
@@ -156,19 +158,20 @@ test('Ctrl+C in an open group adds unique member copies once; Ctrl+V keeps norma
   assert.equal(s.window.currentTask.scene.texts.length,2);
   assert.equal(s.window.currentTask.scene.arrows.length,2);
   assert.deepEqual(s.window.currentTask.scene.groups[0].members,
-    [{type:'text',index:0},{type:'arrow',index:0},{type:'text',index:0}],
+    [{type:'text',id:'text-1'},{type:'arrow',id:'arrow-1'},{type:'text',id:'text-1'}],
     'ordinary paste creates scene copies without implicitly changing group membership');
 });
 
-test('group clipboard copy preserves the single-plane clipboard rule across tasks',()=>{
+test('group clipboard copy supports distinct plane identities across tasks',()=>{
   const s=setup();
-  const first={through:[10,20],angleDeg:0};
-  s.window.currentTask.scene.plane=first;
+  const first={id:'plane-1',through:[10,20],angleDeg:0};
+  s.window.currentTask.scene.planes=[first];
+  s.window.currentTask.scene.activePlaneId=first.id;
   s.select('plane');s.clipboard.copy();
-  s.task({plane:{through:[100,200],angleDeg:0}});
-  s.clipboard.copyGroup([{type:'plane'}]);
-  assert.equal(s.clipboard.entries.length,1);
-  assert.deepEqual(plain(s.clipboard.entries[0].data.through),[100,200]);
+  s.task({planes:[{id:'plane-1',through:[100,200],angleDeg:0}],activePlaneId:'plane-1'});
+  s.clipboard.copyGroup([{type:'plane',id:'plane-1'}]);
+  assert.equal(s.clipboard.entries.length,2);
+  assert.deepEqual(plain(s.clipboard.entries[1].data.through),[100,200]);
 });
 
 test('copied components retain role, parent and supplied fields through paste and undo/redo',()=>{
@@ -238,7 +241,7 @@ test('naming before or after drawing uses exact anchor matches and otherwise kee
 test('exact anchor matches are retained for forces named before drawing',()=>{
   const s=setup();
   const force=s.addForce('G');
-  const anchor={type:'segment',ref:'rect0',segment:'bottom'};
+  const anchor={type:'segment',ref:'rect-1',segment:'bottom'};
   s.window.findSceneAnchorAtPosition=()=>({anchor,pos:[100,100]});
   s.window.findBestAnchor=()=>{throw new Error('approximate matching must not run');};
   s.window.syncForceSpec(force,{reanchor:true});
@@ -297,11 +300,11 @@ test('uses half of the configured grid step without snapping subpixel source coo
 test('intersection points become free snapshots with fresh collision-free IDs',()=>{
   const s=setup();
   const scene=s.window.currentTask.scene;
-  scene.segments=[{a:[0,50],b:[100,50]},{a:[50,0],b:[50,100]}];
+  scene.segments=[{id:'segment-1',a:[0,50],b:[100,50]},{id:'segment-2',a:[50,0],b:[50,100]}];
   const result=s.window.sceneModel.intersections(s.window.currentTask,
-    {ref:'segment0',segment:'segment'},{ref:'segment1',segment:'segment'});
+    {ref:'segment-1',segment:'segment'},{ref:'segment-2',segment:'segment'});
   scene.points=[{id:'intersection',type:'intersection',pos:[50,50],
-    sources:[{ref:'segment0',segment:'segment'},{ref:'segment1',segment:'segment'}],
+    sources:[{ref:'segment-1',segment:'segment'},{ref:'segment-2',segment:'segment'}],
     branch:result.hits[0].branch,visible:true}];
   s.window.sceneModel.update(s.window.currentTask);
   s.select('point');s.clipboard.copy();
@@ -317,10 +320,10 @@ test('intersection points become free snapshots with fresh collision-free IDs',(
 
 test('angle snapshots preserve reversed segment directions rather than anchor-point directions',()=>{
   const s=setup(), task=s.window.currentTask;
-  task.scene.segments=[{a:[0,0],b:[100,0]},{a:[0,0],b:[0,100]}];
+  task.scene.segments=[{id:'segment-1',a:[0,0],b:[100,0]},{id:'segment-2',a:[0,0],b:[0,100]}];
   task.scene.angles=[{radius:30,symbol:'a',vertex:{pos:[50,50]},
-    start:{anchor:{type:'segment',ref:'segment0',segment:'segment',u:0.2}},
-    end:{anchor:{type:'segment',ref:'segment1',segment:'segment',u:0.2}},startReversed:true}];
+    start:{anchor:{type:'segment',ref:'segment-1',segment:'segment',u:0.2}},
+    end:{anchor:{type:'segment',ref:'segment-2',segment:'segment',u:0.2}},startReversed:true}];
   const original=s.window.sceneModel.angleGeometry(task.scene.angles[0],task);
   s.select('angle');s.clipboard.copy();
   const target=s.task();
@@ -449,18 +452,20 @@ test('initial and expected force geometry share coincidence detection within a p
   assert.deepEqual(plain(s.window.fm.forces[1].anchor),[110,90]);
 });
 
-test('only one plane is kept; paste replaces target plane without translating or confirmation',()=>{
+test('pasting planes keeps existing target planes and adds copied planes without translation',()=>{
   const s=setup(), source=s.window.currentTask;
-  source.scene.plane={through:[100,200],angleDeg:0,draw:true,snapping:false};
+  source.scene.planes=[{id:'plane-1',through:[100,200],angleDeg:0,draw:true,snapping:false}];
+  source.scene.activePlaneId='plane-1';
   s.select('plane');s.clipboard.copy();
-  source.scene.plane.through=[200,300];
+  source.scene.planes[0].through=[200,300];
   s.clipboard.copy();
-  assert.equal(s.clipboard.entries.length,1);
-  const target=s.task({plane:{through:[0,0],angleDeg:30}});
+  assert.equal(s.clipboard.entries.length,2);
+  const target=s.task({planes:[{id:'target-plane',through:[0,0],angleDeg:30}],activePlaneId:'target-plane'});
   s.clipboard.paste();
-  assert.deepEqual(plain(target.scene.plane.through),[200,300]);
-  assert.equal(target.scene.plane.snapping,false);
-  assert.equal(target.scene.plane.angleDeg,0);
+  assert.equal(target.scene.planes.length,3);
+  assert.deepEqual(plain(target.scene.planes.map(plane=>plane.through)),[[0,0],[100,200],[200,300]]);
+  assert.equal(target.scene.planes[1].snapping,false);
+  assert.equal(target.scene.planes[2].angleDeg,0);
 });
 
 test('open is non-destructive, task changes retain clipboard and close empties it',()=>{
@@ -526,7 +531,7 @@ test('failed paste preparation commits nothing, including earlier valid entries'
   target.expectedForces=[{name:'G_999999999999999999999'}];
   s.clipboard.paste();
   assert.match(s.nodes['clipboard-status'].textContent,/indeks/);
-  assert.equal(target.scene.points,undefined);
+  assert.equal(target.scene.points.length,0);
   assert.equal(target.expectedForces.length,1);
 });
 
@@ -535,7 +540,7 @@ test('real autosave and undo persist a mixed paste as one step, leaving pending 
   source.scene.points=[{type:'free',id:'p',pos:[20,30]}];
   s.select('point');s.clipboard.copy();
   s.addForce();s.clipboard.copy();
-  const target=s.task({plane:{through:[0,100],angleDeg:0}});
+  const target=s.task({planes:[{id:'target-plane',through:[0,100],angleDeg:0}],activePlaneId:'target-plane'});
   s.window.markEdited('task','forces');s.window.autoSave();s.window.recordUndo();
   target.title='Pending edit';
   s.window.markEdited('task');
@@ -574,11 +579,12 @@ test('UI is editor-only and toolbar button is immediately before add rectangle',
 
 test('undo immediately after pasting into an unedited task stays in the destination task',()=>{
   const s=setup(), source=s.window.currentTask;
-  source.scene.plane={through:[100,200],angleDeg:0};
+  source.scene.planes=[{id:'plane-1',through:[100,200],angleDeg:0}];
+  source.scene.activePlaneId='plane-1';
   source.scene.points=[{type:'free',id:'p',pos:[20,30]}];
   s.select('point');s.clipboard.copy();
   s.select('plane');s.clipboard.copy();
-  const target=s.task({plane:{through:[300,400],angleDeg:0}});
+  const target=s.task({planes:[{id:'target-plane',through:[300,400],angleDeg:0}],activePlaneId:'target-plane'});
   s.window.markEdited('task');s.window.autoSave();
   s.load(0);
   s.window.recordUndo(true);

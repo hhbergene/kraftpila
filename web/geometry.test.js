@@ -42,16 +42,18 @@ test('rectangle corner anchors follow local axes in candidates, snapping and res
       ['bottom_left',-1,0],['bottom_right',1,0],['top_left',-1,30],['top_right',1,30]
     ]){
       const expected=[100+side*20*t[0]+height*n[0],80+side*20*t[1]+height*n[1]];
-      const candidate=model.candidates(task).find(c=>c.label===`rect0 ${name}`);
+      const cornerLabel={bottom_left:'nedre venstre',bottom_right:'nedre høyre',
+        top_left:'øvre venstre',top_right:'øvre høyre'}[name];
+      const candidate=model.candidates(task).find(c=>c.label===`Rektangel 1 · ${cornerLabel}`);
       assert.ok(candidate, name);
       assert.deepEqual(Array.from(candidate.pos),expected);
       assert.deepEqual(Array.from(model.resolveAnchor(task,candidate.anchor).pos),expected);
-      assert.deepEqual(Array.from(window.buildAllScenePoints(task).rect0.points[name]),expected);
-      assert.deepEqual(Array.from(window.buildSceneLookup(task).rect0.points[name]),expected);
+      assert.deepEqual(Array.from(window.buildAllScenePoints(task)['rect-1'].points[name]),expected);
+      assert.deepEqual(Array.from(window.buildSceneLookup(task)['rect-1'].points[name]),expected);
     }
     rect.snapping=false;
-    assert.equal(Object.keys(window.buildSceneLookup(task).rect0.points).length,0);
-    assert.ok(model.candidates(task).some(c=>c.label==='rect0 top_left'));
+    assert.equal(Object.keys(window.buildSceneLookup(task)['rect-1'].points).length,0);
+    assert.ok(model.candidates(task).some(c=>c.label==='Rektangel 1 · øvre venstre'));
   }
 });
 
@@ -144,7 +146,7 @@ test('intersection points preserve branch and last valid position through loss a
   assert.deepEqual(Array.from(point.pos),[5,0]);
   task.scene.segments[1].a=[15,-10]; task.scene.segments[1].b=[15,10];
   model.update(task);
-  assert.equal(model.pointStatus(task,point).valid,false);
+  assert.equal(model.pointStatus(task,point).valid,true);
   assert.deepEqual(Array.from(point.pos),[5,0]);
   task.scene.segments[1].a=[0,-10]; task.scene.segments[1].b=[0,10];
   model.update(task);
@@ -251,14 +253,14 @@ test('angle geometry resolves point anchors and reports degenerate rays',()=>{
   assert.equal(model.angleGeometry(angle,task).valid,false);
 });
 
-test('deleting a direct angle source detaches it while deleted intersection sources stay tombstoned',()=>{
+test('deleting a direct angle source detaches it and keeps the intersection as a free point',()=>{
   const {model}=loadModel();
   const task=taskWith({
-    segments:[{a:[0,0],b:[10,0]},{a:[0,-5],b:[0,5]}],
+    segments:[{id:'segment-1',a:[0,0],b:[10,0]},{id:'segment-2',a:[0,-5],b:[0,5]}],
     points:[{id:'crossing',type:'intersection',pos:[0,0],lastValidPos:[0,0],valid:true,
-      sources:[{ref:'segment0',segment:'segment'},{ref:'segment1',segment:'segment'}],
+      sources:[{ref:'segment-1',segment:'segment'},{ref:'segment-2',segment:'segment'}],
       branch:{params:[0.5,0.5],id:'selected'}}],
-    angles:[{vertex:{pos:[0,0]},start:{pos:[5,0],anchor:{type:'segment',ref:'segment0',segment:'segment'}},
+    angles:[{vertex:{pos:[0,0]},start:{pos:[5,0],anchor:{type:'segment',ref:'segment-1',segment:'segment'}},
       end:{pos:[0,-5]},radius:20}]
   });
   model.update(task);
@@ -269,22 +271,20 @@ test('deleting a direct angle source detaches it while deleted intersection sour
   assert.deepEqual(Array.from(task.scene.angles[0].start.direction),[1,0]);
   assert.match(task.scene.angles[0].start.detachedReason,/slettet/);
   assert.equal(model.angleGeometry(task.scene.angles[0],task).valid,true);
-  assert.equal(model.pointStatus(task,task.scene.points[0]).valid,false);
-  assert.equal(task.scene.points[0]._deletedSource,true);
+  assert.equal(model.pointStatus(task,task.scene.points[0]).valid,true);
+  assert.equal(task.scene.points[0].type,'free');
+  assert.equal(task.scene.points[0].sources,undefined);
 });
 
 test('force and angle index references remap on reordering and force anchors detach on deletion',()=>{
   const {model}=loadModel();
   const task=taskWith({
-    segments:[{a:[0,0],b:[10,0]},{a:[0,10],b:[10,10]}],
-    angles:[{vertex:{pos:[0,0]},start:{pos:[5,10],anchor:{type:'segment',ref:'segment1',segment:'segment'}},
+    segments:[{id:'segment-a',a:[0,0],b:[10,0]},{id:'segment-b',a:[0,10],b:[10,10]}],
+    angles:[{vertex:{pos:[0,0]},start:{pos:[5,10],anchor:{type:'segment',ref:'segment-b',segment:'segment'}},
       end:{pos:[5,0]}}]
   });
-  task.expectedForces=[{name:'F',anchor:{type:'segment',ref:'segment1',segment:'segment'}}];
+  task.expectedForces=[{name:'F',anchor:{type:'segment',ref:'segment-b',segment:'segment'}}];
   model.update(task);
-  model.remapReferences(task,'segment',1,'up');
-  assert.equal(task.scene.angles[0].start.anchor.ref,'segment0');
-  assert.equal(task.expectedForces[0].anchor.ref,'segment0');
   [task.scene.segments[0],task.scene.segments[1]]=[task.scene.segments[1],task.scene.segments[0]];
   model.remapReferences(task,'segment',0,'delete');
   assert.equal(task.scene.angles[0].start.anchor,undefined);
@@ -324,7 +324,7 @@ test('a disappearing arc root never switches to another nearby remaining root',(
   assert.equal(remaining.length,1);
   assert.ok(remaining[0].pos[0]>0);
   model.update(task);
-  assert.equal(model.pointStatus(task,point).valid,false);
+  assert.equal(model.pointStatus(task,point).valid,true);
   assert.deepEqual(Array.from(point.pos),saved);
   task.scene.ellipses[0].endAngleDeg=360;
   model.update(task);
@@ -349,7 +349,7 @@ test('ellipse tangency annihilates a selected branch without jumping to other su
   task.scene.ellipses[1].center[0]=3.1;
   assert.equal(model.intersections(task,a.source,b.source).hits.length,2);
   model.update(task);
-  assert.equal(model.pointStatus(task,point).valid,false);
+  assert.equal(model.pointStatus(task,point).valid,true);
   assert.deepEqual(Array.from(point.pos),saved);
   task.scene.ellipses[1].center[0]=3;
   model.update(task);
@@ -424,60 +424,63 @@ test('right angles render rotated square markers in both modes and lookup follow
     }
 });
 
-test('invalid point ring and exclamation are editor-only while pupil visibility stays independent',()=>{
+test('deleted intersection sources leave a normal point at its last position',()=>{
   const {window}=loadModel();
-  const task=taskWith({points:[{id:'invalid',type:'intersection',pos:[40,50],lastValidPos:[40,50],visible:true,
-    sources:[{ref:'segment0',segment:'segment',deleted:true},{ref:'segment1',segment:'segment'}]}]});
+  const task=taskWith({points:[{id:'intersection-1',type:'intersection',pos:[40,50],lastValidPos:[40,50],visible:true,
+    sources:[{ref:'segment-1',segment:'segment',deleted:true},{ref:'segment-2',segment:'segment'}]}]});
   const editor=recordingCanvas(),pupil=recordingCanvas();
   window.drawScene(editor.context,task,true);
   window.drawScene(pupil.context,task,false);
-  assert.equal(editor.events.some(e=>e.method==='fillText'&&e.args[0]==='!'),true);
-  assert.equal(editor.events.some(e=>e.method==='stroke'&&e.color==='#d22'),true);
+  assert.equal(task.scene.points[0].type,'free');
+  assert.deepEqual(Array.from(task.scene.points[0].pos),[40,50]);
+  assert.equal(editor.events.some(e=>e.method==='fillText'&&e.args[0]==='!'),false);
+  assert.equal(editor.events.some(e=>e.method==='stroke'&&e.color==='#d22'),false);
   assert.equal(pupil.events.some(e=>e.method==='fillText'),false);
   assert.equal(pupil.events.some(e=>e.method==='stroke'&&e.color==='#d22'),false);
-  assert.equal(pupil.events.find(e=>e.method==='stroke').path[0].args[2],4);
   task.scene.points[0].visible=false;
   const hidden=recordingCanvas();
   window.drawScene(hidden.context,task,false);
   assert.equal(hidden.events.length,0);
-  assert.deepEqual(Array.from(window.buildAllScenePoints(task).invalid.points.center),[40,50]);
+  assert.deepEqual(Array.from(window.buildAllScenePoints(task)['intersection-1'].points.center),[40,50]);
 });
 
-test('all anchor and geometry labels use actual references without changing bindings',()=>{
+test('all anchor and geometry labels show readable indices without changing bindings',()=>{
   const {model}=loadModel();
-  const task=taskWith({plane:{through:[0,0],t_vec:[1,0],draw:true},
+  const task=taskWith({planes:[{id:'plane-1',through:[0,0],t_vec:[1,0],draw:true}],activePlaneId:'plane-1',
     rects:[{bottomCenter:[0,0],width:40,height:20},{bottomCenter:[100,0],width:40,height:20}],
     segments:[{a:[0,0],b:[30,0]}],arrows:[{a:[0,0],b:[40,0]}],
     ellipses:[{center:[0,0],width:40,height:20}],
     points:[{id:'point-17',type:'free',pos:[5,5],visible:false}],texts:[{txt:'t',pos:[8,8]}]});
   const geometries=model.geometries(task);
-  for(const geometry of geometries) assert.equal(geometry.label,
-    [geometry.ref,geometry.source.segment].filter(Boolean).join(' '));
+  for(const geometry of geometries){
+    assert.match(geometry.label,/^(Plan|Rektangel|Segment|Pil|Ellipse) \d+ · /);
+    assert.notEqual(geometry.label,geometry.ref);
+  }
   const labels=model.candidates(task).map(candidate=>candidate.label);
-  for(const label of ['rect0 bottom','rect1 right','segment0 segment','arrow0 head_left',
-    'ellipse0 center','ellipse0 top_center','plane plane','point-17 center','text0 pos']){
+  for(const label of ['Rektangel 1 · bunn','Rektangel 2 · høyre','Segment 1 · linje','Pil 1 · pilspiss',
+    'Ellipse 1 · sentrum','Ellipse 1 · topp','Plan 1 · plan','Punkt 1 · sentrum','Tekst 1 · tekstposisjon']){
     assert.ok(labels.includes(label),label);
   }
-  const bottom=model.candidates(task).find(c=>c.label==='rect1 bottom');
-  assert.equal(bottom.anchor.ref,'rect1');
-  assert.equal(bottom.anchor.segment,'bottom');
-  const point=model.candidates(task).find(c=>c.label==='point-17 center');
+  const bottom=model.candidates(task).find(c=>c.label==='Rektangel 2 · bunn');
+  assert.equal(bottom.anchor.ref,'rect-2');
+  assert.equal(bottom.anchor.point,'bottom_center');
+  const point=model.candidates(task).find(c=>c.label==='Punkt 1 · sentrum');
   assert.equal(point.anchor.ref,'point-17');
 });
 
 test('anchor ordering is natural and nearest uses finite segment distance with deterministic ties',()=>{
   const {model}=loadModel();
-  const task=taskWith({segments:[{a:[0,0],b:[1000,0]}],points:[
+  const task=taskWith({segments:[{id:'segment-1',a:[0,0],b:[1000,0]}],points:[
     {id:'point-10',type:'free',pos:[0,10]},{id:'point-2',type:'free',pos:[0,-10]}]});
   const list=[
     {anchor:{type:'custom',ref:'rect10',pos:[40,0]}},
     {anchor:{type:'custom',ref:'rect2',pos:[20,0]}},
-    {anchor:{type:'segment',ref:'segment0',segment:'segment'}},
+    {anchor:{type:'segment',ref:'segment-1',segment:'segment'}},
     ...model.candidates(task).filter(c=>c.ref?.startsWith('point-'))
   ];
   const ordered=model.orderAnchors(task,list,[0,0]);
-  assert.deepEqual(ordered.all.map(c=>c.anchor.ref),['point-2','point-10','rect2','rect10','segment0']);
-  assert.deepEqual(ordered.nearest.map(e=>e.candidate.anchor.ref),['segment0','point-2','point-10','rect2','rect10']);
+  assert.deepEqual(ordered.all.map(c=>c.anchor.ref),['point-2','point-10','rect2','rect10','segment-1']);
+  assert.deepEqual(ordered.nearest.map(e=>e.candidate.anchor.ref),['segment-1','point-2','point-10','rect2','rect10']);
   assert.equal(ordered.nearest[0].distance,0);
   assert.equal(model.orderAnchors(task,[list[2]],[1100,0]).nearest[0].distance,100);
   assert.equal(model.orderAnchors(task,list,null).nearest.length,0);
@@ -493,15 +496,15 @@ test('shared lookup migrates legacy circles and exposes ellipse curve samples',(
   const ellipse={center:[100,100],width:120,height:60,t_vec:[Math.SQRT1_2,Math.SQRT1_2],startAngleDeg:300,endAngleDeg:60};
   const task=taskWith({ellipses:[ellipse],circles:[{center:[0,0],radius:20}],
     angles:[{vertex:{pos:[0,0]},start:{pos:[100,0]},end:{pos:[0,-100]},radius:40}]});
-  const lookup=window.buildAllScenePoints(task),outline=lookup.ellipse0.curves.outline;
+  const lookup=window.buildAllScenePoints(task),outline=lookup['ellipse-1'].curves.outline;
   assert.equal(Object.hasOwn(task.scene,'circles'),false);
-  assert.ok(lookup.ellipse1.curves.outline.length>0);
+  assert.ok(lookup['ellipse-2'].curves.outline.length>0);
   assert.ok(outline.length>0);
   assert.deepEqual(Object.keys(lookup.ellipse0.segments),[]);
-  assert.deepEqual(Object.keys(lookup.angle0.segments),[]);
-  assert.ok(lookup.angle0.curves.arc.length>0);
+  assert.deepEqual(Object.keys(lookup['angle-1'].segments),[]);
+  assert.ok(lookup['angle-1'].curves.arc.length>0);
   const candidates=model.candidates(task);
-  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='ellipse0'||c.ref==='ellipse1'||c.ref==='angle0')),false);
+  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='ellipse-1'||c.ref==='ellipse-2'||c.ref==='angle-1')),false);
   assert.ok(geometry.distance(outline[0][0],geometry.ellipsePoint(ellipse,300))<1e-8);
   assert.ok(geometry.distance(outline.at(-1)[1],geometry.ellipsePoint(ellipse,60))<1e-8);
   outline.forEach(([a,b])=>{
@@ -509,12 +512,12 @@ test('shared lookup migrates legacy circles and exposes ellipse curve samples',(
   });
   const excluded=geometry.ellipsePoint(ellipse,180);
   assert.ok(Math.min(...outline.map(([a,b])=>geometry.distPointToSegment(excluded,a,b)))>20);
-  const migratedOutline=lookup.ellipse1.curves.outline;
-  const samples=model.sampleCurve(task,{ref:'ellipse1',curve:true});
+  const migratedOutline=lookup['ellipse-2'].curves.outline;
+  const samples=model.sampleCurve(task,{ref:'ellipse-2',curve:true});
   assert.equal(samples.length,migratedOutline.length);
-  assert.equal(window.buildSceneLookup(task).ellipse1.curves.outline.length,migratedOutline.length);
+  assert.equal(window.buildSceneLookup(task)['ellipse-2'].curves.outline.length,migratedOutline.length);
   ellipse.endAngleDeg=ellipse.startAngleDeg;
-  assert.equal(window.buildAllScenePoints(task).ellipse0.curves.outline.length,0);
+  assert.equal(window.buildAllScenePoints(task)['ellipse-1'].curves.outline.length,0);
 });
 
 test('ellipse axis length helper keeps dimensions equal only while locked',()=>{

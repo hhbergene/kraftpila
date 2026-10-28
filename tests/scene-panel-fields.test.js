@@ -6,7 +6,10 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
 // Exercise the real nested event wiring without introducing a DOM dependency.
-const wiring = source.slice(source.indexOf('  function setupEditorInputs('),
+const collectionsStart=source.indexOf('  const sceneCollections = {');
+const collectionsEnd=source.indexOf('\n  };',collectionsStart)+5;
+const wiring = source.slice(collectionsStart,collectionsEnd)+'\n'+
+  source.slice(source.indexOf('  function setupEditorInputs('),
   source.indexOf('  // Task metadata fields'));
 const editorHTMLSource=source.slice(source.indexOf('  function sceneElementNormal('),
   source.indexOf('  // Helper to wire up editor inputs'));
@@ -109,10 +112,11 @@ test('text rotation controls switch source, derive the other field and clear rot
   assert.equal(s.normalY.value,'-1');
 });
 
-test('normal selector copies normalized plan, rectangle and ellipse normals once',()=>{
-  for(const [value,vector] of [['plane',[0,-1]],['rect:0',[1,0]],['ellipse:0',[0,1]]]){
+test('normal selector copies normalized plane, rectangle and ellipse normals once',()=>{
+  for(const [value,vector] of [['plane:plane-1',[0,-1]],['rect:0',[1,0]],['ellipse:0',[0,1]]]){
     const s=setup('text',{txt:'A',pos:[10,20]});
-    s.task.scene.plane={through:[0,0],n_vec:[0,-4]};
+    s.task.scene.planes=[{id:'plane-1',through:[0,0],n_vec:[0,-4]}];
+    s.task.scene.activePlaneId='plane-1';
     s.task.scene.rects=[{bottomCenter:[0,0],n_vec:[5,0]}];
     s.task.scene.ellipses=[{center:[0,0],n_vec:[0,7]}];
     s.normalSource.value=value;
@@ -125,13 +129,13 @@ test('normal selector copies normalized plan, rectangle and ellipse normals once
 
 test('rotation controls and normal list are present with clear copy semantics',()=>{
   const html=editorHTML('text',{txt:'A',pos:[10,20],angle_deg:30},{
-    plane:{through:[0,0],n_vec:[0,-1]},
+    planes:[{id:'plane-1',through:[0,0],n_vec:[0,-1]}],activePlaneId:'plane-1',
     rects:[{bottomCenter:[0,0]}],ellipses:[{center:[0,0]}]
   });
   assert.match(html,/data-field="rotationAngle"/);
   assert.match(html,/data-field="rotationNormal"/);
   assert.match(html,/scene-rotation-derived/);
-  assert.match(html,/<option value="plane">Plan<\/option>/);
+  assert.match(html,/<option value="plane:plane-1">Plan 1<\/option>/);
   assert.match(html,/<option value="rect:0">Rektangel 1<\/option>/);
   assert.match(html,/<option value="ellipse:0">Ellipse 1<\/option>/);
   assert.match(html,/Kopierer normalen én gang/);
@@ -317,16 +321,16 @@ test('scene coordinate fields edit geometry and preserve plane direction when mo
   assert.ok(Math.abs(ellipse.n_vec[0])<1e-10 && Math.abs(ellipse.n_vec[1]-1)<1e-10);
   assert.ok(Math.abs(ellipse.t_vec[0]+1)<1e-10 && Math.abs(ellipse.t_vec[1])<1e-10);
 
-  const plane={through:[10,20],dirPoint:[10,-40],n_vec:[0,-1],t_vec:[1,0]};
+  const plane={id:'plane-1',through:[10,20],dirPoint:[10,-40],n_vec:[0,-1],t_vec:[1,0]};
   const directionInput={dataset:{field:'coordinates',type:'plane',idx:'',vector:'through',axis:'0'},
     type:'number',tagName:'INPUT',value:'42.5',addEventListener(event,fn){this[event]=fn;},
     setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
-  const planeWindow={currentTask:{scene:{plane}},markEdited(){},updateAppState(){},
+  const planeWindow={currentTask:{scene:{planes:[plane],activePlaneId:plane.id}},markEdited(){},updateAppState(){},
     geometry:{length:vector=>Math.hypot(...vector),tangentFromNormal:normal=>[-normal[1],normal[0]]}};
   const planeEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [directionInput] : []};
   const planeContext={window:planeWindow,updateScenePanel(){}};
   vm.runInNewContext(wiring+';globalThis.wire=setupEditorInputs;',planeContext);
-  planeContext.wire(planeEditor,'plane',undefined,plane);
+  planeContext.wire(planeEditor,'plane',0,plane);
   directionInput.change({});
   assert.deepEqual(Array.from(plane.through),[42.5,20]);
   assert.deepEqual(Array.from(plane.dirPoint),[42.5,-40]);
@@ -335,7 +339,7 @@ test('scene coordinate fields edit geometry and preserve plane direction when mo
     type:'number',tagName:'INPUT',value:'50',addEventListener(event,fn){this[event]=fn;},
     setCustomValidity(message){this.validationMessage=message;},reportValidity(){}};
   const planeDirectionEditor={querySelectorAll:selector=>selector==='.scene-editor-input' ? [planeDirectionInput] : []};
-  planeContext.wire(planeDirectionEditor,'plane',undefined,plane);
+  planeContext.wire(planeDirectionEditor,'plane',0,plane);
   planeDirectionInput.change({});
   assert.deepEqual(Array.from(plane.dirPoint),[42.5,50]);
   assert.ok(Math.abs(plane.n_vec[0])<1e-10 && Math.abs(plane.n_vec[1]-1)<1e-10);

@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const root=path.join(__dirname,'..');
+const planeScene=plane=>({planes:[{id:'plane-1',...plane}],activePlaneId:'plane-1'});
 
 function runtime(){
   const window={console,enableSnap:true};
@@ -63,7 +64,7 @@ function localSetup(){
   const window=runtime();
   const t=[0.8,-0.6],n=[0.6,0.8];
   const task={
-    scene:{segments:[{a:[0,0],b:[80,-60],snapping:true}]},
+    scene:{...planeScene({t_vec:t,n_vec:n}),segments:[{a:[0,0],b:[80,-60],snapping:true}]},
     snapChecklist:{
       ...localComponentMatches(true),
       snapMatchLL:true,snapMatchLX:true,snapMatchLY:true,snapMatchLN:true,snapMatchLT:true
@@ -77,12 +78,12 @@ function localSetup(){
 
 test('snap checklist defaults enable lengths, length-to-global components and same-axis components',()=>{
   const window=runtime();
-  const standard=window.getTaskSnapChecklist({scene:{plane:{angleDeg:0}}});
+  const standard=window.getTaskSnapChecklist({scene:planeScene({angleDeg:0})});
   assert.equal(standard.snapForceEndpoints,true);
   assert.deepEqual(Array.from(window.snapMatchCategories.filter(({key})=>standard[key]),c=>c.key),
     ['snapMatchLL','snapMatchLX','snapMatchLY','snapMatchXX','snapMatchYY']);
   for(const plane of [{angleDeg:25},{t_vec:[0,1]},{t_vec:[0.8,-0.6]}]){
-    assert.deepEqual(window.getTaskSnapChecklist({scene:{plane}}),standard);
+    assert.deepEqual(window.getTaskSnapChecklist({scene:planeScene(plane)}),standard);
   }
 });
 
@@ -133,14 +134,14 @@ test('local component and magnitude matching ignores names, expected forces and 
   force.name='unmatched';reference.name='anything';
   assert.deepEqual(window.snapping.snapForce(pos,options),before);
   task.scene.segments[0].snapping=false;
-  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+  assert.equal(window.snapping.snapForce(pos,options).source,'force-component');
   task.scene.segments[0].snapping=true;
   force.anchor=[123,456];
   const fromReference=window.snapping.snapForce([440.45,370.7],options);
   assert.ok(Math.abs(window.geometry.dot(
     fromReference.pos.map((v,i)=>v-force.arrowBase[i]),[0.6,0.8])-80)<1e-8);
   reference.anchor=[789,123];
-  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+  assert.equal(window.snapping.snapForce(pos,options).source,'force-component');
 });
 
 test('local measures compare across axes and magnitudes, with gridded and constrained length snapping',()=>{
@@ -164,7 +165,7 @@ test('local measures compare across axes and magnitudes, with gridded and constr
 
 test('mixed global/local component matches draw and emphasize the actual components on both forces',()=>{
   const window=runtime(),g=window.geometry;
-  const task={scene:{plane:{draw:false,snapping:false,t_vec:[0.8,-0.6]}},
+  const task={scene:planeScene({draw:false,snapping:false,t_vec:[0.8,-0.6]}),
     snapChecklist:{...localComponentMatches(true),snapMatchXY:false,
       snapMatchLL:true,snapMatchLX:true,snapMatchLY:true,snapMatchLN:true,snapMatchLT:true}};
   const frames=[[[1,0],[0,1]],[[0.8,-0.6],[0.6,0.8]]];
@@ -231,7 +232,7 @@ test('global cross-axis guides are opt-in and emphasize only the matching compon
 test('component-to-length matches emphasize components and mark magnitude contributors without decomposing them',()=>{
   const window=runtime(),g=window.geometry;
   for(const frame of [[[1,0],[0,1]],[[0.8,-0.6],[0.6,0.8]]]){
-    const task={scene:{plane:{draw:false,t_vec:[0.8,-0.6]}},
+    const task={scene:planeScene({draw:false,t_vec:[0.8,-0.6]}),
       snapChecklist:{...localComponentMatches(true),
         snapMatchLL:true,snapMatchLX:true,snapMatchLY:true,snapMatchLN:true,snapMatchLT:true}};
     const base=[400,300];
@@ -421,9 +422,12 @@ test('multiple matching reference components all decompose without duplicate geo
     assert.equal(lines.filter(line=>window.geometry.distance(line.a,owner.arrowBase)<1e-8).length,2);
   }
   assert.equal(JSON.stringify([force,reference,second]),before);
-  task.scene.segments.push({...task.scene.segments[0]});
+  const duplicateSegment={...task.scene.segments[0]};
+  delete duplicateSegment.id;
+  task.scene.segments.push(duplicateSegment);
   assert.deepEqual(window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task),lines);
   task.scene.segments.forEach(segment=>segment.snapping=false);
+  task.scene.planes=[];
   assert.equal(window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task).length,0);
 });
 
@@ -562,7 +566,7 @@ for(const file of ['main.js','editor.js']){
       ${source.slice(start,end)}
       }
     }`,window);
-    window.currentTask={scene:{plane:{t_vec:[1,0.7],n_vec:[-0.7,1]}}};
+    window.currentTask={scene:planeScene({t_vec:[1,0.7],n_vec:[-0.7,1]})};
     window.snapPoints=[[560,240]];
     window.fm={syncInputs(){}};
     const force=new window.Force();
@@ -763,7 +767,7 @@ test('component outlines share the exact arrow color for expected, initial and h
     [{isExpected:true},'#ff5050'],
     [{isExpected:false},'#2d7d2d'],
     [{isExpected:true,checkHighlight:true},'#ff7d00'],
-    [{isExpected:false,dragging:'arrowTip'},'#ff7d00']
+    [{isExpected:false,dragging:'body'},'#ff7d00']
   ]){
     Object.assign(force,{checkHighlight:false,dragging:null},state);
     const lines=window.snapping.buildMatchedComponentGuidelines(force,[force,reference]);
@@ -802,7 +806,7 @@ test('plane geometry matching offers directions away from objects for visible an
       {draw,through:[500,400],angleDeg:Math.atan2(0.6,0.8)*180/Math.PI},
       {draw,through:[500,400],t_vec:[8,-6]}
     ]){
-      const task={scene:{plane},snapChecklist:{...localComponentMatches(true),
+      const task={scene:planeScene(plane),snapChecklist:{...localComponentMatches(true),
         snapMatchLL:false,snapMatchLX:false,snapMatchLY:false}};
       const options={task,force,origin};
       for(const tip of [false,true]){
@@ -833,7 +837,7 @@ test('force guidelines retain both plane axes independently of grid winners, poi
   const window=runtime(),origin=[400.25,300.5],anchor=[123,456];
   const force={anchor,arrowBase:origin};
   for(const draw of [false,true]){
-    const task={scene:{plane:{draw,through:[500,400],t_vec:[0.8,-0.6]}},
+    const task={scene:planeScene({draw,through:[500,400],t_vec:[0.8,-0.6]}),
       snapChecklist:{...localComponentMatches(true),snapMatchLL:false,snapMatchLX:false,snapMatchLY:false}};
     const expected=window.snapping.buildForceGuidelines(origin,origin,task,anchor);
     assert.equal(expected.length,4);
@@ -862,7 +866,7 @@ test('player and editor drag rendering retain geometry guides through the correc
     const start=source.indexOf('      // build guidelines: follow mousepos');
     const end=source.indexOf('      window.fm.syncInputs(inputsContainer);',start);
     assert.ok(start>=0 && end>start);
-    window.currentTask={scene:{plane:{draw:false,snapping:false,t_vec:[0.8,-0.6]}},
+    window.currentTask={scene:planeScene({draw:false,snapping:false,t_vec:[0.8,-0.6]}),
       snapChecklist:{...localComponentMatches(true),snapMatchLL:false,snapMatchLX:false,snapMatchLY:false}};
     window.currentGuidelines=null;
     window.enableGuidelines=true;
@@ -889,7 +893,7 @@ test('player and editor drag rendering retain geometry guides through the correc
 
 test('plane matching follows the same live checklist in player and editor',()=>{
   const window=runtime(),origin=[400.25,300.5];
-  const task={scene:{plane:{draw:false,t_vec:[0.8,-0.6]}},snapChecklist:{snapMatchNN:false}};
+  const task={scene:planeScene({draw:false,t_vec:[0.8,-0.6]}),snapChecklist:{snapMatchNN:false}};
   const force={anchor:[123,456],arrowBase:origin};
   const options={task,force,origin,tip:true},pos=[460.45,380.7];
   window.currentTask=task;
@@ -904,7 +908,7 @@ test('plane matching follows the same live checklist in player and editor',()=>{
 
 test('plane component matching and guidelines work when neither force is anchored to scene geometry',()=>{
   const {window,task,force,reference,options}=localSetup();
-  task.scene={plane:{draw:false,t_vec:[0.8,-0.6]}};
+  task.scene=planeScene({draw:false,t_vec:[0.8,-0.6]});
   force.anchor=[123,456];
   reference.anchor=[789,123];
   const result=window.snapping.snapForce([449.25,365.5],options);

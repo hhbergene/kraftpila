@@ -26,7 +26,7 @@ const context={
     return length>1e-9?[vector[0]/length,vector[1]/length]:[0,0];
   },
   getComponentDir:(component,task)=>{
-    const plane=task.scene.plane;
+    const plane=task.scene.planes.find(candidate=>candidate.id==='plane-1');
     if(component==='normal') return plane.n_vec;
     if(component==='tangent') return plane.t_vec;
     if(component==='vertical') return [0,-1];
@@ -47,6 +47,7 @@ vm.runInContext(source.slice(start,end),context);
 test('debug relations use force-component notation instead of separate component details',()=>{
   const force={
     name:'S_1',
+    planeId:'plane-1',
     anchor:[0,0],
     arrowBase:[0,0],
     arrowTip:[3,4],
@@ -57,6 +58,7 @@ test('debug relations use force-component notation instead of separate component
   };
   const secondForce={
     name:'G',
+    planeId:'plane-1',
     anchor:[0,0],
     arrowBase:[0,0],
     arrowTip:[0,5],
@@ -68,11 +70,11 @@ test('debug relations use force-component notation instead of separate component
   context.window.fm.forces=[force,secondForce];
   const task={
     expectedForces:[],
-    scene:{plane:{t_vec:[1,0],n_vec:[0,-1]}},
+    scene:{planes:[{id:'plane-1',t_vec:[1,0],n_vec:[0,-1]}],activePlaneId:'plane-1'},
     relations:[
       {lhs:[{name:'S_1',component:'vertical'}],rhs:[{name:'G'}],ratio:1},
-      {lhs:[{name:'S_1',component:'horizontal'}],rhs:[{name:'G',component:'tangent'}],ratio:1},
-      {lhs:[{name:'S_1',component:'normal'}],rhs:[{name:'G',component:'magnitude'}],ratio:1}
+      {lhs:[{name:'S_1',component:'horizontal'}],rhs:[{name:'G',component:'tangent',planeId:'plane-1'}],ratio:1},
+      {lhs:[{name:'S_1',component:'normal',planeId:'plane-1'}],rhs:[{name:'G',component:'magnitude'}],ratio:1}
     ]
   };
   const relationResults=context.evalRelations(task,[

@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const root=path.join(__dirname,'..');
+const planeScene=plane=>({planes:[{id:'plane-1',...plane}],activePlaneId:'plane-1'});
 
 function runtime(){
   const window={console,enableSnap:true};
@@ -52,7 +53,7 @@ for(const id of ['LL','LX','LY','LN','LT','XX','YY','XY','NN','TT','NT','XN','XT
           const force={anchor:[123,456],arrowBase:origin,arrowTip:origin.map((v,i)=>v+vector[i])};
           const other={anchor:[321,654],arrowBase:[2000,2000],
             arrowTip:referenceVector(reference).map(v=>v+2000)};
-          const task={scene:{plane:{draw:false,snapping:false,t_vec:tangent,n_vec:normal}},
+          const task={scene:planeScene({draw:false,snapping:false,t_vec:tangent,n_vec:normal}),
             snapChecklist:{...allOff,[category.key]:true,snapForceEndpoints:false}};
           const options={task,force,origin,forces:[force,other],tip:true};
           const pos=force.arrowTip.map(v=>v+0.15);
@@ -119,8 +120,9 @@ test('both checklists render all categories from the same register',()=>{
 
 test('automatic relation snap categories use the effective answer ratio rather than defaulting to one',()=>{
   const window=runtime();
-  const relation={lhs:[{name:'A',component:'normal'}],rhs:[{name:'B',component:'tangent'}]};
-  const task={scene:{plane:{n_vec:[0,1],t_vec:[1,0]}},
+  const relation={lhs:[{name:'A',component:'normal',planeId:'plane-1'}],
+    rhs:[{name:'B',component:'tangent',planeId:'plane-1'}]};
+  const task={scene:planeScene({n_vec:[0,1],t_vec:[1,0]}),
     expectedForces:[{name:'A',drawn:{arrowBase:[0,0],arrowTip:[0,10]}}],
     initialForces:[{name:'B',arrowBase:[0,0],arrowTip:[20,0]}]};
   assert.equal(window.getRelationSnapMatches([relation],task).snapMatchNT,false);

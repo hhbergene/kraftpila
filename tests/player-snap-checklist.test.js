@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const root=path.join(__dirname,'..');
+const planeScene=plane=>({planes:[{id:'plane-1',...plane}],activePlaneId:'plane-1'});
 const mainSource=fs.readFileSync(path.join(root,'web','main.js'),'utf8');
 
 function setup(task){
@@ -30,8 +31,8 @@ function setup(task){
   return {context,window,values,controls};
 }
 
-test('player applies checklist defaults for legacy tasks and overlays per-task overrides',()=>{
-  const task={id:'legacy-task',scene:{plane:{t_vec:[0.8,-0.6]}}};
+test('player applies checklist defaults and overlays per-task overrides',()=>{
+  const task={id:'legacy-task',scene:planeScene({t_vec:[0.8,-0.6]})};
   const s=setup(task);
   const snap={checked:false},guidelines={checked:false},coordinates={checked:true};
   const activeClasses=new Set();
@@ -68,7 +69,7 @@ test('player applies checklist defaults for legacy tasks and overlays per-task o
 });
 
 test('player saves override separately from task definition and updates settings controls',()=>{
-  const task={id:'task-a',scene:{plane:{angleDeg:0}}};
+  const task={id:'task-a',scene:planeScene({angleDeg:0})};
   const s=setup(task);
   const control=(checked=false)=>({checked});
   s.controls.set('settings-snap',control());

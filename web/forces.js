@@ -4,10 +4,12 @@
   const FORCE_COLOR = '#ff5050';
   const ACTIVE_FORCE_COLOR = '#ff5050';
   const HIGHLIGHT_FORCE_COLOR = '#ff7d00';
-  const ACTIVE_FORCE_HANDLE_COLOR = '#ff5050';
-  const HIGHLIGHT_FORCE_HANDLE_COLOR = '#000000';
   const TEXT_COLOR = '#000';
   const MIN_LEN = 15; // lowered threshold so short first force still counts
+  const forceHighlightStyles = () => window.EDITOR_HIGHLIGHT_STYLES?.force || {
+    handleRadius:HANDLE_RADIUS,
+    handleColor:'#1599b5',hoveredHandleColor:HIGHLIGHT_FORCE_COLOR
+  };
 
   function normalizeName(s){
     if(window.forceNotation) return window.forceNotation.key(s);
@@ -19,13 +21,19 @@
     return out;
   }
 
-  function forceArrowColor(force,active=false){
+  function forceBaseColor(force,active=false){
     const isExpected=force.isExpected===undefined ? force.moveable!==false : force.isExpected;
     let color=force.checkHighlight ? HIGHLIGHT_FORCE_COLOR : (active ? ACTIVE_FORCE_COLOR : FORCE_COLOR);
     if(!isExpected) color='#2d7d2d';
     if(force.role==='resultant') color='#000000';
     if(force.checkHighlight) color=HIGHLIGHT_FORCE_COLOR;
-    if(['body','arrowTip'].includes(force.dragging) || ['body','arrowTip'].includes(force.hovering)){
+    return color;
+  }
+
+  function forceArrowColor(force,active=false){
+    let color=forceBaseColor(force,active);
+    const bodyHovered=force.hovering==='body';
+    if(force.dragging==='body' || bodyHovered){
       color=HIGHLIGHT_FORCE_COLOR;
     }
     return color;
@@ -195,7 +203,6 @@
     }
 
     draw(ctx, active=false){
-      // Draw handles (anchor + arrowTip)
       const evalHighlighted = this.checkHighlight;
       // Determine if this is an initial (non-editable) force
       let isExpected = this.isExpected;
@@ -207,25 +214,19 @@
       // - Force is initial but we're in scene edit mode (editorMode=true, not taskMode)
       const isTaskMode = window.editorMode === false; // Task mode = not in editor
       const shouldDrawHandles = isExpected || !isTaskMode; // expected forces always, initial forces only in scene edit mode
-      
-      if(shouldDrawHandles && this.anchor){
-        if(this.dragging==='anchor' || this.hovering==='anchor'){
-          ctx.fillStyle = HIGHLIGHT_FORCE_HANDLE_COLOR;
-          ctx.beginPath(); ctx.arc(this.anchor[0], this.anchor[1], HANDLE_RADIUS, 0, Math.PI*2); ctx.fill();
-        } else if(active){
-          ctx.fillStyle = ACTIVE_FORCE_HANDLE_COLOR;
-          ctx.beginPath(); ctx.arc(this.anchor[0], this.anchor[1], HANDLE_RADIUS, 0, Math.PI*2); ctx.fill();
-        }
-      }
-      if(shouldDrawHandles && this.arrowTip){
-        if(this.dragging==='arrowTip' || this.hovering==='arrowTip'){
-          ctx.fillStyle = HIGHLIGHT_FORCE_HANDLE_COLOR;
-          ctx.beginPath(); ctx.arc(this.arrowTip[0], this.arrowTip[1], HANDLE_RADIUS, 0, Math.PI*2); ctx.fill();
-        } else if(active){
-          ctx.fillStyle = ACTIVE_FORCE_HANDLE_COLOR;
-          ctx.beginPath(); ctx.arc(this.arrowTip[0], this.arrowTip[1], HANDLE_RADIUS, 0, Math.PI*2); ctx.fill();
-        }
-      }
+      const styles=forceHighlightStyles();
+      const editorHover=window.editorMode!==false && (!!this.hovering || !!this.dragging);
+      const drawHandle=(pos,part)=>{
+        const isHoveredPart=this.hovering===part || this.dragging===part;
+        if(!shouldDrawHandles || !pos || !(active || editorHover || isHoveredPart)) return;
+        const color=isHoveredPart ? styles.hoveredHandleColor : styles.handleColor;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pos[0],pos[1],styles.handleRadius,0,Math.PI*2);
+        ctx.fillStyle=color;
+        ctx.fill();
+        ctx.restore();
+      };
       if(this.anchor && this.arrowTip && this.arrowBase && this.force_len >= 1e-3){
         const dx=this.arrowTip[0]-this.arrowBase[0];
         const dy=this.arrowTip[1]-this.arrowBase[1];
@@ -298,6 +299,9 @@
           drawFormattedText(ctx, labelText, labelCenter[0], labelCenter[1], {size:16, color:TEXT_COLOR, align:'center'});
         }
       }
+
+      drawHandle(this.anchor,'anchor');
+      drawHandle(this.arrowTip,'arrowTip');
     }
   }
 

@@ -53,8 +53,8 @@ function setup(){
   const window = {editorMode:true,currentTask:task,fm:{forces:[force]},
     getMousePos:e=>e.pos,getForceSpec:()=>({spec,prop:'anchor'}),syncForceSpec(){},
     markEdited:(...parts)=>edits.push(parts), updateAppState(){}, updateScenePanel(){}};
-  const candidate = {kind:'point',ref:'segment0',pos:[100,100],
-    anchor:{type:'point',ref:'segment0',point:'a'}};
+  const candidate = {kind:'point',ref:'segment-1',pos:[100,100],
+    anchor:{type:'point',ref:'segment-1',point:'a'}};
   window.sceneModel = {
     orderAnchors:(task,list)=>({all:list,nearest:[]}),
     anchorLabel:c=>`${c.anchor.ref} ${c.anchor.point || c.anchor.segment}`,
@@ -64,8 +64,8 @@ function setup(){
       const p={id:`point-${t.scene.points.length}`,type:'free',pos:pos.slice(),visible:false};
       t.scene.points.push(p); return p;
     },
-    geometries:()=>[{key:'a',label:'a',source:{ref:'segment0',segment:'segment'}},
-      {key:'b',label:'b',source:{ref:'ellipse0',curve:true}}],
+    geometries:()=>[{key:'a',label:'a',source:{ref:'segment-1',segment:'segment'}},
+      {key:'b',label:'b',source:{ref:'ellipse-1',curve:true}}],
     intersections:()=>({hits:[{pos:[40,50],params:[0.5,0.2],branch:{id:'one',params:[0.5,0.2]}}]}),
     update(){}, pointStatus:()=>({valid:true})
   };
@@ -98,7 +98,7 @@ test('force segment selection projects existing position and refreshes anchor co
     assert.deepEqual(Array.from(slot.pos),[10,20]);
     return {valid:true,pos:[10,50]};
   };
-  s.window.sceneEditor.applyForceAnchor(0,{type:'segment',ref:'rect0',segment:'bottom'},[50,50],false);
+  s.window.sceneEditor.applyForceAnchor(0,{type:'segment',ref:'rect-1',segment:'bottom'},[50,50],false);
   assert.deepEqual(Array.from(s.force.anchor),[10,50]);
   assert.deepEqual(Array.from(s.force.arrowBase),[15,50]);
   assert.deepEqual(Array.from(s.force.arrowTip),[15,110]);
@@ -109,10 +109,10 @@ test('force segment selection projects existing position and refreshes anchor co
 test('automatic anchor selection opens the picker with the chosen anchor visible',()=>{
   const s=setup();
   s.select.className='force-anchor-select';
-  s.select.value='point:segment0:a';
+  s.select.value='point:segment-1:a';
   const option=new Element('option');
   option.value=s.select.value;
-  option.textContent='segment0 a';
+  option.textContent='segment-1 a';
   s.select.appendChild(option);
   s.document.querySelector=selector=>selector.includes('.force-anchor-select') ? s.select : null;
   assert.equal(s.window.sceneEditor.showForceAnchorPicker(0),true);
@@ -128,7 +128,7 @@ test('hover previews a candidate without edits or point creation; Esc restores s
   s.open();
   const event=s.nodes['app-canvas'].fire('mousemove',{pos:[101,100]});
   assert.equal(event.stopped,true);
-  assert.equal(s.select.value,'point:segment0:a');
+  assert.equal(s.select.value,'point:segment-1:a');
   assert.equal(s.task.scene.points.length,0);
   assert.equal(s.edits.length,0);
   s.document.fire('keydown',{key:'Escape'});
@@ -156,7 +156,7 @@ test('candidate force anchor commit creates no point and preserves force vector'
   s.open();
   s.nodes['app-canvas'].fire('mousedown',{pos:[100,100]});
   assert.equal(s.task.scene.points.length,0);
-  assert.equal(s.spec.anchor.ref,'segment0');
+  assert.equal(s.spec.anchor.ref,'segment-1');
   assert.deepEqual(Array.from(s.force.arrowTip),[105,160]);
   assert.deepEqual(s.edits,[['forces']]);
 });
@@ -197,9 +197,9 @@ test('free point tool does not snap; second activation requires explicit interse
 test('native dropdown change ends picker without reverting the chosen selection',()=>{
   const s=setup();
   s.open();
-  s.select.value='point:segment0:a';
+  s.select.value='point:segment-1:a';
   s.select.fire('change');
-  assert.equal(s.select.value,'point:segment0:a');
+  assert.equal(s.select.value,'point:segment-1:a');
   assert.equal(s.window.sceneEditor.isPicking(s.select),false);
 });
 
@@ -262,6 +262,48 @@ test('point properties expose marker styling and use the shared compact delete b
   assert.deepEqual(remapped,{task:s.task,type:'point',index:0,action:'delete'});
 });
 
+test('points convert between free and intersection forms without changing their identity',()=>{
+  const freeSetup=setup(), parent=new Element('div');
+  const point={id:'point-stable',type:'free',pos:[12,34],visible:true};
+  freeSetup.task.scene.points.push(point);
+  freeSetup.window.sceneEditor.buildProperties(parent,'point',point,0);
+  const convert=parent.children.find(child=>child.tagName==='BUTTON' &&
+    child.textContent==='Gjør om til skjæringspunkt');
+  assert.ok(convert);
+  convert.fire('click');
+  const selects=freeSetup.nodes['scene-panel'].children.at(-1).children
+    .filter(child=>child.tagName==='DIV').flatMap(row=>row.children)
+    .filter(child=>child.tagName==='SELECT');
+  assert.equal(selects.length,2);
+  selects[0].value='0';
+  selects[0].fire('change');
+  selects[1].value='1';
+  selects[1].fire('change');
+  const hitList=freeSetup.nodes['scene-panel'].children.at(-1).children
+    .find(child=>child.children.some(node=>node.tagName==='BUTTON'));
+  const confirm=hitList?.children.find(child=>child.textContent?.startsWith('Bekreft treff'));
+  assert.ok(confirm);
+  confirm.fire('click');
+  assert.equal(point.id,'point-stable');
+  assert.equal(point.type,'intersection');
+
+  const intersectionSetup=setup(), intersectionParent=new Element('div');
+  const intersection={id:'point-stable',type:'intersection',pos:[40,50],lastValidPos:[40,50],
+    sources:[{ref:'segment-1'},{ref:'ellipse-1'}],branch:{params:[0.5,0.2]}};
+  intersectionSetup.task.scene.points.push(intersection);
+  intersectionSetup.window.sceneEditor.buildProperties(intersectionParent,'point',intersection,0);
+  const toFree=intersectionParent.children.find(child=>child.tagName==='BUTTON' &&
+    child.textContent==='Gjør om til fritt punkt');
+  assert.ok(toFree);
+  toFree.fire('click');
+  assert.equal(intersection.id,'point-stable');
+  assert.equal(intersection.type,'free');
+  assert.deepEqual(intersection.pos,[40,50]);
+  assert.equal('sources' in intersection,false);
+  assert.equal('branch' in intersection,false);
+  assert.equal('lastValidPos' in intersection,false);
+});
+
 test('angle vertex picker only offers points and commits point anchor',()=>{
   const s=setup(), parent=new Element('div');
   const angle={start:{pos:[20,0]},vertex:{pos:[0,0]},end:{pos:[0,20]}};
@@ -272,7 +314,7 @@ test('angle vertex picker only offers points and commits point anchor',()=>{
     .find(c=>c.className==='scene-anchor-field').fire('click');
   s.nodes['app-canvas'].fire('mousedown',{pos:[100,100]});
   assert.equal(angle.vertex.anchor.type,'point');
-  assert.equal(angle.vertex.anchor.ref,'segment0');
+  assert.equal(angle.vertex.anchor.ref,'segment-1');
   assert.equal(s.task.scene.points.length,0);
 });
 
@@ -310,15 +352,15 @@ test('invalid-point hover tooltip wraps and stays in the scrolled visible canvas
   assert.equal(boxes.length,1,'tooltip remains hover-only');
 });
 
-test('actual scene renderer draws only invalid marker; actual overlay owns one clamped reason',()=>{
+test('deleted intersection source keeps a normal hidden point without an invalid marker',()=>{
   const s=setup(), context={window:s.window,console};
   for(const file of ['geometry.js','scene_render.js','scene_model.js']){
     vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),context);
     if(file==='geometry.js') context.geometry=s.window.geometry;
   }
   s.task.scene.points=[{id:'point-broken',type:'intersection',pos:[579,340],
-    lastValidPos:[579,340],sources:[{ref:'segment0',segment:'segment',deleted:true},
-      {ref:'ellipse0',curve:true}],_deletedSource:true,visible:false}];
+    lastValidPos:[579,340],sources:[{ref:'segment-1',segment:'segment',deleted:true},
+      {ref:'ellipse-1',curve:true}],_deletedSource:true,visible:false}];
   const canvas=s.nodes['app-canvas'], viewport=new Element('div');
   canvas.width=1000;canvas.height=700;
   canvas.getBoundingClientRect=()=>({left:-400,top:0,right:600,bottom:700,width:1000,height:700});
@@ -329,18 +371,16 @@ test('actual scene renderer draws only invalid marker; actual overlay owns one c
     fillText:(...args)=>text.push(args),fillRect:(...args)=>boxes.push(args)},
     {get:(target,key)=>key in target ? target[key] : ()=>{}});
   s.window.drawScene(ctx,s.task,true);
-  assert.deepEqual(text.map(t=>t[0]),['!'],'renderer never prints the explanation');
+  assert.deepEqual(text.map(t=>t[0]),[]);
+  assert.equal(s.task.scene.points[0].type,'free');
   s.window.sceneEditor.mouse=[580,340];
   s.window.sceneEditor.drawOverlay(ctx);
-  assert.equal(boxes.length,1,'only one tooltip box is painted');
-  assert.ok(text.slice(1).map(t=>t[0]).join(' ').includes('slettet'));
-  const [x,y,w,h]=boxes[0];
-  assert.ok(x>=404 && x+w<=596 && y>=4 && y+h<=496);
+  assert.equal(boxes.length,0);
   text.length=0;boxes.length=0;
   s.window.editorMode=false;
   s.window.drawScene(ctx,s.task,false);
   s.window.sceneEditor.drawOverlay(ctx);
-  assert.equal(text.length,0,'pupil never sees invalid explanation or marker for hidden point');
+  assert.equal(text.length,0,'pupil never sees a hidden point');
 });
 
 test('real editor offset and scrollbar client viewport clamp tooltip in scene coordinates',()=>{
@@ -400,14 +440,14 @@ test('new angle sequence uses real segments, keeps suggestions unbound until Ent
   assert.equal(s.field('Toppunkt:')['aria-expanded'],'false');
   assert.equal(s.field('Start:')['aria-expanded'],'true');
   assert.equal(s.angle.start.anchor,undefined);
-  assert.equal(s.field('Start:').textContent,'segment0 segment (0px)');
+  assert.equal(s.field('Start:').textContent,'Segment 1 · linje (0px)');
   assert.equal(s.edits.length,1);
   s.field('Start:').fire('keydown',{key:'Enter'});
-  assert.equal(s.angle.start.anchor.ref,'segment0');
+  assert.equal(s.angle.start.anchor.ref,'segment-1');
   assert.equal(s.field('Slutt:')['aria-expanded'],'true');
   assert.equal(s.angle.end.anchor,undefined);
   s.field('Slutt:').fire('keydown',{key:'Enter'});
-  assert.equal(s.angle.end.anchor.ref,'segment1');
+  assert.equal(s.angle.end.anchor.ref,'segment-2');
   assert.equal(s.field('Slutt:')['aria-expanded'],'false');
   assert.equal(s.window.sceneModel.angleGeometry(s.angle,s.task).degrees,45);
 });
@@ -440,7 +480,7 @@ test('no segments through vertex means free fallbacks; Enter creates no helper p
 test('list confirmation advances, Frikoble keeps segment direction, and repeated field clicks reactivate',()=>{
   const s=realAngleSetup([{a:[50,0],b:[-50,0]}]);
   s.field('Start:').fire('click');
-  s.list('Start:').children.find(c=>c.dataset.value==='segment:segment0:segment').fire('click');
+  s.list('Start:').children.find(c=>c.dataset.value==='segment:segment-1:segment').fire('click');
   assert.equal(s.field('Slutt:')['aria-expanded'],'true');
   s.document.fire('keydown',{key:'Escape'});
   s.angle.startReversed=true;
@@ -468,7 +508,7 @@ test('external action confirms suggestion without advancing and never confirms p
   assert.equal(rebuilt,0,'external target must run before panel rebuild');
   await new Promise(resolve=>setTimeout(resolve,5));
   assert.ok(rebuilt>0);
-  assert.equal(s.angle.start.anchor.ref,'segment0');
+  assert.equal(s.angle.start.anchor.ref,'segment-1');
   assert.equal(s.field('Slutt:')['aria-expanded'],'false');
   s.field('Slutt:').fire('click');
   s.nodes['app-canvas'].fire('mousemove',{pos:[0,0]});
@@ -479,8 +519,8 @@ test('external action confirms suggestion without advancing and never confirms p
 
 test('editing an existing vertex never guesses over confirmed legs; parallel segments yield only one suggestion',()=>{
   const s=realAngleSetup([{a:[-50,0],b:[50,0]},{a:[-80,0],b:[80,0]}]);
-  s.angle.start.anchor={type:'segment',ref:'segment0',segment:'segment'};
-  s.angle.end.anchor={type:'segment',ref:'segment1',segment:'segment'};
+  s.angle.start.anchor={type:'segment',ref:'segment-1',segment:'segment'};
+  s.angle.end.anchor={type:'segment',ref:'segment-2',segment:'segment'};
   const legs=JSON.stringify([s.angle.start,s.angle.end]);
   s.rebuild();
   s.field('Toppunkt:').fire('click');
@@ -494,7 +534,7 @@ test('editing an existing vertex never guesses over confirmed legs; parallel seg
   s.nodes['app-canvas'].fire('mousedown',{pos:[0,0]});
   s.field('Start:').fire('keydown',{key:'Enter'});
   s.field('Slutt:').fire('keydown',{key:'Enter'});
-  assert.equal(s.angle.start.anchor.ref,'segment0');
+  assert.equal(s.angle.start.anchor.ref,'segment-1');
   assert.equal(s.angle.end.anchor,undefined);
   assert.ok(Math.abs(s.window.sceneModel.angleGeometry(s.angle,s.task).degrees-30)<1e-8);
 });
@@ -502,7 +542,7 @@ test('editing an existing vertex never guesses over confirmed legs; parallel seg
 test('force list detach keeps geometry and keyboard selection can confirm a candidate',()=>{
   const s=setup();
   s.select.appendChild(Object.assign(new Element('option'),{value:'',textContent:'Frikoble'}));
-  s.select.appendChild(Object.assign(new Element('option'),{value:'point:segment0:a',textContent:'Point'}));
+  s.select.appendChild(Object.assign(new Element('option'),{value:'point:segment-1:a',textContent:'Point'}));
   s.open();
   const list=s.parent.children.find(c=>c.className==='scene-anchor-list');
   list.children.find(c=>c.dataset.value==='').fire('click');
@@ -515,7 +555,7 @@ test('force list detach keeps geometry and keyboard selection can confirm a cand
   field.fire('keydown',{key:'ArrowDown'});
   field.fire('keydown',{key:'ArrowDown'});
   field.fire('keydown',{key:'Enter'});
-  assert.equal(s.spec.anchor.ref,'segment0');
+  assert.equal(s.spec.anchor.ref,'segment-1');
 });
 
 test('reveal scrolls only when the active field is outside its own panel viewport',()=>{
@@ -536,7 +576,7 @@ function highlightedPaths(s){
   let path;
   const ctx={save(){},restore(){},beginPath(){path=[];},arc(...args){path.push(['arc',...args]);},
     moveTo(...args){path.push(['moveTo',...args]);},lineTo(...args){path.push(['lineTo',...args]);},
-    stroke(){if(this.strokeStyle==='#e89100') paths.push(path);}};
+    stroke(){if(this.strokeStyle===s.window.ANCHOR_MARKER_STYLES.pickerHovered.color) paths.push(path);}};
   s.window.sceneEditor.drawOverlay(ctx);
   return paths;
 }
@@ -560,7 +600,7 @@ test('picker point, segment and free previews consume shared styles without chan
   a.window.ANCHOR_MARKER_STYLES.pickerHovered.color='#123456';
   a.window.ANCHOR_MARKER_STYLES.pickerHovered.lineWidth=7;
   a.field('Start:').fire('click');
-  a.list('Start:').children.find(c=>c.dataset.value==='segment:segment0:segment').fire('mouseenter');
+  a.list('Start:').children.find(c=>c.dataset.value==='segment:segment-1:segment').fire('mouseenter');
   let path;
   const lines=[];
   const ctx={save(){},restore(){},beginPath(){path=[];},arc(){},
@@ -574,11 +614,11 @@ test('picker point, segment and free previews consume shared styles without chan
 test('panel hover and keyboard navigation highlight point candidates without edits; Esc restores',()=>{
   const s=setup();
   s.select.appendChild(Object.assign(new Element('option'),{value:'',textContent:'Frikoble'}));
-  s.select.appendChild(Object.assign(new Element('option'),{value:'point:segment0:a',textContent:'Point'}));
+  s.select.appendChild(Object.assign(new Element('option'),{value:'point:segment-1:a',textContent:'Point'}));
   s.open();
   const list=s.parent.children.find(c=>c.className==='scene-anchor-list');
   list.children[1].fire('mouseenter');
-  assert.equal(s.select.value,'point:segment0:a');
+  assert.equal(s.select.value,'point:segment-1:a');
   assert.deepEqual(highlightedPaths(s),[[['arc',100,100,6,0,2*Math.PI]]]);
   assert.equal(s.edits.length,0);
   assert.equal(s.task.scene.points.length,0);
@@ -596,7 +636,7 @@ test('panel hover and keyboard navigation highlight point candidates without edi
 test('angle list hover and focus highlight segment lines and clear highlight for Frikoble',()=>{
   const s=realAngleSetup([{a:[-50,0],b:[50,0]}]);
   s.field('Start:').fire('click');
-  const segment=s.list('Start:').children.find(c=>c.dataset.value==='segment:segment0:segment');
+  const segment=s.list('Start:').children.find(c=>c.dataset.value==='segment:segment-1:segment');
   segment.fire('mouseenter');
   assert.deepEqual(highlightedPaths(s),[[['moveTo',-50,0],['lineTo',50,0]]]);
   assert.equal(s.angle.start.anchor,undefined);
@@ -606,7 +646,7 @@ test('angle list hover and focus highlight segment lines and clear highlight for
   segment.fire('focus');
   assert.equal(highlightedPaths(s).length,1);
   segment.fire('click');
-  assert.equal(s.angle.start.anchor.ref,'segment0');
+  assert.equal(s.angle.start.anchor.ref,'segment-1');
 });
 
 test('angle lists rank from selected other anchors, show complete groups, and navigate duplicate rows',()=>{

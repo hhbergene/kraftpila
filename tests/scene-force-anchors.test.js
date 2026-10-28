@@ -120,16 +120,16 @@ test('automatic matching prefers an inward-facing segment over a coincident poin
   force.arrowBase = [0, 20];
   force.arrowTip = [0, 10];
   window.sceneModel.candidates = () => [
-    {kind:'point', ref:'point0', pos:[0,20], anchor:{type:'point',ref:'point0',point:'center'}},
-    {kind:'segment', ref:'rect1', segment:'bottom', anchor:{type:'segment',ref:'rect1',segment:'bottom'},
+    {kind:'point', ref:'point-1', pos:[0,20], anchor:{type:'point',ref:'point-1',point:'center'}},
+    {kind:'segment', ref:'rect-2', segment:'bottom', anchor:{type:'segment',ref:'rect-2',segment:'bottom'},
       segment:{a:[-10,20],b:[10,20]}},
-    {kind:'segment', ref:'rect0', segment:'bottom', anchor:{type:'segment',ref:'rect0',segment:'bottom'},
+    {kind:'segment', ref:'rect-1', segment:'bottom', anchor:{type:'segment',ref:'rect-1',segment:'bottom'},
       segment:{a:[-10,20],b:[10,20]}}
   ];
   window.sceneModel.resolveAnchor = () => ({valid:true,pos:[0,20]});
   const best = window.findSceneAnchorAtPosition(force, task);
   assert.equal(best.anchor.type, 'segment');
-  assert.equal(best.anchor.ref, 'rect0');
+  assert.equal(best.anchor.ref, 'rect-2');
   assert.deepEqual(Array.from(best.pos), [0,20]);
 });
 

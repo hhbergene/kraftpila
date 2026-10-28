@@ -63,33 +63,39 @@ class Element {
 
 function setup(scene){
   const sceneItems=new Element('div');
+  const scenePanel=new Element('div');
   const addGroupButton=new Element('button');
   const document={createElement:tag=>new Element(tag),
     getElementById:id=>id==='scene-items' ? sceneItems :
+      id==='scene-panel' ? scenePanel :
       id==='btn-add-group' ? addGroupButton : null,
     querySelector:()=>null};
   const window={editorMode:true,activePanel:'scene',currentTask:{scene},sceneModel:{update(){ }},
     sceneEditor:{checkTask(){},buildProperties(){}},markEdited(){},updateAppState(){},
     setActivePanel(kind){this.activePanel=kind;}};
   const source=fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
+  const bindStart=source.indexOf('function bindScenePanelHoverTarget(');
+  const bindEnd=source.indexOf('// Editor mode state management',bindStart);
   const start=source.indexOf('function updateScenePanel()');
   const end=source.indexOf('function updateHelpButton()',start);
-  assert.ok(start>=0 && end>start);
+  assert.ok(bindStart>=0 && bindEnd>bindStart && start>=0 && end>start);
   const context=vm.createContext({window,document});
   for(const file of ['geometry.js','scene_render.js']){
     vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),context);
   }
   vm.runInContext(`let expandedSceneType=null;let lastSceneSelectionKey='';let lastSceneGroupTask=null;
+    ${source.slice(bindStart,bindEnd)}
     ${source.slice(start,end)};globalThis.render=updateScenePanel;`,context);
-  return {window,sceneItems,addGroupButton,context,render:context.render};
+  return {window,sceneItems,scenePanel,addGroupButton,context,render:context.render};
 }
 
 test('scene types collapse to count rows, expand with previews, and follow panel or canvas selection',()=>{
   const s=setup({
-    plane:null,rects:[],ellipses:[],
+    planes:[],rects:[],ellipses:[],
     segments:[{a:[1,2],b:[3,4]}],arrows:[],points:[],angles:[],
     texts:[{txt:'first long text',pos:[10,20]},{txt:'second',pos:[30,40]},{txt:'third',pos:[50,60]}]
   });
+
   s.render();
   const group=type=>s.sceneItems.querySelectorAll('.scene-type-group')
     .find(item=>item.dataset.type===type);
@@ -134,9 +140,30 @@ test('scene types collapse to count rows, expand with previews, and follow panel
   assert.ok(group('text').querySelectorAll('.scene-item')[1].classList.contains('selected'));
 });
 
+test('scene-panel hover and focus publish a canvas highlight target and clear it afterward',()=>{
+  const s=setup({
+    planes:[],rects:[{bottomCenter:[10,20],width:30,height:40}],ellipses:[],
+    segments:[],arrows:[],points:[],angles:[],texts:[]
+  });
+  s.window.EDITOR_HIGHLIGHT_STYLES={scene:{panel:{color:'#8052bd'}}};
+  s.render();
+  s.sceneItems.querySelector('.scene-type-header').fire('click');
+  const item=s.sceneItems.querySelectorAll('.scene-item').find(row=>row.dataset.type==='rect');
+  assert.ok(item);
+  item.fire('pointerenter');
+  assert.deepEqual({...s.window.scenePanelHoverTarget},{type:'rect',index:0});
+  item.fire('pointerleave');
+  assert.equal(s.window.scenePanelHoverTarget,null);
+
+  item.fire('focusin');
+  assert.deepEqual({...s.window.scenePanelHoverTarget},{type:'rect',index:0});
+  item.fire('focusout',{relatedTarget:null});
+  assert.equal(s.window.scenePanelHoverTarget,null);
+});
+
 test('coordinate previews stay inline and use compact coordinate pairs',()=>{
   const s=setup({
-    plane:{through:[10,20],dirPoint:[30,40]},rects:[],
+    planes:[{id:'plane-1',through:[10,20],dirPoint:[30,40]}],rects:[],
     ellipses:[{center:[50,60]}],segments:[],arrows:[],
     points:[{pos:[70,80]}],angles:[{vertex:{pos:[90,100]}}],texts:[]
   });
@@ -157,9 +184,9 @@ test('coordinate previews stay inline and use compact coordinate pairs',()=>{
 });
 
 test('scene groups create, show references, select members, and remove only membership',()=>{
-  const text={txt:'member text',pos:[10,20]};
-  const arrow={a:[20,30],b:[60,30]};
-  const s=setup({plane:{through:[0,0],dirPoint:[0,20]},rects:[],ellipses:[],
+  const text={id:'text-c',txt:'member text',pos:[10,20]};
+  const arrow={id:'arrow-b',a:[20,30],b:[60,30]};
+  const s=setup({planes:[{id:'plane-1',through:[0,0],dirPoint:[0,20]}],rects:[],ellipses:[],
     segments:[],arrows:[{a:[0,0],b:[10,10]},arrow],points:[],angles:[],
     texts:[{txt:'first',pos:[1,1]},{txt:'second',pos:[2,2]},text]});
   s.render();
@@ -178,8 +205,8 @@ test('scene groups create, show references, select members, and remove only memb
   group().querySelector('.scene-group-toggle').fire('click');
   group().querySelector('.scene-group-controls').querySelector('.scene-group-control').fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
-    [{type:'text',index:2}]);
-  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt[2]');
+    [{type:'text',id:'text-c'}]);
+  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt 3');
 
   s.window.selectedSceneElement={type:'arrow',index:1,obj:arrow};
   s.render();
@@ -187,18 +214,18 @@ test('scene groups create, show references, select members, and remove only memb
   let addButton=group().querySelector('.scene-group-controls').querySelector('.scene-group-control');
   addButton.fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
-    [{type:'text',index:2},{type:'arrow',index:1}],
+    [{type:'text',id:'text-c'},{type:'arrow',id:'arrow-b'}],
     'adding a selected member twice does not duplicate its reference');
   addButton=group().querySelector('.scene-group-controls').querySelector('.scene-group-control');
   assert.equal(addButton.disabled,true);
-  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt[2], arrow[1]');
+  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt 3, arrow 2');
 
   const rows=group().querySelectorAll('.scene-group-member');
   assert.equal(rows.length,2);
   assert.deepEqual(rows[1].children.map(child=>child.className),
     ['scene-group-member-reference','scene-group-remove-member']);
   const reference=rows[1].querySelector('.scene-group-member-reference');
-  assert.equal(reference.textContent,'arrow[1]');
+  assert.equal(reference.textContent,'arrow 2');
   reference.fire('click');
   assert.equal(s.window.selectedSceneElement.obj,arrow);
   assert.equal(s.window.activeSceneGroupIndex,0);
@@ -220,7 +247,7 @@ test('scene groups create, show references, select members, and remove only memb
   group().querySelectorAll('.scene-group-member')[1]
     .querySelector('.scene-group-remove-member').fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
-    [{type:'text',index:2}]);
+    [{type:'text',id:'text-c'}]);
   assert.equal(s.window.currentTask.scene.arrows[1],arrow,
     'removing a member leaves the underlying scene element intact');
 
@@ -233,17 +260,17 @@ test('scene groups create, show references, select members, and remove only memb
 });
 
 test('scene groups accept planes and cannot add a stale scene selection from the force panel',()=>{
-  const plane={through:[0,0],dirPoint:[0,20]};
-  const s=setup({plane,rects:[],ellipses:[],segments:[],arrows:[],points:[],angles:[],texts:[],
+  const plane={id:'plane-1',through:[0,0],dirPoint:[0,20]};
+  const s=setup({planes:[plane],rects:[],ellipses:[],segments:[],arrows:[],points:[],angles:[],texts:[],
     groups:[{description:'',members:[]}]});
-  s.window.selectedSceneElement={type:'plane',obj:plane};
+  s.window.selectedSceneElement={type:'plane',index:0,obj:plane};
   s.render();
   const group=()=>s.sceneItems.querySelector('.scene-group');
   group().querySelector('.scene-group-toggle').fire('click');
   group().querySelector('.scene-group-controls').children[0].fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
-    [{type:'plane'}]);
-  assert.equal(group().querySelector('.scene-group-member-reference').textContent,'plane');
+    [{type:'plane',id:'plane-1'}]);
+  assert.equal(group().querySelector('.scene-group-member-reference').textContent,'plane 1');
 
   s.window.activePanel='force';
   s.render();
@@ -251,21 +278,30 @@ test('scene groups accept planes and cannot add a stale scene selection from the
 });
 
 test('group references follow scene-element reordering, deletion, and conversion',()=>{
-  const s=setup({circles:[{}],rects:[{},{},{}],ellipses:[],segments:[],
+  const s=setup({circles:[{id:'circle-a'}],rects:[
+      {id:'rect-a'},{id:'rect-b'},{id:'rect-c'}
+    ],ellipses:[],segments:[],
     arrows:[],points:[],angles:[],texts:[],groups:[{description:'',members:[
-      {type:'rect',index:0},{type:'rect',index:1},{type:'rect',index:2},
-      {type:'circle',index:0}
+      {type:'rect',id:'rect-a'},{type:'rect',id:'rect-b'},{type:'rect',id:'rect-c'},
+      {type:'circle',id:'circle-a'}
     ]}]});
   const model=s.window.createSceneModel();
   const task=s.window.currentTask;
   model.remapReferences(task,'rect',1,'up');
-  assert.deepEqual(task.scene.groups[0].members.slice(0,3).map(member=>member.index),[1,0,2]);
+  [task.scene.rects[0],task.scene.rects[1]]=[task.scene.rects[1],task.scene.rects[0]];
+  assert.deepEqual(task.scene.groups[0].members.slice(0,3).map(member=>member.id),
+    ['rect-a','rect-b','rect-c']);
+  assert.deepEqual(task.scene.groups[0].members.slice(0,3).map(member=>
+    task.scene.rects.findIndex(rect=>rect.id===member.id)),[1,0,2]);
   model.remapReferences(task,'rect',0,'delete');
+  task.scene.rects.splice(0,1);
   assert.deepEqual(task.scene.groups[0].members.filter(member=>member.type==='rect')
-    .map(member=>member.index),[0,1]);
+    .map(member=>member.id),['rect-a','rect-c']);
+  assert.deepEqual(task.scene.groups[0].members.filter(member=>member.type==='rect').map(member=>
+    task.scene.rects.findIndex(rect=>rect.id===member.id)),[0,1]);
   model.remapReferences(task,'circle',0,'convert','ellipse',1);
   assert.deepEqual(JSON.parse(JSON.stringify(task.scene.groups[0].members.at(-1))),
-    {type:'ellipse',index:1});
+    {type:'ellipse',id:'circle-a'});
 });
 
 test('line-width number field is wide enough for decimal values',()=>{

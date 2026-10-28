@@ -11,7 +11,7 @@ function setup(){
   window.window=window;
   window.showFeedback=(lines,scoreText)=>{window.feedback={lines,scoreText};};
   vm.createContext(window);
-  for(const file of ['shared.js','geometry.js','evaluate.js']){
+  for(const file of ['shared.js','geometry.js','scene_render.js','scene_model.js','evaluate.js']){
     let source=fs.readFileSync(path.join(root,'web',file),'utf8');
     if(file==='evaluate.js') source=source.replace('  window.runEvaluation = runEvaluation;',
       '  window.runEvaluation = runEvaluation; window.evaluation = {evalRelations,relationScore,scoreToPoints};');
@@ -40,10 +40,7 @@ test('w4p6n reference answer evaluates without local plane axes or a sumF check'
   const window=setup();
   const task=structuredClone(taskset.tasks.find(task=>task.id.endsWith('w4p6n')));
   window.currentTask=task;
-  window.sceneLookup={
-    rect1:{points:{center:[360,220]},segments:{bottom:[[300,280],[420,280]]}},
-    segment0:{segments:{segment:[[420,220],[600,220]]}}
-  };
+  window.sceneLookup=window.buildAllScenePoints(task);
   window.fm.forces=[
     ...task.expectedForces.map(spec=>({...spec.drawn,name:spec.name})),
     ...task.initialForces
@@ -66,7 +63,7 @@ test('missing sumF without relations defaults to zero on global axes only',()=>{
   for(const vector of [[100,0],[0,100],[0,0]]){
     const window=setup();
     window.currentTask={
-      scene:{plane:{angleDeg:0}},
+      scene:{planes:[{id:'plane-1',angleDeg:0}],activePlaneId:'plane-1'},
       expectedForces:[{name:'A',dir:vector,anchor:{type:'custom',pos:[0,0]}}]
     };
     window.fm.forces=[force('A',vector)];
@@ -84,7 +81,7 @@ test('explicit empty sumF disables equilibrium, while explicit requirements rema
   for(const sumF of [{},{x:0},{y:100}]){
     const window=setup();
     window.currentTask={
-      scene:{plane:{angleDeg:0}},
+      scene:{planes:[{id:'plane-1',angleDeg:0}],activePlaneId:'plane-1'},
       expectedForces:[{name:'A',dir:[1,0],anchor:{type:'custom',pos:[0,0]}}],
       sumF
     };
@@ -116,10 +113,9 @@ test('missing sumF with relations does not enable an equilibrium fallback',()=>{
 test('92zvk incorrect component match gives feedback and 0.92 with 1.75 points',()=>{
   const window=setup();
   const task=structuredClone(taskset.tasks.find(task=>task.id.endsWith('92zvk')));
-  const normal=task.scene.plane.n_vec;
+  const normal=task.scene.planes.find(plane=>plane.id==='plane-1').n_vec;
   window.currentTask=task;
-  window.sceneLookup={rect0:{points:{center:[480,320]},
-    segments:{bottom:[[420,400],[580,320]]}}};
+  window.sceneLookup=window.buildAllScenePoints(task);
   window.fm.forces=[
     force('G',[0,80],[480,320]),
     {...force('N',normal.map(value=>value*80),[520,350]),anchor:[500,360]}
@@ -200,9 +196,9 @@ test('custom tolerances, explicit zero and non-unit ratios use the expected side
 test('relations include multiple terms, components and initial forces; missing forces score zero',()=>{
   const window=setup();
   window.fm.forces=[force('A',[3,4]),force('B',[7,0]),force('C',[11,0])];
-  const task={scene:{plane:{n_vec:[0,1],t_vec:[1,0]}},
+  const task={scene:{planes:[{id:'plane-1',n_vec:[0,1],t_vec:[1,0]}],activePlaneId:'plane-1'},
     initialForces:[{name:'C'}],
-    relations:[{lhs:[{name:'A',component:'normal'},{name:'B'}],rhs:[{name:'C'}],ratio:1}]};
+    relations:[{lhs:[{name:'A',component:'normal',planeId:'plane-1'},{name:'B'}],rhs:[{name:'C'}],ratio:1}]};
   const results=[{name:'A',found:true,index:0},{name:'B',found:true,index:1}];
   assert.equal(window.evaluation.evalRelations(task,results)[0].relScore,1);
   const missing=window.evaluation.evalRelations(task,results.slice(0,1))[0];
@@ -229,11 +225,13 @@ test('bundled relations inherit tolerances instead of persisting defaults',()=>{
 });
 
 function answerTask(component='magnitude'){
+  const plane={id:'plane-1',n_vec:[0,2],t_vec:[3,0]};
   return {
-    scene:{plane:{n_vec:[0,2],t_vec:[3,0]}},
+    scene:{planes:[plane],activePlaneId:plane.id},
     expectedForces:[{name:'A',drawn:force('A',[6,-8])}],
     initialForces:[force('B',[3,-4])],
-    relations:[{lhs:[{name:'A',component}],rhs:[{name:'B',component}]}]
+    relations:[{lhs:[{name:'A',component,planeId:['normal','tangent'].includes(component)?plane.id:undefined}],
+      rhs:[{name:'B',component,planeId:['normal','tangent'].includes(component)?plane.id:undefined}]}]
   };
 }
 
@@ -246,12 +244,12 @@ test('automatic ratios project absolute answer components, normalize axes and in
     close(window.getAutomaticRelationRatio(task,task.relations[0]).value,2);
   }
   const task=answerTask('normal');
-  task.scene.plane.n_vec=[3,4];
-  task.scene.plane.t_vec=[4,-3];
+  task.scene.planes[0].n_vec=[3,4];
+  task.scene.planes[0].t_vec=[4,-3];
   task.expectedForces[0].drawn=force('A',[0,10]);
   task.initialForces[0]=force('B',[5,0]);
   close(window.getAutomaticRelationRatio(task,task.relations[0]).value,8/3);
-  task.relations[0].lhs.push({name:'B',component:'tangent'});
+  task.relations[0].lhs.push({name:'B',component:'tangent',planeId:'plane-1'});
   close(window.getAutomaticRelationRatio(task,task.relations[0]).value,4);
 });
 
@@ -280,7 +278,7 @@ test('unavailable automatic ratios never fall back to one or student geometry',(
     task=>{task.initialForces[0].arrowTip=[0,0];},
     task=>{task.relations[0].lhs=[];},
     task=>{task.relations[0].lhs[0].component='unknown';},
-    task=>{task.scene.plane.n_vec=[0,0];},
+    task=>{task.scene.planes[0].n_vec=[0,0];},
     task=>{task.expectedForces[0].drawn.arrowTip=[0,0];}
   ]){
     const task=answerTask('normal');

@@ -14,27 +14,6 @@
         "Skriv inn navnet på kraften i panelet til høyre (enten før eller etter du tegner kraften)."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ],
-          "dirPoint": [
-            500,
-            340
-          ]
-        },
         "ellipses": [
           {
             "center": [
@@ -52,7 +31,8 @@
               -1
             ],
             "snapping": false,
-            "lockAxes": true
+            "lockAxes": true,
+            "id": "ellipse-1"
           }
         ],
         "texts": [
@@ -69,7 +49,8 @@
             "_renderedPos": [
               440,
               20
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Tegn inn tyngdekraften G.",
@@ -84,7 +65,8 @@
             "_renderedPos": [
               240,
               80
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "- Klikk i ballens sentrum og dra rett ned.",
@@ -100,7 +82,8 @@
             "pos": [
               240,
               99
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "- Husk å navngi kraften.",
@@ -116,7 +99,8 @@
             "pos": [
               240,
               118
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "Trykk på Sjekk-knappen før du går til neste oppgave",
@@ -132,7 +116,8 @@
               480,
               20
             ],
-            "linked": false
+            "linked": false,
+            "id": "text-5"
           },
           {
             "txt": "v",
@@ -147,7 +132,8 @@
             "_renderedPos": [
               340,
               240
-            ]
+            ],
+            "id": "text-6"
           }
         ],
         "arrows": [
@@ -160,7 +146,8 @@
               360,
               260
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "rects": [],
@@ -176,7 +163,32 @@
             "valid": true,
             "lineWidth": 1
           }
-        ]
+        ],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "dirPoint": [
+              500,
+              340
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -194,7 +206,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "drawn": {
@@ -262,23 +274,6 @@
         "Ekstra: Prøv gjerne å forskyve den litt til siden så den ikke overlapper med snora."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "ellipses": [
           {
             "width": 120,
@@ -295,7 +290,8 @@
               1,
               0
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "ellipse-1"
           }
         ],
         "texts": [
@@ -312,7 +308,8 @@
             "_renderedPos": [
               200,
               114
-            ]
+            ],
+            "id": "text-1"
           }
         ],
         "segments": [
@@ -327,7 +324,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           }
         ],
         "rects": [
@@ -348,17 +346,39 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-1"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
           "name": "S",
           "anchor": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "top_center"
           },
           "dir": [
@@ -404,7 +424,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -469,23 +489,6 @@
         "Ekstra: Prøv gjerne å forskyve den litt til siden så den ikke går gjennom angrepspunktet til G."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "ellipses": [
           {
             "width": 120,
@@ -502,7 +505,8 @@
               1,
               0
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "ellipse-1"
           }
         ],
         "texts": [
@@ -520,19 +524,41 @@
               200,
               114
             ],
-            "linked": false
+            "linked": false,
+            "id": "text-1"
           }
         ],
         "segments": [],
         "rects": [],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
           "name": "N",
           "anchor": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "bottom_center"
           },
           "dir": [
@@ -578,7 +604,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -636,27 +662,6 @@
         "Tegn kreftene som virker på klossen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ],
-          "dirPoint": [
-            500,
-            300
-          ]
-        },
         "rects": [
           {
             "width": 160,
@@ -674,7 +679,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "texts": [
@@ -691,7 +697,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "v=0 (konstant)",
@@ -706,7 +713,8 @@
             "_renderedPos": [
               375,
               102
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "A",
@@ -721,10 +729,36 @@
             "_renderedPos": [
               442,
               338
-            ]
+            ],
+            "id": "text-3"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "dirPoint": [
+              500,
+              300
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -742,7 +776,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -781,7 +815,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -862,23 +896,6 @@
         "Tegn de andre kreftene som virker på klossen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "rects": [
           {
             "width": 160,
@@ -896,7 +913,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "arrows": [
@@ -909,7 +927,8 @@
               540,
               144
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -926,7 +945,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "v = konstant",
@@ -941,10 +961,32 @@
             "_renderedPos": [
               500,
               122
-            ]
+            ],
+            "id": "text-2"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -961,7 +1003,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -999,7 +1041,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -1037,7 +1079,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0
           },
@@ -1080,7 +1122,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "right_middle"
           },
           "role": "force"
@@ -1160,15 +1202,6 @@
         "Tegn inn de andre kreftene som virker på klossen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            580
-          ],
-          "draw": true,
-          "snapping": false
-        },
         "rects": [
           {
             "width": 760,
@@ -1188,7 +1221,8 @@
             ],
             "snapping": true,
             "color": "#545454",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "rect-1"
           },
           {
             "width": 120,
@@ -1206,7 +1240,8 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": true,
+            "id": "rect-2"
           },
           {
             "width": 280,
@@ -1226,7 +1261,8 @@
             ],
             "snapping": true,
             "color": "#545454",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "rect-3"
           }
         ],
         "ellipses": [
@@ -1248,7 +1284,8 @@
             "lockAxes": true,
             "color": "#4090ff",
             "lineWidth": 2,
-            "snapping": true
+            "snapping": true,
+            "id": "ellipse-1"
           },
           {
             "center": [
@@ -1268,7 +1305,8 @@
             "lockAxes": true,
             "color": "#4090ff",
             "lineWidth": 2,
-            "snapping": true
+            "snapping": true,
+            "id": "ellipse-2"
           }
         ],
         "segments": [
@@ -1281,7 +1319,8 @@
               600,
               220
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -1292,7 +1331,8 @@
               620,
               340
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-2"
           }
         ],
         "arrows": [
@@ -1305,7 +1345,8 @@
               500,
               100
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -1322,7 +1363,8 @@
             "_renderedPos": [
               260,
               40
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "(Ikke tegn krefter på kloss B)",
@@ -1338,7 +1380,8 @@
               260,
               59
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-2"
           },
           {
             "txt": "B",
@@ -1353,7 +1396,8 @@
             "_renderedPos": [
               600,
               380
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "A",
@@ -1368,7 +1412,8 @@
             "_renderedPos": [
               320,
               260
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "v = konstant",
@@ -1384,10 +1429,24 @@
             "_renderedPos": [
               460,
               80
-            ]
+            ],
+            "id": "text-5"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              580
+            ],
+            "draw": true,
+            "snapping": false,
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -1395,7 +1454,7 @@
           "role": "force",
           "anchor": {
             "type": "point",
-            "ref": "rect1",
+            "ref": "rect-2",
             "point": "center"
           },
           "dir": [
@@ -1427,7 +1486,7 @@
           "role": "force",
           "anchor": {
             "type": "segment",
-            "ref": "rect1",
+            "ref": "rect-2",
             "segment": "bottom",
             "u": 0
           },
@@ -1463,7 +1522,7 @@
           "role": "force",
           "anchor": {
             "type": "segment",
-            "ref": "segment0",
+            "ref": "segment-1",
             "segment": "segment",
             "u": 0
           },
@@ -1506,7 +1565,7 @@
           ],
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse1",
+            "ref": "ellipse-2",
             "point": "center"
           },
           "arrowBase": [
@@ -1532,7 +1591,7 @@
           ],
           "anchorSpec": {
             "type": "segment",
-            "ref": "rect1",
+            "ref": "rect-2",
             "segment": "bottom",
             "u": 0.5
           },
@@ -1598,23 +1657,6 @@
         "Tegn snordragene S som virker på A og på B."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "rects": [
           {
             "width": 160,
@@ -1632,7 +1674,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-1"
           },
           {
             "width": 200,
@@ -1650,7 +1693,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-2"
           }
         ],
         "texts": [
@@ -1667,7 +1711,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "\\mu = 0",
@@ -1682,7 +1727,8 @@
             "_renderedPos": [
               375,
               102
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "m_B= 2 · m_A",
@@ -1697,7 +1743,8 @@
             "_renderedPos": [
               375,
               124
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "A",
@@ -1712,7 +1759,8 @@
             "_renderedPos": [
               320,
               260
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "B",
@@ -1727,7 +1775,8 @@
             "_renderedPos": [
               600,
               220
-            ]
+            ],
+            "id": "text-5"
           }
         ],
         "points": [],
@@ -1741,9 +1790,31 @@
               580,
               320
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-1"
           }
-        ]
+        ],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -1751,7 +1822,7 @@
           "role": "force",
           "anchor": {
             "type": "point",
-            "ref": "segment0",
+            "ref": "segment-1",
             "point": "start"
           },
           "dir": [
@@ -1782,7 +1853,7 @@
           "role": "force",
           "anchor": {
             "type": "point",
-            "ref": "segment0",
+            "ref": "segment-1",
             "point": "end"
           },
           "dir": [
@@ -1827,7 +1898,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect1",
+            "ref": "rect-2",
             "point": "center"
           },
           "role": "force"
@@ -1849,7 +1920,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "rect1",
+            "ref": "rect-2",
             "segment": "bottom",
             "u": 0.5
           },
@@ -1872,7 +1943,7 @@
           "role": "force",
           "anchorSpec": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -1902,7 +1973,7 @@
           "role": "force",
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "arrowBase": [
@@ -1928,7 +1999,7 @@
           ],
           "anchorSpec": {
             "type": "point",
-            "ref": "rect1",
+            "ref": "rect-2",
             "point": "right_middle"
           },
           "arrowBase": [
@@ -2014,23 +2085,6 @@
         "Tegn kreftene som virker på kloss A."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "rects": [
           {
             "width": 160,
@@ -2048,7 +2102,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-1"
           },
           {
             "width": 120,
@@ -2066,7 +2121,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-2"
           }
         ],
         "texts": [
@@ -2083,7 +2139,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "v = 0",
@@ -2098,7 +2155,8 @@
             "_renderedPos": [
               375,
               102
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "m_A = 2 · m_B",
@@ -2113,7 +2171,8 @@
             "_renderedPos": [
               375,
               124
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "A",
@@ -2128,7 +2187,8 @@
             "_renderedPos": [
               440,
               260
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "B",
@@ -2143,17 +2203,39 @@
             "_renderedPos": [
               460,
               180
-            ]
+            ],
+            "id": "text-5"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
           "name": "N_A",
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -2189,7 +2271,7 @@
           "name": "G_A",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "dir": [
@@ -2223,7 +2305,7 @@
           "name": "N_B*",
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "top",
             "u": 0.5
           },
@@ -2271,7 +2353,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect1",
+            "ref": "rect-2",
             "point": "center"
           },
           "role": "force"
@@ -2293,7 +2375,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "rect1",
+            "ref": "rect-2",
             "segment": "bottom",
             "u": 0.5
           },
@@ -2375,23 +2457,6 @@
         ""
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "Dekomponer kraften F i x- og y-retning",
@@ -2407,7 +2472,8 @@
               160,
               99
             ],
-            "linked": false
+            "linked": false,
+            "id": "text-1"
           }
         ],
         "segments": [],
@@ -2428,11 +2494,33 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": true,
+            "id": "rect-1"
           }
         ],
         "points": [],
-        "arrows": []
+        "arrows": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -2440,7 +2528,7 @@
           "role": "component",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_right"
           },
           "dir": [
@@ -2471,7 +2559,7 @@
           "role": "component",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_right"
           },
           "dir": [
@@ -2505,7 +2593,7 @@
           "role": "force",
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_right"
           },
           "anchor": [
@@ -2592,23 +2680,6 @@
         "R - Friksjonen fra underlaget. "
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "En kasse trekkes mot venstre.",
@@ -2623,7 +2694,8 @@
             "_renderedPos": [
               160,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Tegn normalkraften og friksjonskraften på kassa.",
@@ -2639,7 +2711,8 @@
               160,
               99
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-2"
           },
           {
             "txt": "v = konstant",
@@ -2655,7 +2728,8 @@
             "_renderedPos": [
               660,
               180
-            ]
+            ],
+            "id": "text-3"
           }
         ],
         "segments": [
@@ -2671,7 +2745,8 @@
             "snapping": true,
             "color": "#7a7a7a",
             "lineWidth": 8,
-            "body": "solid"
+            "body": "solid",
+            "id": "segment-1"
           }
         ],
         "rects": [
@@ -2692,7 +2767,8 @@
               0
             ],
             "snapping": true,
-            "color": "#000000"
+            "color": "#000000",
+            "id": "rect-1"
           }
         ],
         "points": [],
@@ -2707,16 +2783,38 @@
               160
             ],
             "snapping": false,
-            "lineWidth": 2
+            "lineWidth": 2,
+            "id": "arrow-1"
           }
-        ]
+        ],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
           "name": "N",
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -2748,7 +2846,7 @@
           "name": "R",
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 1
           },
@@ -2795,7 +2893,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "role": "force"
@@ -2813,7 +2911,7 @@
           "role": "force",
           "anchorSpec": {
             "type": "segment",
-            "ref": "segment0",
+            "ref": "segment-1",
             "segment": "segment",
             "u": 1
           },
@@ -2839,7 +2937,8 @@
             },
             {
               "name": "S",
-              "component": "normal"
+              "component": "normal",
+              "planeId": "plane-1"
             }
           ],
           "rhs": [
@@ -2883,23 +2982,6 @@
         "Tegn ΣF - Summen av kreftene på m. "
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            300
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "Tegn summen av kreftene \\sumF",
@@ -2914,7 +2996,8 @@
             "_renderedPos": [
               150,
               90
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "8 N",
@@ -2929,7 +3012,8 @@
             "_renderedPos": [
               500,
               200
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "4 N",
@@ -2944,7 +3028,8 @@
             "_renderedPos": [
               500,
               360
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "8 N",
@@ -2959,7 +3044,8 @@
             "_renderedPos": [
               400,
               300
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "12 N",
@@ -2974,7 +3060,8 @@
             "_renderedPos": [
               640,
               300
-            ]
+            ],
+            "id": "text-5"
           }
         ],
         "rects": [],
@@ -2992,7 +3079,28 @@
             "markerStyle": "filled",
             "color": "#fb0404"
           }
-        ]
+        ],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              300
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -3052,7 +3160,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3075,7 +3183,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3098,7 +3206,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3121,7 +3229,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3201,23 +3309,6 @@
         "Tegn ΣF - Summen av kreftene på m. "
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            300
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "Tegn summen av kreftene \\sumF",
@@ -3232,7 +3323,8 @@
             "_renderedPos": [
               150,
               90
-            ]
+            ],
+            "id": "text-1"
           }
         ],
         "rects": [],
@@ -3250,7 +3342,28 @@
             "markerStyle": "filled",
             "color": "#fb0404"
           }
-        ]
+        ],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              300
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -3310,7 +3423,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3333,7 +3446,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3356,7 +3469,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane",
+            "ref": "plane-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3443,23 +3556,6 @@
         "Tegn S_1 og S_2."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            540
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "Tegn snordragene S_1 og S_2",
@@ -3474,7 +3570,8 @@
             "_renderedPos": [
               200,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Kassen henger i ro",
@@ -3489,7 +3586,8 @@
             "_renderedPos": [
               200,
               99
-            ]
+            ],
+            "id": "text-2"
           }
         ],
         "segments": [
@@ -3504,7 +3602,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -3517,7 +3616,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-2"
           }
         ],
         "rects": [
@@ -3538,7 +3638,8 @@
               7.774172613278579e-06
             ],
             "snapping": true,
-            "color": "#000000"
+            "color": "#000000",
+            "id": "rect-1"
           },
           {
             "width": 920,
@@ -3557,7 +3658,8 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-2"
           },
           {
             "width": 20,
@@ -3576,10 +3678,32 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-3"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              540
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -3587,7 +3711,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_right"
           },
           "dir": [
@@ -3619,7 +3743,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "left",
             "u": 0.4999961128834744
           },
@@ -3666,7 +3790,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "role": "force"
@@ -3743,23 +3867,6 @@
         "Tegn S_1 og S_2."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            540
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "texts": [
           {
             "txt": "Tegn snordragene S_1 og S_2",
@@ -3774,7 +3881,8 @@
             "_renderedPos": [
               400,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Kassen henger i ro.",
@@ -3789,7 +3897,8 @@
             "_renderedPos": [
               400,
               60
-            ]
+            ],
+            "id": "text-2"
           }
         ],
         "segments": [
@@ -3804,7 +3913,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -3817,7 +3927,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-2"
           }
         ],
         "rects": [
@@ -3838,7 +3949,8 @@
               0
             ],
             "snapping": true,
-            "color": "#000000"
+            "color": "#000000",
+            "id": "rect-1"
           },
           {
             "width": 920,
@@ -3857,10 +3969,32 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-2"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              540
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -3868,7 +4002,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_center"
           },
           "dir": [
@@ -3900,7 +4034,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "top_center"
           },
           "dir": [
@@ -3946,7 +4080,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "role": "force"
@@ -4025,22 +4159,6 @@
         "Tegn kreftene som virker på bilen."
       ],
       "scene": {
-        "plane": {
-          "n_vec": [
-            -0.4472135954999579,
-            -0.8944271909999159
-          ],
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "t_vec": [
-            0.8944271909999159,
-            -0.4472135954999579
-          ]
-        },
         "rects": [
           {
             "width": 178.88543819998318,
@@ -4057,7 +4175,8 @@
             "t_vec": [
               0.8944271909999159,
               -0.4472135954999579
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "arrows": [
@@ -4070,7 +4189,8 @@
               383.72446517001094,
               216.89164944001342
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -4087,7 +4207,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "μ = 0",
@@ -4102,7 +4223,8 @@
             "_renderedPos": [
               375,
               102
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "v",
@@ -4121,7 +4243,8 @@
             "_renderedPos": [
               409.6628537090085,
               179.325707418017
-            ]
+            ],
+            "id": "text-3"
           },
           {
             "txt": "A",
@@ -4136,7 +4259,8 @@
             "_renderedPos": [
               438.2845238210058,
               366.26099033699944
-            ]
+            ],
+            "id": "text-4"
           }
         ],
         "points": [
@@ -4150,7 +4274,27 @@
             "visible": false,
             "valid": true
           }
-        ]
+        ],
+        "planes": [
+          {
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -4168,7 +4312,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -4207,7 +4351,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -4234,14 +4378,16 @@
       ],
       "initialForces": [],
       "sumF": {
-        "n": 0
+        "n": 0,
+        "planeId": "plane-1"
       },
       "relations": [
         {
           "lhs": [
             {
               "name": "G",
-              "component": "normal"
+              "component": "normal",
+              "planeId": "plane-1"
             }
           ],
           "rhs": [
@@ -4289,27 +4435,6 @@
         "Tegn summen av kreftene ΣF - (sumF) med angrepspunkt i senter av ballen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            640,
-            40
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            -0.8944271909999159,
-            -0.4472135954999579
-          ],
-          "t_vec": [
-            0.4472135954999579,
-            -0.8944271909999159
-          ],
-          "dirPoint": [
-            560,
-            0
-          ]
-        },
         "ellipses": [
           {
             "width": 89.44271909999159,
@@ -4326,7 +4451,8 @@
               0.8944271909999159,
               0.4472135954999579
             ],
-            "snapping": true
+            "snapping": true,
+            "id": "ellipse-1"
           },
           {
             "width": 240,
@@ -4345,7 +4471,8 @@
             ],
             "snapping": true,
             "body": "dashed",
-            "color": "#6b6b6b"
+            "color": "#6b6b6b",
+            "id": "ellipse-2"
           }
         ],
         "texts": [
@@ -4362,7 +4489,8 @@
             "_renderedPos": [
               300,
               100
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Tegn summen av kreftene \\sumF (sumF)",
@@ -4377,7 +4505,8 @@
             "_renderedPos": [
               300,
               120
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "|v| = konstant",
@@ -4393,7 +4522,8 @@
             "_renderedPos": [
               300,
               140
-            ]
+            ],
+            "id": "text-3"
           }
         ],
         "arrows": [],
@@ -4409,7 +4539,8 @@
             ],
             "snapping": false,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -4422,7 +4553,8 @@
             ],
             "snapping": false,
             "body": "dashed",
-            "color": "#6e6e6e"
+            "color": "#6e6e6e",
+            "id": "segment-2"
           }
         ],
         "rects": [
@@ -4443,17 +4575,43 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-1"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              640,
+              40
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              -0.8944271909999159,
+              -0.4472135954999579
+            ],
+            "t_vec": [
+              0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "dirPoint": [
+              560,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
           "name": "ΣF",
           "anchor": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "dir": [
@@ -4503,7 +4661,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -4525,7 +4683,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "top_center"
           },
           "role": "force"
@@ -4582,22 +4740,6 @@
         "Tegn kreftene som virker på klossen."
       ],
       "scene": {
-        "plane": {
-          "n_vec": [
-            -0.4472135954999579,
-            -0.8944271909999159
-          ],
-          "through": [
-            500,
-            360
-          ],
-          "draw": true,
-          "snapping": false,
-          "t_vec": [
-            0.8944271909999159,
-            -0.4472135954999579
-          ]
-        },
         "rects": [
           {
             "width": 178.88543819998318,
@@ -4614,7 +4756,8 @@
             "t_vec": [
               0.8944271909999159,
               -0.4472135954999579
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "arrows": [
@@ -4627,7 +4770,8 @@
               383.72446517001094,
               216.89164944001342
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -4644,7 +4788,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "v = konstant",
@@ -4663,7 +4808,8 @@
             "_renderedPos": [
               409.6628537090085,
               179.325707418017
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "A",
@@ -4678,10 +4824,31 @@
             "_renderedPos": [
               438.2845238210058,
               366.26099033699944
-            ]
+            ],
+            "id": "text-3"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "n_vec": [
+              -0.4472135954999579,
+              -0.8944271909999159
+            ],
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "t_vec": [
+              0.8944271909999159,
+              -0.4472135954999579
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -4699,7 +4866,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -4738,7 +4905,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -4776,7 +4943,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 1
           },
@@ -4807,7 +4974,8 @@
           "lhs": [
             {
               "name": "G",
-              "component": "normal"
+              "component": "normal",
+              "planeId": "plane-1"
             }
           ],
           "rhs": [
@@ -4821,7 +4989,8 @@
           "lhs": [
             {
               "name": "G",
-              "component": "tangent"
+              "component": "tangent",
+              "planeId": "plane-1"
             }
           ],
           "rhs": [
@@ -4834,7 +5003,8 @@
       ],
       "sumF": {
         "n": 0,
-        "t": 0
+        "t": 0,
+        "planeId": "plane-1"
       },
       "taskTitle": "Kloss på skråplan",
       "taskSubTitle": "Dekomponering",
@@ -4870,23 +5040,6 @@
         "Tegn kreftene som virker på bilen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            480
-          ],
-          "draw": true,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "rects": [
           {
             "width": 160,
@@ -4904,7 +5057,8 @@
             "t_vec": [
               1,
               0
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "segments": [
@@ -4917,7 +5071,8 @@
               820,
               482
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-1"
           }
         ],
         "arrows": [
@@ -4931,7 +5086,8 @@
               540
             ],
             "body": "dashed",
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -4948,7 +5104,8 @@
             "_renderedPos": [
               375,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "|v| = konstant",
@@ -4963,7 +5120,8 @@
             "_renderedPos": [
               375,
               102
-            ]
+            ],
+            "id": "text-2"
           },
           {
             "txt": "Til sentrum av sirkelbevegelsen",
@@ -4978,10 +5136,32 @@
             "_renderedPos": [
               500,
               550
-            ]
+            ],
+            "id": "text-3"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              480
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -4999,7 +5179,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -5038,7 +5218,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -5076,7 +5256,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0
           },
@@ -5110,13 +5290,15 @@
           "lhs": [
             {
               "name": "G",
-              "component": "normal"
+              "component": "normal",
+              "planeId": "plane-1"
             }
           ],
           "rhs": [
             {
               "name": "N",
-              "component": "normal"
+              "component": "normal",
+              "planeId": "plane-1"
             }
           ]
         }
@@ -5155,27 +5337,6 @@
         "Tegn kreftene som virker på bilen."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            520,
-            480
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            -0.3162277660168379,
-            -0.9486832980505138
-          ],
-          "t_vec": [
-            0.9486832980505138,
-            -0.3162277660168379
-          ],
-          "dirPoint": [
-            496.20001220703125,
-            428
-          ]
-        },
         "rects": [
           {
             "width": 252.98221281347037,
@@ -5193,7 +5354,8 @@
             "t_vec": [
               0.9486832980505138,
               -0.3162277660168379
-            ]
+            ],
+            "id": "rect-1"
           }
         ],
         "segments": [
@@ -5206,7 +5368,8 @@
               880,
               360
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -5217,7 +5380,8 @@
               520,
               480
             ],
-            "snapping": false
+            "snapping": false,
+            "id": "segment-2"
           }
         ],
         "arrows": [
@@ -5231,7 +5395,8 @@
               540
             ],
             "body": "dashed",
-            "snapping": false
+            "snapping": false,
+            "id": "arrow-1"
           }
         ],
         "texts": [
@@ -5248,7 +5413,8 @@
             "_renderedPos": [
               280,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "|v| = konstant",
@@ -5264,7 +5430,8 @@
               280,
               99
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-2"
           },
           {
             "txt": "Friksjon: \\mu = 0",
@@ -5280,7 +5447,8 @@
               280,
               118
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-3"
           },
           {
             "txt": "Til sentrum av sirkelbevegelsen",
@@ -5296,10 +5464,36 @@
               500,
               550
             ],
-            "linked": false
+            "linked": false,
+            "id": "text-4"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              520,
+              480
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              -0.3162277660168379,
+              -0.9486832980505138
+            ],
+            "t_vec": [
+              0.9486832980505138,
+              -0.3162277660168379
+            ],
+            "dirPoint": [
+              496.20001220703125,
+              428
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -5317,7 +5511,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "rect0",
+            "ref": "rect-1",
             "point": "center"
           },
           "drawn": {
@@ -5356,7 +5550,7 @@
           ],
           "anchor": {
             "type": "segment",
-            "ref": "rect0",
+            "ref": "rect-1",
             "segment": "bottom",
             "u": 0.5
           },
@@ -5438,27 +5632,6 @@
         "Tegn S_1 og S_2."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            500,
-            540
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ],
-          "dirPoint": [
-            500,
-            480
-          ]
-        },
         "ellipses": [
           {
             "width": 120,
@@ -5475,7 +5648,8 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": true,
+            "id": "ellipse-1"
           }
         ],
         "texts": [
@@ -5492,7 +5666,8 @@
             "_renderedPos": [
               200,
               80
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Ballen henger i ro",
@@ -5507,7 +5682,8 @@
             "_renderedPos": [
               200,
               99
-            ]
+            ],
+            "id": "text-2"
           }
         ],
         "arrows": [],
@@ -5523,7 +5699,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -5536,7 +5713,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-2"
           }
         ],
         "rects": [
@@ -5557,7 +5735,8 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-1"
           },
           {
             "width": 20,
@@ -5576,10 +5755,36 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-2"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              540
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "dirPoint": [
+              500,
+              480
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -5587,7 +5792,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment0",
+            "ref": "segment-1",
             "point": "start"
           },
           "dir": [
@@ -5619,7 +5824,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "left_middle"
           },
           "dir": [
@@ -5665,7 +5870,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -5728,23 +5933,6 @@
         "Tegn S_1 og S_2."
       ],
       "scene": {
-        "plane": {
-          "angleDeg": 0,
-          "through": [
-            400,
-            540
-          ],
-          "draw": false,
-          "snapping": false,
-          "n_vec": [
-            0,
-            -1
-          ],
-          "t_vec": [
-            1,
-            0
-          ]
-        },
         "ellipses": [
           {
             "width": 120,
@@ -5761,7 +5949,8 @@
               1,
               0
             ],
-            "snapping": true
+            "snapping": true,
+            "id": "ellipse-1"
           }
         ],
         "texts": [
@@ -5778,7 +5967,8 @@
             "_renderedPos": [
               330,
               90
-            ]
+            ],
+            "id": "text-1"
           },
           {
             "txt": "Ballen henger i ro",
@@ -5794,7 +5984,8 @@
               330,
               109
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-2"
           },
           {
             "txt": "Det lønner seg å skru av snapping på denne oppgaven",
@@ -5810,7 +6001,8 @@
               330,
               128
             ],
-            "linked": true
+            "linked": true,
+            "id": "text-3"
           },
           {
             "txt": "Og det kan være lurt å regne litt",
@@ -5825,7 +6017,8 @@
             "_renderedPos": [
               330,
               147
-            ]
+            ],
+            "id": "text-4"
           },
           {
             "txt": "Snor 1",
@@ -5840,7 +6033,8 @@
             "_renderedPos": [
               135.1999969482422,
               89
-            ]
+            ],
+            "id": "text-5"
           },
           {
             "txt": "Snor 2",
@@ -5855,7 +6049,8 @@
             "_renderedPos": [
               823.1999969482422,
               89
-            ]
+            ],
+            "id": "text-6"
           },
           {
             "txt": "45°",
@@ -5870,7 +6065,8 @@
             "_renderedPos": [
               183.1999969482422,
               59
-            ]
+            ],
+            "id": "text-7"
           },
           {
             "txt": "30°",
@@ -5885,7 +6081,8 @@
             "_renderedPos": [
               793.1999969482422,
               56
-            ]
+            ],
+            "id": "text-8"
           }
         ],
         "arrows": [],
@@ -5901,7 +6098,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-1"
           },
           {
             "a": [
@@ -5914,7 +6112,8 @@
             ],
             "snapping": true,
             "color": "#aaa7a7",
-            "lineWidth": 3
+            "lineWidth": 3,
+            "id": "segment-2"
           }
         ],
         "rects": [
@@ -5935,10 +6134,32 @@
               0
             ],
             "snapping": false,
-            "color": "#acadaf"
+            "color": "#acadaf",
+            "id": "rect-1"
           }
         ],
-        "points": []
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              400,
+              540
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "plane-1"
+          }
+        ],
+        "activePlaneId": "plane-1"
       },
       "expectedForces": [
         {
@@ -5946,7 +6167,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment0",
+            "ref": "segment-1",
             "point": "start"
           },
           "dir": [
@@ -5978,7 +6199,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment1",
+            "ref": "segment-2",
             "point": "start"
           },
           "dir": [
@@ -6024,7 +6245,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse0",
+            "ref": "ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -6084,6 +6305,7 @@
     "name": "Default",
     "exported": "2026-10-28T14:04:30.734Z",
     "count": 21,
-    "appVersion": "2026-10-28 11:34"
+    "appVersion": "2026-10-28 11:34",
+    "tasksetVersion": 2
   }
 }

@@ -137,8 +137,8 @@
     return points;
   }
   function lookupCurves(task,lookup){
-    (task?.scene?.ellipses||[]).forEach((ellipse,i)=>{
-      if(lookup[`ellipse${i}`])lookup[`ellipse${i}`].curves={outline:modelGeometry.sampleEllipse(ellipse)};
+    (task?.scene?.ellipses||[]).forEach(ellipse=>{
+      if(lookup[ellipse.id])lookup[ellipse.id].curves={outline:modelGeometry.sampleEllipse(ellipse)};
     });
     return lookup;
   }
@@ -360,16 +360,13 @@
     if(window.sceneModel) window.sceneModel.update(task);
     task.scene = task.scene || {};
     updateTextPositions(task);
-    const planeDef = task.scene.plane;
-    if(planeDef){
+    (task.scene.planes||[]).forEach(planeDef=>{
       if(planeDef.draw === true){
-        // Draw plane normally (fully opaque)
         drawPlane(ctx, planeDef, false);
       } else if(editorMode){
-        // In editor mode, draw disabled plane in dim color (50% opacity)
         drawPlane(ctx, planeDef, true);
       }
-    }
+    });
     if(task.scene.rects){ task.scene.rects.forEach(r=>drawRect(ctx,r)); }
     if(task.scene.segments){ task.scene.segments.forEach(s=>drawSegment(ctx,s)); }
     if(task.scene.ellipses){ task.scene.ellipses.forEach(e=>drawEllipse(ctx,e)); }
@@ -390,6 +387,80 @@
   const validPos = p => modelGeometry?.finitePoint(p) === true;
   const cp = p => p && [p[0],p[1]];
   const mod1 = x => ((x%1)+1)%1;
+  const sceneCollections = {
+    plane:'planes',rect:'rects',segment:'segments',ellipse:'ellipses',
+    arrow:'arrows',text:'texts',point:'points',angle:'angles'
+  };
+  const sceneTypeLabels = {
+    plane:'Plan',rect:'Rektangel',segment:'Segment',ellipse:'Ellipse',
+    arrow:'Pil',text:'Tekst',point:'Punkt',angle:'Vinkel'
+  };
+  const anchorPartLabels={
+    center:'sentrum',top_center:'topp',bottom_center:'bunn',
+    left_middle:'venstre',right_middle:'høyre',top_left:'øvre venstre',
+    top_right:'øvre høyre',bottom_left:'nedre venstre',bottom_right:'nedre høyre',
+    start:'start',end:'slutt',a:'ende A',b:'ende B',pos:'tekstposisjon',
+    vertex:'toppunkt',plane:'plan',segment:'linje'
+  };
+  function sceneEntries(task){
+    const scene=task?.scene||{};
+    const entries=[];
+    Object.entries(sceneCollections).forEach(([type,collection])=>{
+      (scene[collection]||[]).forEach((obj,index)=>{
+        if(obj && typeof obj==='object') entries.push({type,collection,index,obj});
+      });
+    });
+    return entries;
+  }
+  function ensureSceneIds(task){
+    if(!task?.scene) return;
+    const used=new Set();
+    sceneEntries(task).forEach(entry=>{
+      const id=entry.obj.id;
+      if(id!==undefined){
+        if(typeof id!=='string'||!id.trim()||used.has(id)){
+          throw new TypeError(`Ugyldig eller duplisert scene-ID i ${entry.collection}[${entry.index}].`);
+        }
+        used.add(id);
+      }
+    });
+    const counters=new Map();
+    sceneEntries(task).forEach(entry=>{
+      if(entry.obj.id) return;
+      let n=(counters.get(entry.type)||0)+1,id;
+      do{id=`${entry.type}-${n++}`;}while(used.has(id));
+      counters.set(entry.type,n-1);
+      entry.obj.id=id;
+      used.add(id);
+    });
+    const scene=task.scene;
+    if(window.selectedSceneElement?.type==='plane'){
+      const selected=scene.planes?.[window.selectedSceneElement.index];
+      if(selected) scene.activePlaneId=selected.id;
+    }
+    const existing=Object.getOwnPropertyDescriptor(scene,'plane');
+    if(existing?.get?.__activePlaneAlias) return;
+    const getActivePlane=()=>Array.isArray(scene.planes)
+      ? scene.planes.find(plane=>plane?.id===scene.activePlaneId)||null
+      : null;
+    Object.defineProperty(getActivePlane,'__activePlaneAlias',{value:true});
+    Object.defineProperty(scene,'plane',{configurable:true,enumerable:false,get:getActivePlane});
+  }
+  function sceneEntryById(task,id){
+    if(typeof id!=='string') return null;
+    return sceneEntries(task).find(entry=>entry.obj.id===id)||null;
+  }
+  function sceneRef(task,type,index,obj){
+    ensureSceneIds(task);
+    return obj?.id || task?.scene?.[sceneCollections[type]]?.[index]?.id || null;
+  }
+  function elementLabel(task,id,part){
+    const entry=sceneEntryById(task,id);
+    const partLabel=anchorPartLabels[part]||part;
+    if(!entry) return [id,partLabel].filter(Boolean).join(' · ');
+    const noun=sceneTypeLabels[entry.type]||entry.type;
+    return `${noun} ${entry.index+1}${partLabel ? ` · ${partLabel}` : ''}`;
+  }
 
   function lineRecord(key, ref, segment, a, b, label){
     return {key,ref,type:'segment',curve:false,value:{a:cp(a),b:cp(b)},source:{ref,segment},label:label||key};
@@ -399,30 +470,35 @@
   }
   function geometrySources(task){
     const scene = task?.scene || {};
+    ensureSceneIds(task);
     const out = [];
-    if(scene.plane?.through){
-      const p=scene.plane.through, t=modelGeometry.normalizeVector(scene.plane.t_vec || [Math.cos((scene.plane.angleDeg||0)*Math.PI/180),-Math.sin((scene.plane.angleDeg||0)*Math.PI/180)]);
+    (scene.planes||[]).forEach(plane=>{
+      if(!plane?.through) return;
+      const id=plane.id;
+      const p=plane.through, t=modelGeometry.normalizeVector(plane.t_vec || [Math.cos((plane.angleDeg||0)*Math.PI/180),-Math.sin((plane.angleDeg||0)*Math.PI/180)]);
       const span=1400;
-      out.push(lineRecord('plane','plane','plane',[p[0]-t[0]*span/2,p[1]-t[1]*span/2],[p[0]+t[0]*span/2,p[1]+t[1]*span/2],'plane plane'));
-    }
+      out.push(lineRecord(`${id}:plane`,id,'plane',[p[0]-t[0]*span/2,p[1]-t[1]*span/2],[p[0]+t[0]*span/2,p[1]+t[1]*span/2],elementLabel(task,id,'plan')));
+    });
     (scene.rects||[]).forEach((r,i)=>{
       if(!r) return;
+      const id=sceneRef(task,'rect',i,r);
       const p=rectPoints(r);
-      [['bottom',p.bottomLeft,p.bottomRight],['top',p.topLeft,p.topRight],['left',p.bottomLeft,p.topLeft],['right',p.bottomRight,p.topRight]].forEach(([side,a,b])=>out.push(lineRecord(`rect${i}:${side}`,`rect${i}`,side,a,b,`rect${i} ${side}`)));
+      [['bottom',p.bottomLeft,p.bottomRight],['top',p.topLeft,p.topRight],['left',p.bottomLeft,p.topLeft],['right',p.bottomRight,p.topRight]].forEach(([side,a,b])=>out.push(lineRecord(`${id}:${side}`,id,side,a,b,elementLabel(task,id,side))));
     });
-    (scene.segments||[]).forEach((s,i)=>{ if(s?.a&&s?.b) out.push(lineRecord(`segment${i}:segment`,`segment${i}`,'segment',s.a,s.b,`segment${i} segment`)); });
+    (scene.segments||[]).forEach((s,i)=>{ if(s?.a&&s?.b){ const id=sceneRef(task,'segment',i,s);out.push(lineRecord(`${id}:segment`,id,'segment',s.a,s.b,elementLabel(task,id,'segment'))); } });
     (scene.arrows||[]).forEach((s,i)=>{
       if(!s?.a||!s?.b)return;
+      const id=sceneRef(task,'arrow',i,s);
       const dx=s.b[0]-s.a[0],dy=s.b[1]-s.a[1],len=Math.hypot(dx,dy);
       if(len<TOL)return;
       const angle=Math.atan2(dy,dx),head=12,bodyEnd=[s.a[0]+dx*(1-head/len),s.a[1]+dy*(1-head/len)];
       const left=[s.b[0]-12*Math.cos(angle-Math.PI/6),s.b[1]-12*Math.sin(angle-Math.PI/6)];
       const right=[s.b[0]-12*Math.cos(angle+Math.PI/6),s.b[1]-12*Math.sin(angle+Math.PI/6)];
-      out.push(lineRecord(`arrow${i}:arrow`,`arrow${i}`,'arrow',s.a,bodyEnd,`arrow${i} arrow`));
-      out.push(lineRecord(`arrow${i}:head_left`,`arrow${i}`,'head_left',s.b,left,`arrow${i} head_left`));
-      out.push(lineRecord(`arrow${i}:head_right`,`arrow${i}`,'head_right',s.b,right,`arrow${i} head_right`));
+      out.push(lineRecord(`${id}:arrow`,id,'arrow',s.a,bodyEnd,elementLabel(task,id,'pil')));
+      out.push(lineRecord(`${id}:head_left`,id,'head_left',s.b,left,elementLabel(task,id,'pilspiss')));
+      out.push(lineRecord(`${id}:head_right`,id,'head_right',s.b,right,elementLabel(task,id,'pilspiss')));
     });
-    (scene.ellipses||[]).forEach((e,i)=>{ if(modelGeometry.ellipseFrame(e)) out.push(curveRecord(`ellipse${i}`,`ellipse${i}`,e,`ellipse${i}`)); });
+    (scene.ellipses||[]).forEach((e,i)=>{ if(modelGeometry.ellipseFrame(e)){const id=sceneRef(task,'ellipse',i,e);out.push(curveRecord(id,id,e,elementLabel(task,id,'ellipse')));} });
     return out;
   }
   function resolveSource(task, source){
@@ -578,7 +654,7 @@
 
   function resolvePoint(task, id){
     const points=task?.scene?.points||[];
-    return points.find(p=>p && (p.id===id || `point${points.indexOf(p)}`===id)) || null;
+    return points.find(p=>p?.id===id) || null;
   }
   function resolveAnchor(task,spec){
     if(!spec || typeof spec!=='object') return {pos:null,valid:false,reason:'Anker mangler.'};
@@ -589,6 +665,9 @@
       if(p){
         const status=pointStatus(task,p);
         return {pos:cp(p.pos),valid:status.valid,reason:status.reason,point:p};
+      }
+      if(!sceneEntryById(task,anchor.ref)){
+        return {pos:cp(spec.pos||anchor.pos),valid:false,reason:'Punktankeret finnes ikke.'};
       }
       const lookup=buildAllScenePointsBase(task);
       const entry=lookup[anchor.ref];
@@ -612,6 +691,7 @@
   }
   function pointStatus(task,point){
     if(!point) return {valid:false,reason:'Punktet finnes ikke.'};
+    if(validPos(point.pos)) return {valid:true,reason:null};
     if(point.type!=='intersection') return {valid:validPos(point.pos),reason:validPos(point.pos)?null:'Fritt punkt har ugyldige koordinater.'};
     if(point._deletedSource) return {valid:false,reason:'En kildegeometri er slettet.'};
     if(!Array.isArray(point.sources)||point.sources.length!==2) return {valid:false,reason:'Skjæringspunktet krever to kildegeometrier.'};
@@ -673,6 +753,7 @@
     if(!task || !task.scene) return;
     migrateCirclesToEllipses(task);
     const scene=task.scene;
+    ensureSceneIds(task);
     if(!Array.isArray(scene.points)) scene.points=[];
     const sources=geometrySources(task);
     const signature=JSON.stringify(sources.map(s=>[s.key,s.value]));
@@ -690,13 +771,27 @@
         state.pointStatus.set(point.id,{valid:point.valid,reason:point.valid?null:'Fritt punkt har ugyldige koordinater.'});
         return;
       }
-      let valid=false, reason='Valgt skjæring finnes ikke lenger.';
+      const keepLastPosition=()=>{
+        point.type='free';
+        delete point.sources;
+        delete point.branch;
+        delete point.lastValidPos;
+        delete point._deletedSource;
+        point.valid=validPos(point.pos);
+        point.reason=null;
+        state.pointStatus.set(point.id,{valid:point.valid,reason:point.valid?null:'Fritt punkt har ugyldige koordinater.'});
+      };
       if(point._deletedSource || !Array.isArray(point.sources)||point.sources.length!==2||point.sources.some(source=>source?.deleted)){
-        reason='En kildegeometri er slettet.';
-      }else{
-        const [sa,sb]=point.sources,ra=resolveSource(task,sa),rb=resolveSource(task,sb);
-        if(!ra||!rb){reason='En kildegeometri er slettet.';point._deletedSource=true;}
-        else{
+        keepLastPosition();
+        return;
+      }
+      const [sa,sb]=point.sources,ra=resolveSource(task,sa),rb=resolveSource(task,sb);
+      if(!ra||!rb){
+        keepLastPosition();
+        return;
+      }
+      let valid=false, reason='Valgt skjæring finnes ikke lenger.';
+      {
           const cacheKey=`${ra.key}|${rb.key}`;
           let result=state.cache.get(cacheKey);
           if(!result){result=intersectRecords(ra,rb);state.cache.set(cacheKey,result);}
@@ -733,13 +828,12 @@
             }else{
               reason='Velg en skjæringsgren eksplisitt.';
             }
-          }
         }
       }
-      point.valid=valid;
-      point.reason=reason;
+      point.valid=valid||validPos(point.pos);
+      point.reason=valid ? null : (point.valid ? null : reason);
       if(validPos(point.lastValidPos)) point.pos=cp(valid?point.pos:point.lastValidPos);
-      state.pointStatus.set(point.id,{valid,reason});
+      state.pointStatus.set(point.id,{valid:point.valid,reason:point.reason});
     });
     // Resolve angle anchors after dynamic points have been updated.
     (scene.angles||[]).forEach(a=>angleGeometry(a,task));
@@ -747,13 +841,18 @@
   function candidates(task,includeNonSnapping=false){
     update(task);
     const out=[],lookup=buildAllScenePointsBase(task);
-    Object.keys(lookup).forEach(ref=>{
-      if(ref.startsWith('angle')) return;
+    sceneEntries(task).forEach(({type,collection,obj})=>{
+      if(type==='angle') return;
+      const ref=obj.id;
+      if(type==='point'){
+        if((includeNonSnapping||obj.snapping!==false)&&validPos(obj.pos)){
+          out.push({key:`${ref}.center`,kind:'point',label:elementLabel(task,ref,'center'),ref,pos:cp(obj.pos),anchor:{type:'point',ref,point:'center'}});
+        }
+        return;
+      }
       const entry=lookup[ref];
-      Object.entries(entry.points||{}).forEach(([point,pos])=>{
-        const stable=resolvePoint(task,ref);
-        const anchor=stable?{type:'point',ref:stable.id,point:'center'}:{type:'point',ref,point};
-        out.push({key:`${ref}.${point}`,kind:'point',label:`${ref} ${point}`,ref,pos:cp(pos),anchor});
+      Object.entries(entry?.points||{}).forEach(([point,pos])=>{
+        out.push({key:`${ref}.${point}`,kind:'point',label:elementLabel(task,ref,point),ref,pos:cp(pos),anchor:{type:'point',ref,point}});
       });
     });
     geometrySources(task).forEach(g=>{
@@ -761,14 +860,13 @@
       c.anchor=g.curve?g.source:{type:'segment',ref:g.ref,segment:g.source.segment};
       out.push(c);
     });
-    (task?.scene?.points||[]).forEach(p=>{
-      if(p?.id&&(includeNonSnapping||p.snapping!==false)&&validPos(p.pos)) out.push({key:`point:${p.id}`,kind:'point',label:`${p.id} center`,ref:p.id,pos:cp(p.pos),anchor:{type:'point',ref:p.id,point:'center'}});
-    });
     return out;
   }
   function anchorLabel(candidate){
     const anchor=candidate.anchor || candidate.source || candidate;
-    return [anchor.ref,anchor.point || (typeof anchor.segment==='string' ? anchor.segment : '')].filter(Boolean).join(' ');
+    const part=anchor.point || (typeof anchor.segment==='string' ? anchor.segment : '');
+    if(candidate.label) return candidate.label;
+    return [part].filter(Boolean).join(' ');
   }
   function compareAnchors(a,b){
     const aa=a.anchor || a.source || a,bb=b.anchor || b.source || b;
@@ -832,6 +930,10 @@
          circle.radius<=0 || !Number.isFinite(circle.radius*2)){
         throw new TypeError(`Kan ikke migrere ugyldig sirkel i scene.circles[${index}].`);
       }
+      if(circle.id!==undefined &&
+         (typeof circle.id!=='string' || !circle.id.trim())){
+        throw new TypeError(`Kan ikke migrere ugyldig scene-ID i scene.circles[${index}].`);
+      }
       const ellipse={
         ...circle,
         center:cp(circle.center),
@@ -847,10 +949,11 @@
       delete ellipse.endAngleDeg;
       return ellipse;
     });
-    for(const ellipse of converted){
-      remapReferences(task,'circle',0,'convert','ellipse',scene.ellipses.length);
-      scene.circles.shift();
+    for(let index=0;index<converted.length;index++){
+      const ellipse=converted[index];
+      remapReferences(task,'circle',index,'convert','ellipse',scene.ellipses.length);
       scene.ellipses.push(ellipse);
+      ensureSceneIds(task);
     }
     delete scene.circles;
     return true;
@@ -907,15 +1010,24 @@
   }
   function remapReferences(task,type,index,action,targetType,targetIndex){
     const scene=task?.scene;if(!scene)return;
-    const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
-    const deletedPoint=prefix==='point'&&action==='delete' ? scene.points?.[index] : null;
+    ensureSceneIds(task);
+    const prefix={plane:'plane',planes:'plane',rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point',text:'text',texts:'text',angle:'angle',angles:'angle'}[type]||type;
+    const collection=sceneCollections[prefix];
+    const referencedElement=action==='convert'
+      ? prefix==='circle' ? scene.circles?.[index] : collection ? scene[collection]?.[index] : null
+      : action==='delete'&&collection ? scene[collection]?.[index] : null;
+    const deletedElement=action==='delete' ? referencedElement : null;
+    const deletedId=deletedElement?.id;
+    const convertedId=action==='convert' ? referencedElement?.id : null;
+    const convertedType={plane:'plane',rect:'rect',segment:'segment',arrow:'arrow',
+      circle:'circle',ellipse:'ellipse',point:'point',text:'text',angle:'angle'}
+      [targetType] || targetType;
+    const referenceDeleted=ref=>!!deletedId&&ref===deletedId;
     const remapSpec=(spec,angle,part)=>{
       if(!spec)return;
       const a=spec.anchor||spec;
       if(a.type!=='point'&&a.type!=='segment')return;
-      const pointDeleted=deletedPoint && a.type==='point' && (a.ref===deletedPoint.id||a.ref===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(a.ref,type,index,
-        action==='convert' ? `convert:${targetType}` : action,targetIndex);
+      const mapped=referenceDeleted(a.ref)?null:a.ref;
       if(mapped===null){
         const cached=angle&&angleRuntime.get(angle)?.geometry;
         const cachedPos=cached?.[part];
@@ -939,9 +1051,7 @@
     const remapForceSpec=(spec,field)=>{
       const anchor=spec?.[field];
       if(!anchor||typeof anchor!=='object'||Array.isArray(anchor)||(anchor.type!=='point'&&anchor.type!=='segment'))return;
-      const pointDeleted=deletedPoint&&anchor.type==='point'&&(anchor.ref===deletedPoint.id||anchor.ref===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(anchor.ref,type,index,
-        action==='convert' ? `convert:${targetType}` : action,targetIndex);
+      const mapped=referenceDeleted(anchor.ref)?null:anchor.ref;
       if(mapped===null){
         const storedPos=field==='anchorSpec' ? spec.anchor :
           (field==='anchor' ? spec.drawn?.anchor : null);
@@ -962,9 +1072,7 @@
     };
     const remapLegacyForceSpec=spec=>{
       if(typeof spec?.anchorFrom!=='string')return;
-      const pointDeleted=deletedPoint&&(spec.anchorFrom===deletedPoint.id||spec.anchorFrom===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(spec.anchorFrom,type,index,
-        action==='convert' ? `convert:${targetType}` : action,targetIndex);
+      const mapped=referenceDeleted(spec.anchorFrom)?null:spec.anchorFrom;
       if(mapped===null){
         const resolved=resolveAnchor(task,{type:'point',ref:spec.anchorFrom,point:spec.point||'center'});
         const pos=validPos(resolved.pos) ? resolved.pos : spec.anchor;
@@ -975,28 +1083,13 @@
         delete spec.anchorFrom;
       }else if(mapped!==spec.anchorFrom) spec.anchorFrom=mapped;
     };
-    const sceneTypeAliases={
-      rects:'rect',rectangle:'rect',segments:'segment',arrows:'arrow',
-      circles:'circle',ellipses:'ellipse',points:'point',texts:'text'
-    };
     (scene.groups||[]).forEach(group=>{
       if(!Array.isArray(group?.members)) return;
       for(let memberIndex=group.members.length-1;memberIndex>=0;memberIndex--){
         const member=group.members[memberIndex];
         if(!member || typeof member!=='object') continue;
-        const memberType=sceneTypeAliases[member?.type] || member?.type;
-        if(memberType!==prefix || memberType==='plane' || !Number.isInteger(member.index)) continue;
-        const mapped=remapReference(`${memberType}${member.index}`,type,index,
-          action==='convert' ? `convert:${targetType}` : action,targetIndex);
-        if(mapped===null){
-          group.members.splice(memberIndex,1);
-          continue;
-        }
-        const reference=/^([A-Za-z]+)(\d+)$/.exec(mapped);
-        if(reference){
-          member.type=sceneTypeAliases[reference[1]] || reference[1];
-          member.index=Number(reference[2]);
-        }
+        if(referenceDeleted(member.id)) group.members.splice(memberIndex,1);
+        else if(convertedId && member.id===convertedId) member.type=convertedType;
       }
     });
     ['expectedForces','initialForces','forces'].forEach(name=>{
@@ -1009,9 +1102,7 @@
     (scene.points||[]).forEach(point=>{
       if(point.type==='intersection'&&Array.isArray(point.sources)){
         point.sources=point.sources.map(source=>{
-          const mapped=remapReference(source.ref,type,index,
-            action==='convert' ? `convert:${targetType}` : action,targetIndex);
-          return mapped===null?{...source,deleted:true}:mapped!==source.ref?{...source,ref:mapped}:source;
+          return referenceDeleted(source.ref)?{...source,deleted:true}:source;
         });
         if(point.sources.some(s=>s.deleted)) point._deletedSource=true;
       }
@@ -1130,26 +1221,28 @@
     const lookup = {};
     if(!task) return lookup;
     if(window.sceneModel) window.sceneModel.update(task);
-    // Add plane if defined (use endpoints as 'a' and 'b')
-    if(task.scene && task.scene.plane && task.scene.plane.draw){
-      const plane = task.scene.plane;
+    ensureSceneIds(task);
+    (task.scene?.planes||[]).forEach((plane,i)=>{
+      if(!plane.draw) return;
       const through = plane.through;
       const t_vec = plane.t_vec || [Math.cos((plane.angleDeg||0)*Math.PI/180), -Math.sin((plane.angleDeg||0)*Math.PI/180)];
       const span = 1400;
       const a = [through[0] - t_vec[0]*span/2, through[1] - t_vec[1]*span/2];
       const b = [through[0] + t_vec[0]*span/2, through[1] + t_vec[1]*span/2];
-      lookup['plane'] = {
+      const entry={
         snapping: false,
         points: { a: a, b: b },
         segments: { plane: [a, b] }
       };
-    }
+      lookup[plane.id]=entry;
+      lookup[`plane${i}`]=entry;
+    });
     if(task.scene.rects){
       task.scene.rects.forEach((r,i)=>{
-        const id='rect'+i;
+        const id=r.id;
         const snappingEnabled = (r.snapping !== false);
         const pts = rectPoints(r);
-        lookup[id]={
+        const entry={
           snapping: snappingEnabled,
           points: snappingEnabled ? {
             center:pts.center,
@@ -1169,32 +1262,38 @@
             left:[pts.bottomLeft, pts.topLeft]
           } : {}
         };
+        lookup[id]=entry;
+        lookup[`rect${i}`]=entry;
       });
     }
     // Add ellipses snap points if snapping enabled
     if(task.scene.ellipses){
       task.scene.ellipses.forEach((e,i)=>{
-        const id='ellipse'+i;
+        const id=e.id;
         const snappingEnabled = (e.snapping !== false);
         const points=ellipseAnchors(e);
-        lookup[id]={
+        const entry={
           snapping: snappingEnabled,
           points: snappingEnabled ? points : {},
           segments: {}
         };
+        lookup[id]=entry;
+        lookup[`ellipse${i}`]=entry;
       });
     }
     const allPoints = buildAllScenePointsBase(task);
     for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['texts','text']]){
       (task.scene[collection] || []).forEach((element,index)=>{
-        const entry = allPoints[`${prefix}${index}`];
+        const entry = allPoints[element.id];
         if(entry){
           const enabled = element.snapping !== false;
-          lookup[`${prefix}${index}`] = {
+          const snapEntry = {
             snapping:enabled,
             points:enabled ? entry.points : {},
             segments:enabled ? entry.segments : {}
           };
+          lookup[element.id]=snapEntry;
+          lookup[`${prefix}${index}`]=snapEntry;
         }
       });
     }
@@ -1216,29 +1315,29 @@
     updateTextPositions(task);
     const lookup = {};
     if(!task || !task.scene) return lookup;
-    
+    ensureSceneIds(task);
     const scene = task.scene;
-    
-    // Plane (use endpoints a and b, plus segment) - hoverable regardless of draw state
-    if(scene.plane && scene.plane.through && Array.isArray(scene.plane.through)){
-      const plane = scene.plane;
+    (scene.planes||[]).forEach((plane,i)=>{
+      if(!plane?.through||!Array.isArray(plane.through)) return;
       const through = plane.through;
       const t_vec = plane.t_vec || [Math.cos((plane.angleDeg||0)*Math.PI/180), -Math.sin((plane.angleDeg||0)*Math.PI/180)];
       const span = 1400;
       const a = [through[0] - t_vec[0]*span/2, through[1] - t_vec[1]*span/2];
       const b = [through[0] + t_vec[0]*span/2, through[1] + t_vec[1]*span/2];
-      lookup['plane'] = {
+      const entry={
         points: { a: a, b: b },
         segments: { plane: [a, b] }
       };
-    }
+      lookup[plane.id]=entry;
+      lookup[`plane${i}`]=entry;
+    });
     
     // Rects (same as buildSceneLookup)
     if(Array.isArray(scene.rects)){
       scene.rects.forEach((r, i)=>{
         if(!r) return;
         const pts = rectPoints(r);
-        lookup[`rect${i}`] = {
+        const entry={
           points: {
             center: pts.center, top_center: pts.top_center, bottom_center: pts.bottom_center,
             left_middle: pts.left_middle, right_middle: pts.right_middle,
@@ -1247,6 +1346,8 @@
           },
           segments: { top: [pts.topLeft, pts.topRight], bottom: [pts.bottomLeft, pts.bottomRight], left: [pts.bottomLeft, pts.topLeft], right: [pts.bottomRight, pts.topRight] }
         };
+        lookup[r.id]=entry;
+        lookup[`rect${i}`]=entry;
       });
     }
     
@@ -1254,10 +1355,12 @@
     if(Array.isArray(scene.ellipses)){
       scene.ellipses.forEach((e, i)=>{
         if(!e || !e.center) return;
-        lookup[`ellipse${i}`] = {
+        const entry={
           points: ellipseAnchors(e),
           segments: {}
         };
+        lookup[e.id]=entry;
+        lookup[`ellipse${i}`]=entry;
       });
     }
     
@@ -1265,10 +1368,12 @@
     if(Array.isArray(scene.segments)){
       scene.segments.forEach((s, i)=>{
         if(!s || !s.a || !s.b) return;
-        lookup[`segment${i}`] = {
+        const entry={
           points: { start: [s.a[0], s.a[1]], end: [s.b[0], s.b[1]] },
           segments: { segment: [[s.a[0], s.a[1]], [s.b[0], s.b[1]]] }
         };
+        lookup[s.id]=entry;
+        lookup[`segment${i}`]=entry;
       });
     }
     
@@ -1276,10 +1381,12 @@
     if(Array.isArray(scene.arrows)){
       scene.arrows.forEach((a, i)=>{
         if(!a || !a.a || !a.b) return;
-        lookup[`arrow${i}`] = {
+        const entry={
           points: { start: [a.a[0], a.a[1]], end: [a.b[0], a.b[1]] },
           segments: { arrow: [[a.a[0], a.a[1]], [a.b[0], a.b[1]]] }
         };
+        lookup[a.id]=entry;
+        lookup[`arrow${i}`]=entry;
       });
     }
     
@@ -1287,10 +1394,12 @@
     if(Array.isArray(scene.texts)){
       scene.texts.forEach((txt, i)=>{
         if(!txt?._renderedPos) return;
-        lookup[`text${i}`] = {
+        const entry={
           points: { pos: [txt.pos[0], txt.pos[1]] },
           segments: {}
         };
+        lookup[txt.id]=entry;
+        lookup[`text${i}`]=entry;
       });
     }
     
@@ -1314,7 +1423,9 @@
       const radius=Number.isFinite(angle.radius)&&angle.radius>0?angle.radius:40;
       const marker=rightAngleMarker(g,radius);
       if(marker){
-        lookup[`angle${i}`]={points,segments:{},curves:{arc:marker},valid:g.valid,reason:g.reason};
+        const entry={points,segments:{},curves:{arc:marker},valid:g.valid,reason:g.reason};
+        lookup[angle.id]=entry;
+        lookup[`angle${i}`]=entry;
         return;
       }
       const delta=((g.endAngle-g.startAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
@@ -1328,7 +1439,9 @@
         const next=[g.vertex[0]+radius*Math.cos(t),g.vertex[1]+radius*Math.sin(t)];
         segments.push([prev,next]);prev=next;
       }
-      lookup[`angle${i}`]={points,segments:{},curves:{arc:segments},valid:g.valid,reason:g.reason};
+      const entry={points,segments:{},curves:{arc:segments},valid:g.valid,reason:g.reason};
+      lookup[angle.id]=entry;
+      lookup[`angle${i}`]=entry;
     });
     return lookup;
   }
@@ -1345,18 +1458,16 @@
       if(!frames.some(other=>Math.abs(g.cross(other[0],frame[0]))<1e-8)) frames.push(frame);
     };
     const checklist=window.getActiveSnapChecklist(task);
-    const plane=task.scene.plane;
-    if(window.hasLocalSnapMatches(checklist) && plane){
-      // Geometry matching uses the plane frame independently of visibility and point snapping.
-      const angle=(plane.angleDeg||0)*Math.PI/180;
-      const tangent=plane.t_vec || [Math.cos(angle),-Math.sin(angle)];
-      if(g.finitePoint(tangent)){
-        add(tangent,plane.n_vec||[-tangent[1],tangent[0]]);
-      }
+    if(window.hasLocalSnapMatches(checklist)){
+      (task.scene.planes||[]).forEach(plane=>{
+        const angle=(plane.angleDeg||0)*Math.PI/180;
+        const tangent=plane.t_vec || [Math.cos(angle),-Math.sin(angle)];
+        if(g.finitePoint(tangent)) add(tangent,plane.n_vec||[-tangent[1],tangent[0]]);
+      });
     }
     for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['rects','rect'],['ellipses','ellipse']]){
       (task.scene[collection]||[]).forEach((element,index)=>{
-        const entry=lookup[`${prefix}${index}`];
+        const entry=lookup[element.id];
         if(!entry || entry.snapping===false) return;
         const atPoint=Object.entries(entry.points).find(([,p])=>g.finitePoint(p)&&g.distance(p,anchor)<=1e-6);
         if(!atPoint) return;

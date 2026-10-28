@@ -7,6 +7,29 @@ let expandedSceneType = null;
 let lastSceneSelectionKey = '';
 let lastSceneGroupTask = null;
 
+function bindScenePanelHoverTarget(element,type,index){
+  let pointerInside=false;
+  let focusInside=false;
+  const isTarget=target=>target?.type===type && target.index===(index ?? 0);
+  const update=()=>{
+    if(pointerInside || focusInside){
+      window.scenePanelHoverTarget={type,index:index ?? 0};
+      window.fm?.setHoverCandidate?.(null);
+      window.hoveredInteraction=null;
+      window.hoveredSceneElement=null;
+    }else if(isTarget(window.scenePanelHoverTarget)){
+      window.scenePanelHoverTarget=null;
+    }
+  };
+  element.addEventListener('pointerenter',()=>{pointerInside=true;update();});
+  element.addEventListener('pointerleave',()=>{pointerInside=false;update();});
+  element.addEventListener('focusin',()=>{focusInside=true;update();});
+  element.addEventListener('focusout',event=>{
+    focusInside=!!event.relatedTarget && !!element.contains?.(event.relatedTarget);
+    update();
+  });
+}
+
 // Editor mode state management
 function updateEditorMode(){
   const isEditor = !!window.editorMode;
@@ -31,9 +54,11 @@ function updateEditorMode(){
  * Mark which side panel ('force' or 'scene') was last used and resize panels (editor only).
  */
 window.activePanel = 'force';
+window.scenePanelHoverTarget=null;
 window.setActivePanel = function(kind){
   if(window.activePanel === kind) return;
   window.activePanel = kind;
+  if(kind!=='scene') window.scenePanelHoverTarget=null;
   if(window.updateEditorPanelHeights) window.updateEditorPanelHeights();
 };
 
@@ -62,7 +87,7 @@ function updatePanelHeights(){
   if(window.currentTask && window.currentTask.scene){
     const scene = window.currentTask.scene;
     const counts={
-      plane:scene.plane ? 1 : 0,
+      plane:scene.planes?.length || 0,
       rect:scene.rects?.length || 0,
       ellipse:scene.ellipses?.length || 0,
       segment:scene.segments?.length || 0,
@@ -144,11 +169,16 @@ window.refreshSceneTextCoordinates = function(){
 function updateScenePanel(){
   const scenePanel = document.getElementById('scene-items');
   if(!scenePanel || !window.currentTask || !window.currentTask.scene) return;
+  const panelHighlightColor=window.EDITOR_HIGHLIGHT_STYLES?.scene?.panel?.color;
+  if(panelHighlightColor){
+    document.getElementById('scene-panel')?.style?.setProperty?.('--editor-highlight-panel',panelHighlightColor);
+  }
   scenePanel.innerHTML = '';
   
   window.sceneModel?.update(window.currentTask);
   const scene = window.currentTask.scene;
   if(lastSceneGroupTask !== window.currentTask){
+    window.scenePanelHoverTarget=null;
     lastSceneGroupTask = window.currentTask;
     window.activeSceneGroupIndex = null;
   }
@@ -197,6 +227,7 @@ function updateScenePanel(){
   }
 
   const sceneCollections = {
+    plane:'planes',
     rect:'rects', ellipse:'ellipses', segment:'segments', arrow:'arrows',
     text:'texts', point:'points', angle:'angles'
   };
@@ -205,26 +236,31 @@ function updateScenePanel(){
     arrow:'arrow', text:'txt', point:'point', angle:'angle'
   };
   function getSceneElement(type,index){
-    if(type==='plane') return scene.plane || null;
     if(!Object.hasOwn(sceneCollections,type)) return null;
     const collection=sceneCollections[type];
     if(!collection || !Number.isInteger(index) || index<0) return null;
     return scene[collection]?.[index] || null;
   }
+  function getSceneElementById(type,id){
+    const collection=sceneCollections[type];
+    return collection ? scene[collection]?.find(object=>object?.id===id)||null : null;
+  }
   function memberReference(member){
     const type=member?.type;
-    if(type==='plane') return 'plane';
     if(!Object.hasOwn(sceneElementLabels,type)) return 'Ukjent element';
     const label=sceneElementLabels[type];
-    return label && Number.isInteger(member.index) ? `${label}[${member.index}]` : 'Ukjent element';
+    const collection=sceneCollections[type];
+    const index=scene[collection]?.findIndex(object=>object?.id===member.id) ?? -1;
+    return label && index>=0 ? `${label} ${index+1}` : 'Ukjent element';
   }
   function selectedSceneMember(){
     const selected=window.selectedSceneElement;
     if(window.activePanel!=='scene') return null;
     if(!selected || !(Object.hasOwn(sceneCollections,selected.type) || selected.type==='plane')) return null;
     if(selected.type==='text' && scene.texts?.[selected.index]?._isShortLines) return null;
-    if(!getSceneElement(selected.type,selected.index)) return null;
-    return selected.type==='plane' ? {type:'plane'} : {type:selected.type,index:selected.index};
+    const object=getSceneElement(selected.type,selected.index);
+    if(!object?.id) return null;
+    return {type:selected.type,id:object.id};
   }
   function groupPreview(group){
     const description=String(group.description || '').trim();
@@ -267,7 +303,7 @@ function updateScenePanel(){
       addButton.textContent='+';
       const currentSelection=selectedSceneMember();
       const alreadyMember=!!currentSelection && groupData.members.some(existing=>
-        existing?.type===currentSelection.type && existing.index===currentSelection.index);
+        existing?.type===currentSelection.type && existing.id===currentSelection.id);
       addButton.title=alreadyMember ? 'Elementet er allerede i gruppen'
         : 'Legg valgt sceneelement til gruppen';
       addButton.setAttribute('aria-label',addButton.title);
@@ -277,7 +313,7 @@ function updateScenePanel(){
         const member=selectedSceneMember();
         if(!member) return;
         if(groupData.members.some(existing=>existing?.type===member.type &&
-          existing.index===member.index)){
+          existing.id===member.id)){
           window.activeSceneGroupIndex=groupIndex;
           updateScenePanel();
           return;
@@ -333,17 +369,18 @@ function updateScenePanel(){
         items.appendChild(description);
         groupData.members.forEach((member,memberIndex)=>{
           const type=member?.type;
-          const index=member?.index;
-          const object=getSceneElement(type,index);
+          const object=getSceneElementById(type,member?.id);
+          const index=object ? scene[sceneCollections[type]].indexOf(object) : -1;
           const row=document.createElement('div');
           row.className='scene-group-member';
           row.dataset.type=type || '';
-          if(Number.isInteger(index)) row.dataset.index=index;
+          if(index>=0) row.dataset.index=index;
           if(window.selectedSceneElement?.type===type &&
             (window.selectedSceneElement?.index ?? 0)===(index ?? 0)) row.classList.add('selected');
           const reference=document.createElement('button');
           reference.type='button';
           reference.className='scene-group-member-reference';
+          bindScenePanelHoverTarget(reference,type,index);
           reference.textContent=memberReference(member);
           reference.disabled=!object;
           reference.setAttribute('aria-label',`Velg ${reference.textContent}`);
@@ -399,6 +436,7 @@ function updateScenePanel(){
     item.className = 'scene-item';
     item.dataset.type = type;
     item.dataset.index = index !== undefined ? index : 0;
+    bindScenePanelHoverTarget(item,type,index);
     
     // Count items of this type to determine if up/down arrows should be enabled
     let typeCount = 0;
@@ -577,7 +615,7 @@ function updateScenePanel(){
   }
 
   function sceneElementNormal(scene,type,index){
-    const element=type==='plane' ? scene?.plane
+    const element=type==='plane' ? scene?.planes?.[index]
       : type==='rect' ? scene?.rects?.[index]
         : type==='ellipse' ? scene?.ellipses?.[index] : null;
     if(!element) return null;
@@ -678,8 +716,8 @@ function updateScenePanel(){
       const textScene=window.currentTask?.scene || {};
       const normalOptions = [
         '<option value="">Velg sceneelement …</option>',
-        ...(sceneElementNormal(textScene,'plane',0)
-          ? ['<option value="plane">Plan</option>'] : []),
+        ...(textScene.planes||[]).flatMap((plane,index)=>sceneElementNormal(textScene,'plane',index)
+          ? [`<option value="plane:${plane.id}">Plan ${index+1}</option>`] : []),
         ...(textScene.rects||[]).flatMap((rect,i)=>sceneElementNormal(textScene,'rect',i)
           ? [`<option value="rect:${i}">Rektangel ${i+1}</option>`] : []),
         ...(textScene.ellipses||[]).flatMap((ellipse,i)=>sceneElementNormal(textScene,'ellipse',i)
@@ -828,7 +866,7 @@ function updateScenePanel(){
     }
     function refreshCoordinateInputs(){
       const scene = window.currentTask?.scene;
-      const target = type === 'plane' ? scene?.plane : scene?.[type + 's']?.[index];
+      const target = scene?.[sceneCollections[type]]?.[index];
       if(!target) return;
       const positions = {};
       if(type === 'plane'){
@@ -857,8 +895,7 @@ function updateScenePanel(){
     }
     function refreshSceneState(){
       refreshCoordinateInputs();
-      const target=type === 'plane' ? window.currentTask?.scene?.plane :
-        window.currentTask?.scene?.[type + 's']?.[index];
+      const target=window.currentTask?.scene?.[sceneCollections[type]]?.[index];
       const preview=editor.closest?.('.scene-item')?.querySelector('.scene-item-preview');
       if(target && preview){
         preview.textContent=getPreview(type,target);
@@ -974,10 +1011,12 @@ function updateScenePanel(){
           return;
         }
         if(fieldType==='text' && currentScene?.texts?.[idx] && field==='copyNormal'){
-          const [kind,indexText]=input.value.split(':');
-          const index=Number(indexText);
           const scene=currentScene;
-          const vector=window.sceneElementNormal(scene,kind,index);
+          const [kind,reference]=input.value.split(':');
+          const planeIndex=kind==='plane'
+            ? (scene.planes||[]).findIndex(plane=>plane.id===reference) : -1;
+          const index=kind==='plane' ? planeIndex : Number(reference);
+          const vector=index>=0 ? window.sceneElementNormal(scene,kind,index) : null;
           if(!Array.isArray(vector) || vector.length!==2 ||
              !vector.every(Number.isFinite) || window.geometry.length(vector)<=1e-8){
             input.setCustomValidity('Elementet har ingen gyldig normal å kopiere.');
@@ -1006,7 +1045,7 @@ function updateScenePanel(){
             return;
           }
           const target = fieldType === 'plane'
-            ? currentScene?.plane
+            ? currentScene?.planes?.find(plane => plane.id === currentScene.activePlaneId)
             : currentScene?.[fieldType + 's']?.[idx];
           if(!target) return;
           input.setCustomValidity('');
@@ -1311,8 +1350,7 @@ function updateScenePanel(){
     }
   }
   
-  // Plane (one per task)
-  addGroup('Plan','plane',scene.plane ? [{index:undefined,obj:scene.plane}] : []);
+  addGroup('Plan','plane',(scene.planes || []).map((obj,index)=>({index,obj})));
   addGroup('Rektangel','rect',(scene.rects || []).map((obj,index)=>({index,obj})));
   addGroup('Ellipse','ellipse',(scene.ellipses || []).map((obj,index)=>({index,obj})));
   addGroup('Segment','segment',(scene.segments || []).map((obj,index)=>({index,obj})));

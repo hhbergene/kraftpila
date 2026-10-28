@@ -271,7 +271,10 @@
   function expectedDir(spec, task){
     const d = spec.dir;
     if(Array.isArray(d)) return unit(d);
-    const plane = task.scene.plane;
+    const plane = (task?.scene?.planes||[]).find(candidate=>candidate.id===spec.planeId);
+    if((d==='planeNormal'||d==='planeTangent')&&!plane){
+      throw new Error(`Kraften ${spec.name||''} mangler en gyldig plan-ID for retningen.`);
+    }
     if(d==='planeNormal') return unit(plane.n_vec);
     if(d==='planeTangent') return unit(plane.t_vec);
     return [1,0];
@@ -283,8 +286,11 @@
    * @param {Object} task - Task object with scene/plane data
    * @returns {number[]|null} Unit direction vector or null for magnitude-only
    */
-  function getComponentDir(component, task){
-    const plane = task.scene.plane;
+  function getComponentDir(component, task, planeId){
+    const plane = (task?.scene?.planes||[]).find(candidate=>candidate.id===planeId);
+    if((component==='normal'||component==='tangent')&&!plane){
+      throw new Error(`Komponenten ${component} mangler en gyldig plan-ID.`);
+    }
     if(component==='normal') return unit(plane.n_vec);
     if(component==='tangent') return unit(plane.t_vec);
     if(component==='vertical') return [0,-1];
@@ -508,8 +514,9 @@
       sumY += f.vec[1];
       
       // Component sums (if plane exists)
-      if(task.scene && task.scene.plane && (typeof sumF.n === 'number' || typeof sumF.t === 'number')){
-        const plane = task.scene.plane;
+      if(task.scene && (typeof sumF.n === 'number' || typeof sumF.t === 'number')){
+        const plane = (task.scene.planes||[]).find(candidate=>candidate.id===sumF.planeId);
+        if(!plane) throw new Error('ΣF_n/ΣF_t mangler en gyldig plan-ID.');
         const n_unit = unit(plane.n_vec);
         const t_unit = unit(plane.t_vec || geometry.tangentFromNormal(plane.n_vec));
         sumN += f.vec[0]*n_unit[0] + f.vec[1]*n_unit[1];
@@ -610,7 +617,7 @@
           const f = forceByName[term.name];
           if(!f) return; // missing contributes 0
           if(term.component){
-            const dir = getComponentDir(term.component, task);
+            const dir = getComponentDir(term.component, task, term.planeId);
             if(dir) s += componentMagnitude(f, dir);
             else s += magnitude(f);
           } else {
@@ -1079,11 +1086,11 @@ if(r.anchorType === 'point'){
         const len = typeof f.length === 'number' ? f.length : (Array.isArray(vec) ? Math.hypot(vec[0], vec[1]) : null);
         const dirV = Array.isArray(f.force_dir) ? `(${f.force_dir[0].toFixed(2)}, ${f.force_dir[1].toFixed(2)})` : '?';
         const kind = f.isExpected === false || f.moveable === false ? 'låst' : 'tegnet';
-        const plane = task.scene && task.scene.plane;
+        const plane = (task.scene?.planes||[]).find(candidate=>candidate.id===f.planeId);
         const fx = Array.isArray(vec) ? vec[0] : null;
         const fy = Array.isArray(vec) ? vec[1] : null;
-        const ftDir = plane && plane.t_vec && getComponentDir('tangent', task);
-        const fnDir = plane && plane.n_vec && getComponentDir('normal', task);
+        const ftDir = plane && plane.t_vec && getComponentDir('tangent', task, f.planeId);
+        const fnDir = plane && plane.n_vec && getComponentDir('normal', task, f.planeId);
         const ft = Array.isArray(vec) && ftDir ? vec[0]*ftDir[0] + vec[1]*ftDir[1] : null;
         const fn = Array.isArray(vec) && fnDir ? vec[0]*fnDir[0] + vec[1]*fnDir[1] : null;
         const fmt = value => typeof value === 'number' ? value.toFixed(1) : '?';

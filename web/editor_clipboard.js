@@ -1,14 +1,14 @@
 // Internal editor clipboard; never reads or writes the system clipboard.
 (function(){
   if(!window.editorMode) return;
-  const collections = {rect:'rects', ellipse:'ellipses', point:'points',
+  const collections = {plane:'planes',rect:'rects', ellipse:'ellipses', point:'points',
     segment:'segments', arrow:'arrows', text:'texts', angle:'angles'};
   const labels = {rect:'Rektangel', ellipse:'Ellipse', point:'Punkt',
     segment:'Segment', arrow:'Pil', text:'Tekst', angle:'Vinkel', plane:'Plan',
     expectedForce:'Fasitkraft', initialForce:'Låst kraft'};
   const entries = [];
   const sourceIds = new WeakMap(), taskIds = new WeakMap();
-  let pointSequence = 0;
+  let pointSequence = 0, sceneSequence=0;
   let sourceSequence = 0, taskSequence = 0;
   class ClipboardError extends Error {}
   const position = p=>Array.isArray(p) && p.length===2 && p.every(Number.isFinite);
@@ -35,7 +35,7 @@
   }
 
   function snapshotElement(task,type,index){
-    const source = type==='plane' ? task.scene.plane : task.scene[collections[type]]?.[index];
+    const source = task.scene[collections[type]]?.[index];
     if(!source) throw new ClipboardError('Velg et sceneelement som kan kopieres.');
     const data = clone(source);
     if(type==='point'){
@@ -207,10 +207,10 @@
     if(!Number.isFinite(step) || step<=0) throw new ClipboardError('Rutenettsteget er ugyldig.');
     const names = new Set([...window.fm.forces,...(task.expectedForces || []),
       ...(task.initialForces || [])].map(f=>nameKey(f.name)));
-    const ids = new Set((task.scene.points || []).map(p=>p.id));
+    const ids = new Set(Object.values(collections).flatMap(collection=>
+      (task.scene[collection]||[]).map(element=>element?.id).filter(Boolean)));
     const existing = new Map();
     for(const type of new Set(entries.map(e=>e.type))){
-      if(type==='plane') continue;
       if(forceEntry(type)){
         // Initial and expected forces share the same drawn geometry.
         existing.set(type,window.fm.forces.filter(f=>[f.anchor,f.arrowBase,f.arrowTip].every(position))
@@ -238,9 +238,13 @@
           }
         }
       }
-      if(type==='point'){
-        do { data.id = `point-copy-${++pointSequence}`; } while(ids.has(data.id));
-        ids.add(data.id);
+      if(!forceEntry(type)){
+        let id;
+        do {
+          id=type==='point' ? `point-copy-${++pointSequence}` : `${type}-copy-${++sceneSequence}`;
+        } while(ids.has(id));
+        data.id=id;
+        ids.add(id);
       }
       if(forceEntry(type)){
         data.name = uniqueName(data.name,names);
@@ -289,15 +293,10 @@
       if(window.activePanel==='scene'){
         const selected=window.selectedSceneElement;
         const task=window.currentTask;
-        const source=selected?.type==='plane' ? task?.scene?.plane
-          : task?.scene?.[collections[selected?.type]]?.[selected?.index];
+        const source=task?.scene?.[collections[selected?.type]]?.[selected?.index];
         if(source && typeof source==='object'){
           entry._sourceId=sourceId(task,selected.type,source);
         }
-      }
-      if(entry.type==='plane'){
-        const index = entries.findIndex(e=>e.type==='plane');
-        if(index>=0) entries.splice(index,1);
       }
       entries.push(entry);
       render();
@@ -314,22 +313,19 @@
       }
       const seen=new Set(entries.map(entry=>entry._sourceId).filter(Boolean));
       const additions=[];
-      let replacedPlane=-1;
       members.forEach(member=>{
         const type=member?.type;
         if(!(Object.hasOwn(collections,type) || type==='plane')){
           throw new ClipboardError('Gruppen inneholder en ugyldig sceneelementreferanse.');
         }
-        const source=type==='plane' ? task.scene.plane : task.scene[collections[type]]?.[member.index];
+        const source=task.scene[collections[type]]?.find(element=>element?.id===member?.id);
         if(!source || typeof source!=='object'){
           throw new ClipboardError('Gruppen inneholder en sceneelementreferanse som ikke finnes.');
         }
         const key=sourceId(task,type,source);
         if(seen.has(key)) return;
-        if(type==='plane'){
-          replacedPlane=entries.findIndex(entry=>entry.type==='plane');
-        }
-        const entry=snapshotElement(task,type,member.index);
+        const index=task.scene[collections[type]].indexOf(source);
+        const entry=snapshotElement(task,type,index);
         entry._sourceId=key;
         additions.push(entry);
         seen.add(key);
@@ -338,7 +334,6 @@
         notify('Sceneelementene i gruppen ligger allerede i utklippstavla.');
         return;
       }
-      if(replacedPlane>=0) entries.splice(replacedPlane,1);
       entries.push(...additions);
       render();
       notify(`${additions.length} sceneelement(er) fra gruppen lagt til.`);
@@ -356,8 +351,10 @@
         if(forceEntry(type)){
           const key = type==='expectedForce' ? 'expectedForces' : 'initialForces';
           (task[key] ||= []).push(data);
-        } else if(type==='plane') task.scene.plane = data;
-        else (task.scene[collections[type]] ||= []).push(data);
+        } else {
+          (task.scene[collections[type]] ||= []).push(data);
+          if(type==='plane') task.scene.activePlaneId=data.id;
+        }
       }
       if(forces.length){
         window.fm.ensureTrailingBlank();

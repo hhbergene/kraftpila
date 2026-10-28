@@ -2,6 +2,8 @@
 // Fallback uten ES-moduler slik at fil kan åpnes direkte via file://.
 // Senere kan vi gå tilbake til type="module" når vi bruker lokal server.
 
+window.AppVersioning.checkTasksetVersion('player',window.TASKSET_FORMAT_VERSION);
+
 // Initialize empty TASKS array (will be populated from localStorage)
 window.TASKS = [];
 
@@ -78,55 +80,6 @@ window.TASKS = [];
     g.restore();
   }
   
-  // Step 5: Draw scene element hover/selection highlights
-  /**
-   * Draw thin yellow guide lines showing expected direction for expectedForces in editor mode
-   * Helps visualize what direction each force should have
-   */
-  function drawExpectedDirectionGuides(ctx, task, forces){
-    if(!task.expectedForces || !Array.isArray(task.expectedForces)) return;
-    
-    // Helper to get expected direction
-    function getExpDir(spec){
-      const d = spec.dir;
-      if(Array.isArray(d)) {
-        const len = geometry.length(d);
-        return len > 0 ? [d[0]/len, d[1]/len] : [1, 0];
-      }
-      const plane = task.scene?.plane;
-      if(d === 'planeNormal' && plane?.n_vec) {
-        const len = geometry.length(plane.n_vec);
-        return len > 0 ? [plane.n_vec[0]/len, plane.n_vec[1]/len] : [1, 0];
-      }
-      if(d === 'planeTangent' && plane?.t_vec) {
-        const len = geometry.length(plane.t_vec);
-        return len > 0 ? [plane.t_vec[0]/len, plane.t_vec[1]/len] : [1, 0];
-      }
-      return [1, 0];
-    }
-    
-    ctx.strokeStyle = '#ffff00'; // Bright yellow
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.6;
-    
-    task.expectedForces.forEach(spec => {
-      // Find drawn force with matching name
-      const drawnForce = forces.find(f => f && f.name && f.name.toLowerCase() === spec.name.toLowerCase());
-      if(!drawnForce || !drawnForce.arrowBase) return;
-      
-      const base = drawnForce.arrowBase;
-      const dir = getExpDir(spec);
-      const len = 80; // Length of guide line
-      
-      ctx.beginPath();
-      ctx.moveTo(base[0], base[1]);
-      ctx.lineTo(base[0] + dir[0] * len, base[1] + dir[1] * len);
-      ctx.stroke();
-    });
-    
-    ctx.globalAlpha = 1.0;
-  }
-
   function drawSceneElementHighlights(ctx){
     if(!window.sceneLookup) return;
     
@@ -147,7 +100,7 @@ window.TASKS = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            window.drawAnchorMarker(ctx,point,'sceneSelected');
+            window.drawAnchorMarker(ctx,point,'playerSceneSelected');
           }
         });
       }
@@ -175,7 +128,7 @@ window.TASKS = [];
       if(entry && entry.points){
         Object.values(entry.points).forEach(point => {
           if(point){
-            window.drawAnchorMarker(ctx,point,'sceneHovered');
+            window.drawAnchorMarker(ctx,point,'playerSceneHovered');
           }
         });
       }
@@ -858,6 +811,7 @@ window.TASKS = [];
    */
   window.buildAnchorCandidates = function(task){
     if(window.sceneModel) return window.sceneModel.candidates(task);
+    throw new Error('Scene-ID-modellen er ikke initialisert.');
     const candidates = [];
     if(!task || !task.scene) return candidates;
     
@@ -2683,7 +2637,8 @@ window.TASKS = [];
         category: 'Egendefinert',
         help_lines: [],
         scene: {
-          plane: { angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false },
+          planes: [{ id:'plane-1', angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false }],
+          activePlaneId: 'plane-1',
           rects: [],
           ellipses: [],
           segments: [],
@@ -3125,6 +3080,7 @@ window.TASKS = [];
         taskComments: window.taskComments,
         timestamp: new Date().toISOString(),
         appVersion:window.AppVersioning.time('player'),
+        tasksetVersion:window.TASKSET_FORMAT_VERSION,
         currentTaskIndex: (typeof window.currentTaskIndex === 'number') ? window.currentTaskIndex : 0,
         localStorage: {}
       };
@@ -3290,6 +3246,7 @@ window.TASKS = [];
   let pendingTasksetData = null;
   let pendingTasksetName = '';
   let pendingTasksetVersion = null;
+  let pendingTasksetFormatVersion = null;
 
   if(tasksetUploadBtn){
     tasksetUploadBtn.addEventListener('click', ()=>{
@@ -3305,6 +3262,7 @@ window.TASKS = [];
       pendingTasksetData = null;
       pendingTasksetName = '';
       pendingTasksetVersion = null;
+      pendingTasksetFormatVersion = null;
       tasksetUploadConfirm.disabled = true;
       if(tasksetUploadModal) tasksetUploadModal.classList.remove('hidden');
     });
@@ -3327,6 +3285,7 @@ window.TASKS = [];
 
       try {
         const data = JSON.parse(localStorage.getItem(key));
+        window.AppVersioning.validateTasksetFormat(data);
         const selectedIds = data.taskIds || [];
 
         if (selectedIds.length === 0) {
@@ -3339,6 +3298,7 @@ window.TASKS = [];
         pendingTasksetData = data;
         pendingTasksetName = key.replace('taskset_', '');
         pendingTasksetVersion = data?.metadata?.appVersion || data?.appVersion || window.AppVersioning.read('player');
+        pendingTasksetFormatVersion = data?.metadata?.tasksetVersion ?? data?.tasksetVersion;
         tasksetUploadConfirm.disabled = false;
       } catch (err) {
         tasksetUploadError.textContent = 'Feil ved lesing av oppgavesett: ' + err.message;
@@ -3443,6 +3403,7 @@ window.TASKS = [];
       reader.onload = async (evt)=>{
         try{
           const importData = JSON.parse(evt.target?.result || '{}');
+          window.AppVersioning.validateTasksetFormat(importData);
           const tasksToImport = importData.tasks || [];
 
           // Validate that it looks like a proper taskset export
@@ -3472,6 +3433,7 @@ window.TASKS = [];
           pendingTasksetData = tasksToImport;
           pendingTasksetName = fileName;
           pendingTasksetVersion = importData?.metadata?.appVersion || importData?.appVersion || null;
+          pendingTasksetFormatVersion = importData?.metadata?.tasksetVersion ?? importData?.tasksetVersion;
           tasksetUploadConfirm.disabled = false;
         } catch(err){
           tasksetUploadError.textContent = 'Feil: ' + err.message;
@@ -3528,7 +3490,7 @@ window.TASKS = [];
         }
 
         const reviewed = await window.AppVersioning.checkImport(
-          {tasks:tasksToImport,metadata:{appVersion:pendingTasksetVersion}},
+          {tasks:tasksToImport,metadata:{appVersion:pendingTasksetVersion,tasksetVersion:pendingTasksetFormatVersion}},
           'player',
           pendingTasksetName || 'oppgavesett',
           [...(window.currentTaskSchema || []), ...(window.tasks || [])]

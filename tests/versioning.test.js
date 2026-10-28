@@ -36,6 +36,7 @@ function setup(){
   const confirmations=[];
   const alerts=[];
   const window={PLAYER_BUILD_TIME:'2026-10-22 12:59',EDITOR_BUILD_TIME:'2026-10-22 12:59',
+    TASKSET_FORMAT_VERSION:2,
     tasks:[{id:'first'},{id:'second'}],currentTaskIndex:1,
     confirm:message=>{confirmations.push(message);return true;},
     alert:message=>alerts.push(message)};
@@ -62,7 +63,7 @@ test('task schema loads the default set once without requesting the removed Intr
     requests.push(file);
     return {ok:true,json:async()=>file==='oppgavesett.json'
       ? [{name:'Intro',file:'taskset_Default.json'}]
-      : {tasks:[{id:'default-task',title:'Default'}]}};
+      : {metadata:{tasksetVersion:2},tasks:[{id:'default-task',title:'Default',scene:{planes:[]}}]}};
   };
   const tasks=await window.loadSupportedTaskSchema();
   assert.deepEqual(requests,['oppgavesett.json','taskset_Default.json']);
@@ -105,7 +106,7 @@ test('help window retains task title while the toolbar shows only task number',(
 test('scene-panel title editing updates only the shared title and refreshes the task UI',()=>{
   const uiSource=fs.readFileSync(path.join(__dirname,'..','web','ui.js'),'utf8');
   const start=uiSource.indexOf('  // Task metadata fields (Id, Title, Category)');
-  const end=uiSource.indexOf('  // Plane (one per task)',start);
+  const end=uiSource.indexOf("  addGroup('Plan'",start);
   const snippet=uiSource.slice(start,end);
   const titleInput={value:'Ny tittel',addEventListener(event,handler){this.change=handler;}};
   const subtitleInput={value:'',addEventListener(){}};
@@ -157,7 +158,8 @@ test('version warning lists paths and removes unsupported fields only after appr
   const {window,document,elements}=setup();
   const schema=[{id:'task-a',title:'Oppgave',scene:{points:[{x:1,y:2}]}}];
   const imported={tasks:[{id:'task-a',title:'Oppgave eldre',legacyField:7,
-    scene:{points:[{x:3,y:4,oldCoordinate:9}]}}],metadata:{appVersion:'2025-01-01 09:00'}};
+    scene:{planes:[],points:[{id:'point-1',x:3,y:4,oldCoordinate:9}]}}],
+    metadata:{appVersion:'2025-01-01 09:00',tasksetVersion:2}};
   const pending=window.AppVersioning.checkImport(imported,'editor','gammelt.json',schema);
   const button=elements.find(element=>element.textContent==='Åpne uansett');
   assert.ok(button,'warning has an explicit continue action');
@@ -196,7 +198,8 @@ test('version filtering preserves optional force roles and supplied fields witho
   const reference=[{id:'task',expectedForces:[{name:'G'}],initialForces:[{name:'N'}]}];
   const force={name:'G_x',role:'component',componentOf:'G',studentGiven:{name:true}};
   const data={tasks:[{id:'task',expectedForces:[force,{name:'G'}],
-    initialForces:[{name:'N',role:'force',studentGiven:{role:false}}]}],metadata:{appVersion:'old'}};
+    initialForces:[{name:'N',role:'force',studentGiven:{role:false}}],
+    scene:{planes:[]}}],metadata:{appVersion:'old',tasksetVersion:2}};
   const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
   assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.role|\.studentGiven|\.componentOf/);
   elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
@@ -208,10 +211,11 @@ test('version filtering preserves optional force roles and supplied fields witho
 test('version filtering preserves scene groups without requiring them in the reference tasks',async()=>{
   const {window,document,elements}=setup();
   const group={description:'Ballen',members:[
-    {type:'ellipse',index:0},{type:'plane'}
+    {type:'ellipse',id:'ellipse-1'},{type:'plane',id:'plane-1'}
   ]};
-  const reference=[{id:'task',scene:{ellipses:[]}}];
-  const data={tasks:[{id:'task',scene:{ellipses:[],groups:[group]}}]};
+  const scene={planes:[{id:'plane-1'}],activePlaneId:'plane-1',ellipses:[{id:'ellipse-1'}]};
+  const reference=[{id:'task',scene}];
+  const data={tasks:[{id:'task',scene:{...scene,groups:[group]}}],metadata:{tasksetVersion:2}};
   const pending=window.AppVersioning.checkImport(data,'player','groups.json',reference);
   assert.doesNotMatch(document.body.modal.children[0].innerHTML,/scene\.groups/);
   elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
@@ -223,9 +227,9 @@ test('version filtering preserves optional relation tolerances without requiring
   for(const referenceOverrides of [{},{tol_rel:0.15}]){
     const {window,document,elements}=setup();
     const relation={lhs:[{name:'G'}],rhs:[{name:'N'}],ratio:1};
-    const reference=[{id:'task',relations:[{...relation,...referenceOverrides}]}];
+    const reference=[{id:'task',scene:{planes:[]},relations:[{...relation,...referenceOverrides}]}];
     const relations=[{...relation,tol_rel:0,tol_abs:3},{...relation}];
-    const data={tasks:[{id:'task',relations}],metadata:{appVersion:'old'}};
+    const data={tasks:[{id:'task',scene:{planes:[]},relations}],metadata:{appVersion:'old',tasksetVersion:2}};
     const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
     assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.tol_rel|\.tol_abs/);
     elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
@@ -238,10 +242,10 @@ test('version filtering preserves automatic ratio mode and optional answer geome
   const {window,document,elements}=setup();
   const relation={lhs:[{name:'A'}],rhs:[{name:'B'}]};
   const reference=[{id:'task',expectedForces:[{name:'A'}],
-    relations:[{...relation,ratio:1}]}];
+    scene:{planes:[]},relations:[{...relation,ratio:1}]}];
   const answer={name:'A',drawn:{anchor:[0,0],arrowBase:[0,0],arrowTip:[3,4]}};
   const data={tasks:[{id:'task',expectedForces:[answer],
-    relations:[relation,{...relation,ratio:2}]}],metadata:{appVersion:'old'}};
+    scene:{planes:[]},relations:[relation,{...relation,ratio:2}]}],metadata:{appVersion:'old',tasksetVersion:2}};
   const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
   assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.ratio|\.drawn/);
   elements.find(element=>element.textContent==='Åpne uansett').listeners.click();

@@ -33,7 +33,7 @@ function evaluate(context,error,{type='point',angle=0}={}){
   const anchor=type==='custom' ? {type,pos:[0,0]} :
     type==='segment' ? {type,ref:'block',segment:'bottom'} :
       {type,ref:'block',point:'center'};
-  context.currentTask={expectedForces:[{name:'G',dir:[1,0],anchor}]};
+  context.currentTask={expectedForces:[{name:'G',dir:[1,0],anchor}],sumF:{}};
   context.fm.forces=[force(type==='segment' ? [50,error] : [0,error],angle)];
   context.runEvaluation();
   return context.lastEvaluation;

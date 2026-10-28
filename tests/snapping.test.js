@@ -15,6 +15,43 @@ function runtime(){
   return window;
 }
 
+test('snap list includes valid Tip and Base for every force role, including locked forces',()=>{
+  const window=runtime();
+  const forces=['force','component','resultant'].map((role,index)=>({
+    role,isExpected:index!==0,arrowBase:[107+index*100,113],arrowTip:[147+index*100,173]
+  }));
+  forces.push({arrowBase:null,arrowTip:[NaN,1]},{arrowBase:[1],arrowTip:[Infinity,2]});
+  const points=window.snapping.buildSnapPoints({hidden:{snapping:false,points:{a:[10,10]}},
+    visible:{points:{a:[17,23]}}},forces);
+  assert.deepEqual(JSON.parse(JSON.stringify(points)),[[17,23],[107,113],[147,173],[207,113],[247,173],[307,113],[347,173]]);
+  assert.equal(window.snapping.buildSnapPoints(null,forces,forces[0]).length,4);
+});
+
+test('placing and dragging anchors snaps to live force endpoints without self-snapping',()=>{
+  const window=runtime();
+  const force={arrowBase:[101,103],arrowTip:[141,163]};
+  const other={arrowBase:[207,213],arrowTip:[247,273],role:'component'};
+  const options={points:[],forces:[force,other],excludeForce:force,gridStep:20};
+  for(const editorMode of [false,true]){
+    window.editorMode=editorMode;
+    assert.deepEqual(Array.from(window.snapping.snap([209,215],options).pos),other.arrowBase);
+    assert.deepEqual(Array.from(window.snapping.snap([249,275],options).pos),other.arrowTip);
+    assert.notDeepEqual(Array.from(window.snapping.snap([102,104],options).pos),force.arrowBase);
+    other.arrowTip=[267,293];
+    assert.deepEqual(Array.from(window.snapping.snap([269,295],options).pos),other.arrowTip);
+    const old=window.snapping.snap([249,275],options);
+    assert.notDeepEqual(Array.from(old.pos),[247,273]);
+    other.arrowTip=[247,273];
+  }
+  window.editorMode=false;
+  window.currentSnapChecklist={snapForceEndpoints:false};
+  assert.notEqual(window.snapping.snap([209,215],options).source,'point');
+  window.editorMode=true;
+  assert.equal(window.snapping.snap([209,215],options).source,'point');
+  window.enableSnap=false;
+  assert.deepEqual(Array.from(window.snapping.snap([209,215],options).pos),[209,215]);
+});
+
 function localSetup(){
   const window=runtime();
   const t=[0.8,-0.6],n=[0.6,0.8];
@@ -32,18 +69,15 @@ function localSetup(){
   return {window,t,n,task,force,reference,options};
 }
 
-test('snap checklist defaults enable only direct components, with component-to-length on for inclined planes',()=>{
+test('snap checklist defaults enable lengths, length-to-global components and same-axis components',()=>{
   const window=runtime();
   const standard=window.getTaskSnapChecklist({scene:{plane:{angleDeg:0}}});
   assert.equal(standard.snapForceEndpoints,true);
-  assert.equal(standard.snapSameAxisComponents,true);
-  assert.equal(standard.snapCrossAxisComponents,false);
-  assert.equal(standard.snapLocalComponents,false);
-  assert.equal(standard.snapForceLengths,false);
-  assert.equal(standard.snapComponentToLength,false);
-  assert.equal(window.getTaskSnapChecklist({scene:{plane:{angleDeg:25}}}).snapComponentToLength,true);
-  assert.equal(window.getTaskSnapChecklist({scene:{plane:{t_vec:[0,1]}}}).snapComponentToLength,false);
-  assert.equal(window.getTaskSnapChecklist({scene:{plane:{t_vec:[0.8,-0.6]}}}).snapComponentToLength,true);
+  assert.deepEqual(Array.from(window.snapMatchCategories.filter(({key})=>standard[key]),c=>c.key),
+    ['snapMatchLL','snapMatchLX','snapMatchLY','snapMatchXX','snapMatchYY']);
+  for(const plane of [{angleDeg:25},{t_vec:[0,1]},{t_vec:[0.8,-0.6]}]){
+    assert.deepEqual(window.getTaskSnapChecklist({scene:{plane}}),standard);
+  }
 });
 
 test('global cross-axis component matching is disabled by default and independently configurable',()=>{
@@ -60,10 +94,10 @@ test('global cross-axis component matching is disabled by default and independen
   assert.deepEqual(Array.from(enabled.pos),[676,300]);
   task.snapChecklist={snapCrossAxisComponents:false};
   window.currentTask=task;
-  window.currentSnapChecklist={...window.getTaskSnapChecklist(task),snapCrossAxisComponents:true};
+  window.currentSnapChecklist={...window.getTaskSnapChecklist(task),snapMatchXY:true};
   assert.equal(window.snapping.snapForce([676,301],options).source,'force-component');
   window.editorMode=true;
-  window.currentSnapChecklist={...window.currentSnapChecklist,snapCrossAxisComponents:false};
+  window.currentSnapChecklist={...window.currentSnapChecklist,snapMatchXY:false};
   assert.notEqual(window.snapping.snapForce([676,301],options).source,'force-component');
 });
 
@@ -122,6 +156,114 @@ test('local measures compare across axes and magnitudes, with gridded and constr
   assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
 });
 
+test('mixed global/local component matches draw and emphasize the actual components on both forces',()=>{
+  const window=runtime(),g=window.geometry;
+  const task={scene:{plane:{draw:false,snapping:false,t_vec:[0.8,-0.6]}},
+    snapChecklist:{snapLocalComponents:true,snapSameAxisComponents:true,
+      snapCrossAxisComponents:false,snapForceLengths:true,snapComponentToLength:true}};
+  const frames=[[[1,0],[0,1]],[[0.8,-0.6],[0.6,0.8]]];
+  const make=(base,frame,index,size)=>{
+    const vector=frame[index].map((v,i)=>v*size+frame[1-index][i]*31);
+    return {anchor:base.slice(),arrowBase:base.slice(),arrowTip:base.map((v,i)=>v+vector[i])};
+  };
+  for(const [aFrame,bFrame] of [[frames[0],frames[1]],[frames[1],frames[0]],[frames[1],frames[1]]]){
+    for(const aIndex of [0,1]){
+      for(const bIndex of [0,1]){
+        const a=make([400,300],aFrame,aIndex,80);
+        const b=make([1000,1000],bFrame,bIndex,-80);
+        const lines=window.snapping.buildMatchedComponentGuidelines(a,[a,b,b],20,task);
+        for(const [owner,frame,index] of [[a,aFrame,aIndex],[b,bFrame,bIndex]]){
+          const vector=owner.arrowTip.map((v,i)=>v-owner.arrowBase[i]);
+          for(const component of [0,1]){
+            const axis=frame[component],size=g.dot(vector,axis);
+            const target=owner.arrowBase.map((v,i)=>v+size*axis[i]);
+            const line=lines.find(line=>g.distance(line.a,owner.arrowBase)<1e-8 &&
+              g.distance(line.b,target)<1e-8);
+            assert.ok(line,`missing component ${component} of matched frame`);
+            assert.equal(line.lineWidth,2); // Both components match in this symmetric fixture.
+          }
+        }
+        assert.deepEqual(window.snapping.buildMatchedComponentGuidelines(a,[a,b],20,task),lines);
+      }
+    }
+  }
+  const a={anchor:[400,300],arrowBase:[400,300],arrowTip:[431,380]};
+  const b={anchor:[1000,1000],arrowBase:[1000,1000],arrowTip:[1077.6,1041.8]};
+  const lines=window.snapping.buildMatchedComponentGuidelines(a,[a,b],20,task);
+  for(const [owner,axis,width] of [[a,[0,1],2],[a,[1,0],1],[b,[0.6,0.8],2],[b,[0.8,-0.6],1]]){
+    const size=g.dot(owner.arrowTip.map((v,i)=>v-owner.arrowBase[i]),axis);
+    const target=owner.arrowBase.map((v,i)=>v+size*axis[i]);
+    const line=lines.find(line=>g.distance(line.a,owner.arrowBase)<1e-8 && g.distance(line.b,target)<1e-8);
+    assert.ok(line);
+    assert.equal(line.lineWidth,width);
+  }
+  const result=window.snapping.snapForce([431.2,380.2],{task,force:a,forces:[a,b],origin:a.arrowBase,tip:true});
+  assert.equal(result.source,'force-component');
+  assert.ok(Math.abs(result.pos[1]-380)<1e-8);
+});
+
+test('global cross-axis guides are opt-in and emphasize only the matching components',()=>{
+  const window=runtime(),g=window.geometry;
+  const task={scene:{},snapChecklist:{snapCrossAxisComponents:false}};
+  const a={arrowBase:[400,300],arrowTip:[431,380]};
+  const b={arrowBase:[1000,1000],arrowTip:[1080,1023]};
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(a,[a,b],20,task).length,0);
+  task.snapChecklist.snapCrossAxisComponents=true;
+  const lines=window.snapping.buildMatchedComponentGuidelines(a,[a,b],20,task);
+  assert.equal(lines.length,8);
+  for(const [owner,index] of [[a,1],[b,0]]){
+    for(const axis of [0,1]){
+      const target=owner.arrowBase.slice();
+      target[axis]=owner.arrowTip[axis];
+      const line=lines.find(line=>g.distance(line.a,owner.arrowBase)<1e-8 && g.distance(line.b,target)<1e-8);
+      assert.ok(line);
+      assert.equal(line.lineWidth,axis===index?2:1);
+    }
+  }
+});
+
+test('component-to-length matches emphasize components and mark magnitude contributors without decomposing them',()=>{
+  const window=runtime(),g=window.geometry;
+  for(const frame of [[[1,0],[0,1]],[[0.8,-0.6],[0.6,0.8]]]){
+    const task={scene:{plane:{draw:false,t_vec:[0.8,-0.6]}},
+      snapChecklist:{snapLocalComponents:true,snapComponentToLength:true,snapForceLengths:true}};
+    const base=[400,300];
+    const a={anchor:base,arrowBase:base,arrowTip:base.map((v,i)=>v+80*frame[1][i]+31*frame[0][i])};
+    const b={anchor:[1000,1000],arrowBase:[1000,1000],
+      arrowTip:[1000+80*Math.cos(0.19),1000+80*Math.sin(0.19)]};
+    for(const [active,reference] of [[a,b],[b,a]]){
+      const lines=window.snapping.buildMatchedComponentGuidelines(active,[active,reference],20,task);
+      const componentTip=base.map((v,i)=>v+80*frame[1][i]);
+      assert.ok(lines.some(line=>g.distance(line.a,base)<1e-8 &&
+        g.distance(line.b,componentTip)<1e-8 && line.lineWidth===2));
+      const markers=lines.filter(line=>g.distance(line.a.map((v,i)=>(v+line.b[i])/2),b.arrowTip)<1e-8);
+      assert.equal(markers.length,1);
+      assert.equal(markers[0].lineWidth,2);
+      assert.ok(Math.abs(g.distance(markers[0].a,markers[0].b)-20)<1e-8);
+      assert.ok(!lines.some(line=>g.distance(line.a,b.arrowBase)<1e-8));
+    }
+  }
+});
+
+test('equal whole lengths have tip markers without automatic decomposition, also with Snap off',()=>{
+  const window=runtime(),g=window.geometry;
+  const task={scene:{},snapChecklist:{snapForceLengths:true}};
+  const a={arrowBase:[400,300],arrowTip:[448,364]};
+  const b={arrowBase:[1000,1000],arrowTip:[1000+80*Math.cos(0.19),1000+80*Math.sin(0.19)]};
+  for(const enableSnap of [false,true]){
+    window.enableSnap=enableSnap;
+    const lines=window.snapping.buildMatchedComponentGuidelines(a,[a,b,b],20,task);
+    assert.equal(lines.length,2);
+    for(const owner of [a,b]){
+      const marker=lines.find(line=>g.distance(line.a.map((v,i)=>(v+line.b[i])/2),owner.arrowTip)<1e-8);
+      assert.ok(marker);
+      assert.equal(marker.lineWidth,2);
+    }
+  }
+  task.snapChecklist.snapForceLengths=false;
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(a,[a,b],20,task).length,0);
+});
+
 test('local matches decompose all component contributors, not magnitude-only contributors',()=>{
   const {window,task,force,reference,options}=localSetup();
   const lines=window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task);
@@ -138,7 +280,10 @@ test('local matches decompose all component contributors, not magnitude-only con
   const pureLength={anchor:[123,456],arrowBase:[400.25,300.5],arrowTip:[400.25+80*Math.cos(0.2),300.5+80*Math.sin(0.2)]};
   const onlyReference=window.snapping.buildMatchedComponentGuidelines(pureLength,[pureLength,reference],20,task);
   assert.ok(onlyReference.length>0);
-  assert.ok(onlyReference.every(line=>line.color===window.forceArrowColor(reference,true)));
+  const decompositions=onlyReference.filter(line=>line.dash[0]===4);
+  assert.ok(decompositions.length>0);
+  assert.ok(decompositions.every(line=>line.color===window.forceArrowColor(reference,true)));
+  assert.equal(onlyReference.filter(line=>line.dash[0]===8).length,1);
   pureLength.arrowTip[0]+=0.001;
   assert.equal(window.snapping.buildMatchedComponentGuidelines(pureLength,[pureLength,reference],20,task).length,0);
   const duplicate=window.snapping.buildMatchedComponentGuidelines(force,[force,reference,reference],20,task);
@@ -147,6 +292,47 @@ test('local matches decompose all component contributors, not magnitude-only con
   const visual=window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task);
   assert.ok(visual.length>0);
   assert.ok(visual.every(line=>line.lineWidth===2));
+});
+
+test('scene-geometry component guides obey the local matching checklist',()=>{
+  const {window,task,force,reference,options}=localSetup();
+  task.snapChecklist.snapLocalComponents=false;
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task).length,0);
+
+  task.snapChecklist.snapLocalComponents=true;
+  assert.ok(window.snapping.buildMatchedComponentGuidelines(force,options.forces,20,task).length>0);
+
+  task.snapChecklist.snapComponentToLength=false;
+  task.snapChecklist.snapForceLengths=false;
+  task.snapChecklist.snapLocalComponents=false;
+  const componentMatchesLength={
+    anchor:[1000,1000],
+    arrowBase:[1000,1000],
+    arrowTip:[1080,1000]
+  };
+  assert.equal(window.snapping.buildMatchedComponentGuidelines(
+    force,[force,componentMatchesLength],20,task
+  ).length,0);
+});
+
+test('07abc does not show rope-axis component guides when scene-geometry matching is off',()=>{
+  const window=runtime();
+  const data=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
+  const task=data.tasks.find(item=>item.id==='task_1791600000006_ai0007abc');
+  assert.ok(task);
+  assert.equal(task.snapChecklist.snapLocalComponents,false);
+  const forces=[
+    ...task.expectedForces.map(spec=>({...spec.drawn,name:spec.name})),
+    ...task.initialForces.map(force=>({...force,name:force.name}))
+  ];
+  const force=forces.find(item=>item.name==='S_2');
+  const lines=window.snapping.buildMatchedComponentGuidelines(force,forces,20,task);
+  assert.ok(lines.length>0,'enabled same-axis matches should remain visible');
+  for(const line of lines){
+    const dx=Math.abs(line.b[0]-line.a[0]);
+    const dy=Math.abs(line.b[1]-line.a[1]);
+    assert.ok(dx<1e-8 || dy<1e-8,'only global x/y component guides should remain');
+  }
 });
 
 test('whole force lengths snap without local axes and retain the eight-pixel cutoff',()=>{
@@ -242,7 +428,7 @@ test('multiple matching reference components all decompose without duplicate geo
   const second={...reference,arrowBase:[1200,1200],arrowTip:[1200,1300]};
   const before=JSON.stringify([force,reference,second]);
   const lines=window.snapping.buildMatchedComponentGuidelines(force,[force,reference,second],20,task);
-  assert.equal(lines.length,8);
+  assert.equal(lines.length,9);
   for(const owner of [reference,second]){
     assert.equal(lines.filter(line=>window.geometry.distance(line.a,owner.arrowBase)<1e-8).length,2);
   }
@@ -261,7 +447,6 @@ test('inclined plane and banked turn geometry support component matches without 
     assert.ok(task);
     const window=runtime();
     task.snapChecklist={
-      ...window.getSnapChecklistDefaults(task),
       snapLocalComponents:true,
       snapComponentToLength:true
     };
@@ -442,7 +627,7 @@ for(const file of ['main.js','editor.js']){
     window.move(force,[550+80*120/208,188]);
     assert.equal(force.arrowTip[1],188);
     assert.ok(Math.abs(force.arrowTip[0]-(550+80*120/208))<1e-8);
-    assert.equal(window.currentGuidelines.length,3);
+    assert.equal(window.currentGuidelines.length,4);
     window.enableGuidelines=false;
     window.move(force,[550+80*120/208,188]);
     assert.equal(window.currentGuidelines,null);
@@ -467,7 +652,7 @@ for(const file of ['main.js','editor.js']){
     assert.deepEqual(Array.from(force.anchor),anchor);
 
     window.enableSnap=true;
-    window.currentTask={scene:{}};
+    window.currentTask={scene:{},snapChecklist:{snapSameAxisComponents:true}};
     force.anchor=[600,300];force.arrowBase=[600,300];
     window.fm.forces=[force,{arrowBase:[40,50],arrowTip:[86,-30]}];
     window.enableGuidelines=true;
@@ -476,19 +661,22 @@ for(const file of ['main.js','editor.js']){
       force.dragging=drawing ? null : 'arrowTip';
       window.move(force,[647,339]);
       assert.deepEqual(Array.from(force.arrowTip),[646,340]);
-      assert.equal(window.currentGuidelines.length,6);
+      assert.equal(window.currentGuidelines.length,10);
       assert.deepEqual(Array.from(window.currentGuidelines[2].a),[600,300]);
-      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[600,340]);
+      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[646,300]);
       assert.deepEqual(Array.from(window.currentGuidelines[3].a),[646,340]);
-      assert.deepEqual(Array.from(window.currentGuidelines[3].b),[646,300]);
+      assert.deepEqual(Array.from(window.currentGuidelines[3].b),[600,340]);
+      assert.equal(window.currentGuidelines[2].lineWidth,2);
+      assert.equal(window.currentGuidelines[4].lineWidth,1);
       window.move(force,[646,380]);
       assert.deepEqual(Array.from(force.arrowTip),[646,380]);
       assert.equal(window.currentGuidelines.length,10);
-      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[600,380]);
+      assert.deepEqual(Array.from(window.currentGuidelines[2].b),[646,300]);
       assert.deepEqual(Array.from(window.currentGuidelines[3].a),[646,380]);
-      assert.deepEqual(Array.from(window.currentGuidelines[3].b),[646,300]);
-      assert.deepEqual(Array.from(window.currentGuidelines[4].b),[646,300]);
-      assert.deepEqual(Array.from(window.currentGuidelines[5].b),[600,380]);
+      assert.deepEqual(Array.from(window.currentGuidelines[3].b),[600,380]);
+      assert.deepEqual(Array.from(window.currentGuidelines[4].b),[600,380]);
+      assert.deepEqual(Array.from(window.currentGuidelines[5].b),[646,300]);
+      assert.ok(window.currentGuidelines.slice(2).every(line=>line.lineWidth===2));
       window.fm.forces[1].arrowTip=[86,-23]; // y component -73, between grid lines
       window.move(force,[639,228]);
       assert.deepEqual(Array.from(force.arrowTip),[640,227]);
@@ -617,13 +805,171 @@ test('scene directions depend on enabled geometry, not expected directions or re
   assert.equal(window.forceSnapDirections(task,[530,248]).length,0);
 });
 
+test('plane geometry matching offers directions away from objects for visible and hidden planes',()=>{
+  const window=runtime(),origin=[400.25,300.5];
+  const force={anchor:[123,456],arrowBase:origin};
+  for(const draw of [false,true]){
+    for(const plane of [
+      {draw,through:[500,400],angleDeg:Math.atan2(0.6,0.8)*180/Math.PI},
+      {draw,through:[500,400],t_vec:[8,-6]}
+    ]){
+      const task={scene:{plane},snapChecklist:{snapLocalComponents:true}};
+      const options={task,force,origin};
+      for(const tip of [false,true]){
+        for(const offset of [[80,-60],[60,80],[-80,60],[-60,-80]]){
+          const expected=origin.map((value,index)=>value+offset[index]);
+          const result=window.snapping.snapForce(expected.map(value=>value+0.2),{...options,tip});
+          assert.equal(result.source,'scene-direction');
+          assert.ok(window.geometry.distance(result.pos,expected)<1e-8);
+          const lines=window.snapping.buildGuidelines(origin,result.pos,{t_vec:result.direction});
+          assert.equal(lines.length,3);
+          assert.ok(Math.abs(window.geometry.cross(offset,result.direction))<1e-8);
+          task.snapChecklist.snapLocalComponents=false;
+          assert.equal(window.snapping.snapForce(expected,options).source,'origin-grid');
+          task.snapChecklist.snapLocalComponents=true;
+        }
+      }
+      window.enableSnap=false;
+      const pos=[451,369];
+      assert.deepEqual(window.snapping.snapForce(pos,options).pos,pos);
+      window.enableSnap=true;
+      plane.snapping=false;
+      assert.equal(window.snapping.snapForce([460.45,380.7],options).source,'scene-direction');
+    }
+  }
+});
+
+test('force guidelines retain both plane axes independently of grid winners, pointer distance and Snap',()=>{
+  const window=runtime(),origin=[400.25,300.5],anchor=[123,456];
+  const force={anchor,arrowBase:origin};
+  for(const draw of [false,true]){
+    const task={scene:{plane:{draw,through:[500,400],t_vec:[0.8,-0.6]}},
+      snapChecklist:{snapLocalComponents:true}};
+    const expected=window.snapping.buildForceGuidelines(origin,origin,task,anchor);
+    assert.equal(expected.length,4);
+    for(const enableSnap of [false,true]){
+      window.enableSnap=enableSnap;
+      for(const pos of [[460.25,380.5],[440.25,340.5],[200,100]]){
+        const result=window.snapping.snapForce(pos,{task,force,origin,tip:true});
+        const lines=window.snapping.buildForceGuidelines(origin,result.pos,task,anchor);
+        assert.deepEqual(lines,expected);
+        for(const [index,axis] of [[2,[0.8,-0.6]],[3,[0.6,0.8]]]){
+          const {a,b}=lines[index];
+          assert.ok(Math.abs(window.geometry.cross(b.map((v,i)=>v-a[i]),axis))<1e-8);
+          assert.ok(window.geometry.distance(a.map((v,i)=>(v+b[i])/2),origin)<1e-8);
+        }
+      }
+    }
+    task.snapChecklist.snapLocalComponents=false;
+    assert.equal(window.snapping.buildForceGuidelines(origin,origin,task,anchor).length,2);
+  }
+});
+
+test('player and editor drag rendering retain geometry guides through the correct origin',()=>{
+  for(const file of ['main.js','editor.js']){
+    const window=runtime();
+    const source=fs.readFileSync(path.join(root,'web',file),'utf8');
+    const start=source.indexOf('      // build guidelines: follow mousepos');
+    const end=source.indexOf('      window.fm.syncInputs(inputsContainer);',start);
+    assert.ok(start>=0 && end>start);
+    window.currentTask={scene:{plane:{draw:false,snapping:false,t_vec:[0.8,-0.6]}},
+      snapChecklist:{snapLocalComponents:true}};
+    window.currentGuidelines=null;
+    window.enableGuidelines=true;
+    window.GRID_STEP=20;
+    window.active={anchor:[123,456],arrowBase:[400.25,300.5]};
+    window.fm={forces:[window.active]};
+    window.usePos=[200,100];
+    for(const enableSnap of [false,true]){
+      window.enableSnap=enableSnap;
+      for(const dragging of [null,'arrowTip','body']){
+        window.active.dragging=dragging;
+        vm.runInContext(source.slice(start,end),window);
+        const expectedOrigin=dragging==='body' ? window.active.anchor : window.active.arrowBase;
+        assert.deepEqual(window.currentGuidelines,
+          window.snapping.buildForceGuidelines(expectedOrigin,window.usePos,window.currentTask,window.active.anchor));
+        assert.equal(window.currentGuidelines.length,4);
+      }
+    }
+    window.enableGuidelines=false;
+    vm.runInContext(source.slice(start,end),window);
+    assert.equal(window.currentGuidelines,null);
+  }
+});
+
+test('actual inclined-plane task offers both axes off objects and on the plane without point snapping',()=>{
+  const window=runtime(),g=window.geometry;
+  const data=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
+  const task=data.tasks.find(task=>task.id==='task_1791480987573_3k1992zvk');
+  assert.ok(task,'inclined-plane regression fixture exists');
+  assert.equal(task.scene.plane.snapping,false);
+  assert.equal(task.snapChecklist.snapLocalComponents,true);
+  window.currentTask=task;
+  window.currentSnapChecklist=window.getTaskSnapChecklist(task);
+  const plane=task.scene.plane;
+  for(const draw of [false,true]){
+    plane.draw=draw;
+    for(const anchor of [[100,100],plane.through,
+      plane.through.map((v,i)=>v+60*plane.t_vec[i])]){
+      const force={anchor,arrowBase:anchor.slice()};
+      const directions=window.forceSnapDirections(task,anchor);
+      assert.equal(directions.length,2);
+      for(const axis of [plane.t_vec,plane.n_vec]){
+        assert.ok(directions.some(direction=>Math.abs(g.cross(direction,axis))<1e-8));
+        const target=anchor.map((v,i)=>v+80*axis[i]/Math.max(...axis.map(Math.abs)));
+        for(const enableSnap of [false,true]){
+          window.enableSnap=enableSnap;
+          const result=window.snapping.snapForce(target,{task,force,origin:anchor,tip:true});
+          if(enableSnap) assert.equal(result.source,'scene-direction');
+          const lines=window.snapping.buildForceGuidelines(anchor,result.pos,task,anchor);
+          assert.equal(lines.length,4);
+          assert.ok(lines.slice(2).some(({a,b})=>Math.abs(g.cross(b.map((v,i)=>v-a[i]),axis))<1e-8));
+        }
+      }
+    }
+  }
+  for(const {key,a,b} of window.snapMatchCategories){
+    if(a==='n'||a==='t'||b==='n'||b==='t') window.currentSnapChecklist[key]=false;
+  }
+  assert.equal(window.forceSnapDirections(task,[100,100]).length,0);
+});
+
+test('plane matching follows the same live checklist in player and editor',()=>{
+  const window=runtime(),origin=[400.25,300.5];
+  const task={scene:{plane:{draw:false,t_vec:[0.8,-0.6]}},snapChecklist:{snapLocalComponents:false}};
+  const force={anchor:[123,456],arrowBase:origin};
+  const options={task,force,origin,tip:true},pos=[460.45,380.7];
+  window.currentTask=task;
+  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+  window.currentSnapChecklist={...window.getTaskSnapChecklist(task),snapMatchNN:true};
+  assert.equal(window.snapping.snapForce(pos,options).source,'scene-direction');
+  window.currentSnapChecklist.snapMatchNN=false;
+  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+  window.editorMode=true;
+  assert.equal(window.snapping.snapForce(pos,options).source,'origin-grid');
+});
+
+test('plane component matching and guidelines work when neither force is anchored to scene geometry',()=>{
+  const {window,task,force,reference,options}=localSetup();
+  task.scene={plane:{draw:false,t_vec:[0.8,-0.6]}};
+  force.anchor=[123,456];
+  reference.anchor=[789,123];
+  const result=window.snapping.snapForce([449.25,365.5],options);
+  assert.equal(result.source,'force-component');
+  assert.ok(window.geometry.distance(result.pos,[448.25,364.5])<1e-8);
+  force.arrowTip=Array.from(result.pos);
+  const lines=window.snapping.buildMatchedComponentGuidelines(force,[force,reference],20,task);
+  assert.ok(lines.some(line=>window.geometry.distance(line.a,reference.arrowBase)<1e-8 &&
+    window.geometry.distance(line.b,[1048,1064])<1e-8));
+});
+
 test('rotated rectangles and curves provide local axes, boundary tangents and true ellipse normals',()=>{
   const window=runtime(),g=window.geometry;
   const t=[Math.SQRT1_2,Math.SQRT1_2],n=[Math.SQRT1_2,-Math.SQRT1_2];
   const rect={bottomCenter:[100,200],width:80,height:60,t_vec:t,n_vec:n};
   const ellipse={center:[400,300],width:160,height:80,t_vec:t,startAngleDeg:30,endAngleDeg:250};
-  const circle={center:[700,300],radius:40};
-  const task={scene:{rects:[rect],ellipses:[ellipse],circles:[circle]}};
+  const lockedEllipse={center:[700,300],width:80,height:80,lockAxes:true};
+  const task={scene:{rects:[rect],ellipses:[ellipse,lockedEllipse]}};
   const check=(anchor,expected)=>{
     const directions=window.forceSnapDirections(task,anchor);
     assert.equal(directions.length,expected.length);
@@ -634,7 +980,7 @@ test('rotated rectangles and curves provide local axes, boundary tangents and tr
   };
   for(const point of Object.values(window.rectPoints(rect))) check(point,[t,n]);
   check(ellipse.center,[t,n]);
-  check(circle.center,[[1,0],[0,1]]);
+  check(lockedEllipse.center,[[1,0],[0,1]]);
   check([740,300],[[1,0],[0,1]]);
   const boundary=g.ellipsePoint(ellipse,30);
   const normal=[
@@ -645,8 +991,9 @@ test('rotated rectangles and curves provide local axes, boundary tangents and tr
   ellipse.snapping=false;
   check(boundary,[]);
   check([boundary[0]+0.01,boundary[1]],[]);
-  circle.radius=0;
-  check(circle.center,[]);
+  lockedEllipse.width=0;
+  lockedEllipse.height=0;
+  check(lockedEllipse.center,[]);
 });
 
 test('shared endpoints deduplicate lines and ignore disabled or degenerate elements',()=>{
@@ -760,7 +1107,7 @@ function componentSetup(){
   const window=runtime();
   const origin=[600,300],force={anchor:origin,arrowBase:origin};
   const reference={arrowBase:[40,50],arrowTip:[86,-30]};
-  return {window,reference,options:{force,origin,task:{scene:{}},forces:[force,reference],tip:true}};
+  return {window,reference,options:{force,origin,task:{scene:{},snapChecklist:{snapSameAxisComponents:true}},forces:[force,reference],tip:true}};
 }
 
 test('Intro 2 gravity does not override either axis of the shifted drawing grid',()=>{

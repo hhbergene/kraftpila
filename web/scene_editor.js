@@ -67,7 +67,7 @@
     cancel();
     if(!window.editorMode || !window.currentTask || !model()) return;
     active = {...config, task:window.currentTask, original:config.select?.value || '', pos:null, candidate:null};
-    document.getElementById('app-canvas')?.style.setProperty('cursor','crosshair');
+    document.getElementById('app-canvas')?.style.setProperty('cursor','var(--canvas-cursor)');
   }
   function bindPicker(select, parent, config){
     select.hidden=true;
@@ -395,17 +395,26 @@
     select.value=selected || '';
   }
   function numberField(parent, label, value, apply, options = {}){
-    const r=row(parent,label);
-    const input=element('input',null,{type:'number',value:String(value ?? ''),step:'any',...options});
-    input.className='scene-editor-input';
-    input.style.width='65px';
-    input.style.minWidth='0';
-    input.style.flex='1 1 65px';
+    const {row:targetRow,...inputOptions}=options;
+    const r=targetRow || row(parent,label);
+    if(targetRow && label) r.appendChild(element('label',label));
+    const input=element('input',null,{type:'number',value:String(value ?? ''),step:'any',...inputOptions});
+    input.className=inputOptions.className || 'scene-editor-input scene-coordinate-input';
     r.appendChild(input);
+    function applyWithoutPanelRebuild(value){
+      const wasDeferred=deferRefresh;
+      deferRefresh=true;
+      try{
+        apply(value);
+      } finally {
+        deferRefresh=wasDeferred;
+      }
+      if(!wasDeferred) window.updateAppState?.({preserveScenePanel:true});
+    }
     input.addEventListener('change',()=>{
       if(options.allowBlank && input.value.trim()===''){
         input.setCustomValidity('');
-        apply(undefined);
+        applyWithoutPanelRebuild(undefined);
         return;
       }
       const v=Number(input.value);
@@ -418,7 +427,7 @@
         return;
       }
       input.setCustomValidity('');
-      apply(v);
+      applyWithoutPanelRebuild(v);
     });
     return input;
   }
@@ -426,6 +435,7 @@
     const r=row(parent,label), input=element('input',null,{type:'checkbox',checked:!!value});
     r.appendChild(input);
     input.addEventListener('change',()=>apply(input.checked));
+    return r;
   }
   function anchorFields(parent, angle, name, label){
     const slot=angle[name];
@@ -501,6 +511,7 @@
   function buildProperties(parent,type,obj,index){
     parent.style.minWidth='0';
     parent.style.overflowWrap='anywhere';
+    let inlineDeleteRow=null;
     if(type === 'angle'){
       anchorFields(parent,obj,'vertex','Toppunkt:');
       anchorFields(parent,obj,'start','Start:');
@@ -527,21 +538,50 @@
       row(parent,'Stil:').appendChild(style);
       style.addEventListener('change',()=>{obj.body=style.value; edited('task');});
     } else {
-      row(parent,'Type:').appendChild(element('span',obj.type==='intersection' ? 'Skjæringspunkt' : 'Fritt punkt'));
-      row(parent,'ID:').appendChild(element('span',obj.id));
       if(obj.type !== 'intersection'){
-        numberField(parent,'x:',obj.pos[0],v=>{obj.pos[0]=v; edited('task');});
-        numberField(parent,'y:',obj.pos[1],v=>{obj.pos[1]=v; edited('task');});
+        const coordinates=row(parent,'O:');
+        coordinates.className+=' scene-point-coordinate-row';
+        numberField(parent,'x:',obj.pos[0],v=>{obj.pos[0]=v; edited('task');},
+          {row:coordinates,className:'scene-editor-input scene-point-coordinate-input'});
+        numberField(parent,'y:',obj.pos[1],v=>{obj.pos[1]=v; edited('task');},
+          {row:coordinates,className:'scene-editor-input scene-point-coordinate-input'});
       } else {
+        row(parent,'Type:').appendChild(element('span','Skjæringspunkt'));
+        row(parent,'ID:').appendChild(element('span',obj.id));
         (obj.sources || []).forEach(source=>row(parent,'Geometri:').appendChild(element('span',`${source.ref} ${source.segment || ''}`)));
         const change=element('button','Velg skjæring på nytt',{type:'button'});
         change.addEventListener('click',()=>startIntersection(obj));
         parent.appendChild(change);
       }
+      if(obj.type !== 'intersection'){
+        const sizeStyle=row(parent,'Størrelse:');
+        numberField(parent,'',obj.size ?? 4,v=>{obj.size=v; edited('task');},
+          {row:sizeStyle,min:'1',max:'30',className:'scene-editor-input scene-point-size-input'});
+        sizeStyle.appendChild(element('label','Stil:',{className:'scene-inline-label'}));
+        const markerStyle=element('select',null,{value:obj.markerStyle || 'circle',
+          'aria-label':'Punktstil',title:'Sirkel, fylt sirkel, firkant eller kryss'});
+        markerStyle.className='scene-editor-input scene-point-style-input';
+        markerStyle.append(
+          element('option','○',{value:'circle',title:'Sirkel'}),
+          element('option','●',{value:'filled',title:'Fylt sirkel'}),
+          element('option','□',{value:'square',title:'Firkant'}),
+          element('option','×',{value:'cross',title:'Kryss'})
+        );
+        markerStyle.value=obj.markerStyle || (obj.color ? 'filled' : 'circle');
+        sizeStyle.appendChild(markerStyle);
+        markerStyle.addEventListener('change',()=>{obj.markerStyle=markerStyle.value; edited('task');});
+      }
+      if(obj.type !== 'intersection'){
+        const color=element('input',null,{type:'color',value:obj.color || '#222222',className:'scene-color-input'});
+        row(parent,'Farge:').appendChild(color);
+        color.addEventListener('change',()=>{obj.color=color.value; edited('task');});
+        numberField(parent,'Linje px:',obj.lineWidth ?? 1.5,v=>{obj.lineWidth=v; edited('task');},{min:'0.5',max:'10',className:'scene-editor-input scene-line-width'});
+      }
       checkbox(parent,'Synlig for eleven',obj.visible,v=>{obj.visible=v; edited('task');});
-      checkbox(parent,'Snap',obj.snapping!==false,v=>{obj.snapping=v; edited('task');});
+      inlineDeleteRow=checkbox(parent,'Snap',obj.snapping!==false,v=>{obj.snapping=v; edited('task');});
     }
-    const remove=element('button','🗑 Slett',{type:'button',className:'scene-delete-element-btn'});
+    const remove=element('button','🗑️',{type:'button',className:'scene-delete-element-btn',
+      title:`Slett ${type}`, 'aria-label':`Slett ${type}`});
     remove.addEventListener('click',()=>{
       cancel();
       const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
@@ -551,7 +591,8 @@
       window.selectedSceneElement=null;
       edited('task','forces');
     });
-    parent.appendChild(remove);
+    if(inlineDeleteRow) inlineDeleteRow.appendChild(remove);
+    else parent.appendChild(remove);
   }
   function confirmIntersection(state,hit){
     window.autoSave?.();

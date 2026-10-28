@@ -34,13 +34,13 @@
       }
       const last = this.forces[this.forces.length-1];
       const hasGeom = !!(last.anchor||last.arrowBase||last.arrowTip);
-      const hasName = (last.name && last.name.trim() !== '');
+      const hasName = (last.name && last.name.trim() !== '') || last.studentSpecName || last.role!=='force';
       if(hasGeom || hasName){
         this.forces.push(new Force());
       }
     }
     isBlankForce(f){
-      return !!(f && f.editable && !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim()===''));
+      return !!(f && f.editable && !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim()==='') && !f.studentSpecName && (!f.role || f.role==='force'));
     }
     ensureTrailingBlank(){
       if(this.forces.length===0 || !this.isBlankForce(this.forces[this.forces.length-1])){
@@ -61,57 +61,87 @@
         if(window.setActivePanel && !window.draggingHandle) window.setActivePanel('force');
       }
     }
-    updateHover(pos){
+    getHoverCandidate(pos, preferClosest = false){
       const TH_HANDLE = 14; // tighter handle radius
       const TH_LINE = 8;    // body proximity
-      // reset previous hovering
-      for(const f of this.forces) f.hovering = null;
-
       // Collect candidates with priority: 0 = handle, 1 = body
       const candidates = [];
       const activeForce = (this.activeIndex>=0? this.forces[this.activeIndex] : null);
 
-      for(const f of this.forces){
-        // Elevmodus: låste krefter skal ikke fange klikk (ellers kan man ikke tegne fra samme punkt)
+      for(let forceIndex=0; forceIndex<this.forces.length; forceIndex++){
+        const f=this.forces[forceIndex];
+        let initialInPlayerMode = false;
         if(window.editorMode === false){
           const exp = (f.isExpected !== undefined) ? f.isExpected : (f.moveable !== false);
-          if(!exp) continue;
+          initialInPlayerMode = !exp;
         }
-        // Anchor handle
-        if(f.anchor){
-          const dA = geometry.distance(pos, f.anchor);
-          if(dA <= TH_HANDLE){
-            candidates.push({priority:0, dist:dA, force:f, part:'anchor'});
-          }
-        }
-        // ArrowTip handle
-        if(f.arrowTip){
-          const dT = geometry.distance(pos, f.arrowTip);
-          if(dT <= TH_HANDLE){
-            candidates.push({priority:0, dist:dT, force:f, part:'arrowTip'});
-          }
-        }
-        // Body (only if not already inside a handle for that force)
-        const hasHandleCandidate = candidates.some(c => c.force===f && c.priority===0);
-        if(!hasHandleCandidate){
-          if(f.arrowBase && f.arrowTip){
-            const dBody = geometry.distPointToSegment(pos, f.arrowBase, f.arrowTip);
-            if(dBody <= TH_LINE){
-              candidates.push({priority:1, dist:dBody, force:f, part:'body'});
+        if(!initialInPlayerMode){
+          // Anchor handle
+          if(f.anchor){
+            const dA = geometry.distance(pos, f.anchor);
+            if(dA <= TH_HANDLE){
+              const lineDistance=f.arrowBase
+                ? geometry.distPointToSegment(pos,f.anchor,f.arrowBase)
+                : dA;
+              candidates.push({
+                priority:0,dist:dA,distance:lineDistance,pointDistance:dA,
+                force:f,forceIndex,part:'anchor'
+              });
             }
           }
-          if(f.anchor && f.arrowBase){
-            const dAB = geometry.distPointToSegment(pos, f.anchor, f.arrowBase);
-            if(dAB <= TH_LINE){
-              candidates.push({priority:1, dist:dAB, force:f, part:'body'});
+          // ArrowTip handle
+          if(f.arrowTip){
+            const dT = geometry.distance(pos, f.arrowTip);
+            if(dT <= TH_HANDLE){
+              const lineDistance=f.arrowBase
+                ? geometry.distPointToSegment(pos,f.arrowBase,f.arrowTip)
+                : dT;
+              candidates.push({
+                priority:0,dist:dT,distance:lineDistance,pointDistance:dT,
+                force:f,forceIndex,part:'arrowTip'
+              });
             }
+          }
+        }
+        // Keep shaft hits available while near a handle so cross-object arbitration
+        // can compare the same line distance before using point proximity.
+        if(f.arrowBase && f.arrowTip){
+          const dBody = geometry.distPointToSegment(pos, f.arrowBase, f.arrowTip);
+          const isOnArrowBody = !initialInPlayerMode ||
+            (geometry.distance(pos,f.arrowBase) > TH_HANDLE &&
+             geometry.distance(pos,f.arrowTip) > TH_HANDLE);
+          if(dBody <= TH_LINE && isOnArrowBody){
+            const pointDistance=Math.min(geometry.distance(pos,f.arrowBase),geometry.distance(pos,f.arrowTip));
+            candidates.push({
+              priority:1,dist:dBody,distance:dBody,pointDistance,
+              force:f,forceIndex,part:'body'
+            });
+          }
+        }
+        if(!initialInPlayerMode && f.anchor && f.arrowBase){
+          const dAB = geometry.distPointToSegment(pos, f.anchor, f.arrowBase);
+          if(dAB <= TH_LINE){
+            const pointDistance=Math.min(geometry.distance(pos,f.anchor),geometry.distance(pos,f.arrowBase));
+            candidates.push({
+              priority:1,dist:dAB,distance:dAB,pointDistance,
+              force:f,forceIndex,part:'body'
+            });
           }
         }
       }
 
-      if(!candidates.length) return;
-      // Sort: priority then distance; prefer active force if same score
+      if(!candidates.length) return null;
+      // Keep legacy handle-first arbitration unless the editor requests nearest-hit selection.
       candidates.sort((a,b)=>{
+        if(preferClosest){
+          if(Math.abs(a.distance-b.distance)>1e-6) return a.distance-b.distance;
+          const aActive = window.activePanel==='force' && a.force===activeForce;
+          const bActive = window.activePanel==='force' && b.force===activeForce;
+          if(aActive !== bActive) return aActive ? -1 : 1;
+          if(Math.abs(a.pointDistance-b.pointDistance)>1e-6) return a.pointDistance-b.pointDistance;
+          if(a.priority !== b.priority) return a.priority-b.priority;
+          return a.forceIndex-b.forceIndex;
+        }
         if(a.priority !== b.priority) return a.priority - b.priority;
         // If one is active force and other not (and distances comparable), favor active
         const aActive = (a.force === activeForce);
@@ -120,13 +150,60 @@
         if(bActive && !aActive && b.dist <= a.dist*1.3) return 1;
         return a.dist - b.dist;
       });
-      const best = candidates[0];
-      best.force.hovering = best.part;
+      return {...candidates[0],domain:'force'};
     }
-    drawAll(ctx){
-      for(let i=0;i<this.forces.length;i++){
-        this.forces[i].draw(ctx, i===this.activeIndex);
+    setHoverCandidate(candidate){
+      for(const force of this.forces) force.hovering=null;
+      if(candidate?.domain==='force' && this.forces.includes(candidate.force)){
+        candidate.force.hovering=candidate.part;
       }
+    }
+    updateHover(pos, preferClosest = false){
+      const candidate=this.getHoverCandidate(pos,preferClosest);
+      this.setHoverCandidate(candidate);
+      return candidate;
+    }
+    drawAll(ctx, showActiveHandles = true){
+      for(let i=0;i<this.forces.length;i++){
+        this.forces[i].draw(ctx, showActiveHandles && i===this.activeIndex);
+      }
+    }
+
+    normalizeNames(){
+      if(!window.forceNotation) return;
+      this.forces.forEach(force=>{
+        if(window.editorMode || force.isExpected!==false){
+          const given = window.forceNotation.givenSpec(force,window.currentTask);
+          const name = window.forceNotation.normalize(given?.studentGiven?.name ? given.name : force.name);
+          if(window.editorMode && window.renameEditorForce) window.renameEditorForce(force,name);
+          else force.name = name;
+        }
+        window.forceNotation.resolve(force,window.currentTask);
+      });
+      window.forceNotation.sort(this,window.currentTask);
+    }
+
+    commitName(input){
+      const force = this.forces[Number(input.dataset.index)];
+      if(!force || !window.forceNotation) return;
+      const given = window.forceNotation.givenSpec(force,window.currentTask);
+      const name = window.forceNotation.normalize(given?.studentGiven?.name ? given.name : input.value);
+      if(window.editorMode && window.renameEditorForce) window.renameEditorForce(force,name);
+      else force.name = name;
+      window.forceNotation.resolve(force,window.currentTask);
+      if(window.editorMode) window.syncForceSpec?.(force);
+      const focused = document.activeElement===input;
+      window.forceNotation.sort(this,window.currentTask);
+      const container = input.closest('#force-inputs');
+      const currentInput = container?.querySelector(`.force-row[data-force-index="${this.forces.indexOf(force)}"] input`);
+      if(container){
+        input.value = name;
+        this.syncInputs(container);
+      }
+      if(focused && currentInput && document.activeElement!==currentInput) currentInput.focus();
+      if(window.markEdited) window.markEdited('forces','task');
+      else window.saveTaskForces?.();
+      return currentInput || input;
     }
 
     syncInputs(container, forceDropdownRebuild = false){
@@ -146,6 +223,17 @@
         input.placeholder='Navn';
         input.dataset.index = idx;
         input.style.flex = '1';
+        input.style.minWidth = '0';
+        input.title = 'Gx → G_x, GA → G_A, G1 → G_1, sumF → \\sum F. Bekreft med Enter eller Tab.';
+        input.addEventListener('blur',()=>{
+          if(window.fm===this && input.isConnected && !this.reordering) this.commitName(input);
+        });
+        input.addEventListener('keydown',e=>{
+          if(e.key==='Enter'){
+            e.preventDefault();
+            window.fm?.commitName(input);
+          }
+        });
         input.addEventListener('input', (e)=>{
           const i = parseInt(e.target.dataset.index,10);
           // Use current global manager to avoid stale closure when fm is replaced
@@ -186,11 +274,12 @@
         // Wrap Tab navigation: last -> first, and Shift+Tab first -> last
         input.addEventListener('keydown', (e)=>{
           if(e.key !== 'Tab') return;
+          const committedInput = window.fm?.commitName(input) || input;
           const containerEl = container;
           if(!containerEl) return;
           const focusables = Array.from(containerEl.querySelectorAll('input:not([disabled])'));
           if(focusables.length === 0) return;
-          const current = e.target;
+          const current = committedInput;
           const curIdx = focusables.indexOf(current);
           if(curIdx === -1) return;
           e.preventDefault();
@@ -264,7 +353,7 @@
             const hasPoints = !!(force.anchor || force.arrowBase || force.arrowTip);
             let activeIndex = i;
             
-            if(hasPoints){
+            if(hasPoints || (!window.editorMode && force.studentSpecName)){
               // Force has points: sync name from textbox, then clear the points but keep the force with its name
               const row = container.querySelectorAll('.force-row')[i];
               if(row){
@@ -313,6 +402,26 @@
         });
 
         row.appendChild(input); row.appendChild(detailBtn); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
+        const roleSelect = document.createElement('select');
+        roleSelect.className = 'force-role-select';
+        roleSelect.title = 'Krafttype (oppgitt type er låst)';
+        [['force','Kraft'],['component','Komponent'],['resultant','Sum']].forEach(([value,label])=>{
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          roleSelect.appendChild(option);
+        });
+        roleSelect.style.maxWidth = '105px';
+        roleSelect.addEventListener('change',()=>{
+          const force = window.fm?.forces[Number(input.dataset.index)];
+          if(!force) return;
+          force.manualRole = roleSelect.value;
+          force.role = roleSelect.value;
+          if(!window.editorMode) window.forceNotation.resolve(force,window.currentTask);
+          else window.syncForceSpec?.(force);
+          window.fm.commitName(input);
+        });
+        row.appendChild(roleSelect); row.appendChild(detailBtn); row.appendChild(toggleBtn); row.appendChild(deleteBtn);
         container.appendChild(row);
         rows.push(row);
         
@@ -482,7 +591,16 @@
         }
         const isInitial = !isExpected;
         const isEditorMode = window.editorMode === true;
+        const given = window.forceNotation?.givenSpec(f,window.currentTask);
         input.disabled = (!isEditorMode && isInitial);
+        input.readOnly = !isEditorMode && !!given?.studentGiven?.name;
+        input.title = input.readOnly ? 'Navnet er oppgitt i oppgaven' : 'Gx → G_x, GA → G_A, G1 → G_1, sumF → \\sum F';
+        const roleSelect = row.querySelector('.force-role-select');
+        if(roleSelect){
+          roleSelect.value = f.role || 'force';
+          roleSelect.disabled = !isEditorMode && (isInitial || !!given?.studentGiven?.role);
+          roleSelect.title = !isEditorMode && given?.studentGiven?.role ? 'Typen er oppgitt i oppgaven' : 'Krafttype';
+        }
         
         // Color initial forces green
         if(isInitial){
@@ -503,7 +621,7 @@
         if(detailBtn){
           const specRef = window.getForceSpec ? window.getForceSpec(f) : null;
           const hasDetails = !!(specRef && specRef.spec && (specRef.spec.nameBase || (specRef.spec.aliases || []).length > 1));
-          detailBtn.style.display = (isEditorMode && isExpected && f.name && f.name.trim()) ? 'flex' : 'none';
+          detailBtn.style.display = (isEditorMode && f.name && f.name.trim()) ? 'flex' : 'none';
           detailBtn.style.background = hasDetails ? '#ffe9a8' : '#f5f5f5';
         }
 
@@ -513,7 +631,7 @@
         if(deleteBtn){
           const hasPoints = !!(f.anchor || f.arrowBase || f.arrowTip);
           const hasName = !!(f.name && f.name.trim() !== '');
-          const canDelete = (hasPoints || hasName) && (isEditorMode || isExpected);
+          const canDelete = (hasPoints || hasName || f.studentSpecName || f.role==='component' || f.role==='resultant') && (isEditorMode || isExpected);
           deleteBtn.style.display = canDelete ? 'flex' : 'none';
         }
         
@@ -643,7 +761,7 @@
         
         // Hide entire row if force is completely blank AND it's not the last one
         // (Keep the last blank force visible for adding new forces)
-        const isBlank = !f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '');
+        const isBlank = this.isBlankForce(f);
         const isLastForce = (i === this.forces.length - 1);
         row.style.display = (isBlank && !isLastForce) ? 'none' : 'flex';
         

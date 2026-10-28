@@ -102,6 +102,7 @@ test('both entrypoints render only the selected force trace before forces, with 
     const first={arrowBase:[1,0],arrowTip:[81,0]},second={arrowBase:[10,8],arrowTip:[90,8]};
     const ctx=canvas();
     window.fm={forces:[first,second],activeIndex:1,drawAll(){events.push('forces');}};
+    window.shouldDrawActiveForceHandles=()=>true;
     const original=window.drawForceGridTrace;
     window.drawForceGridTrace=(ctx,force)=>{traces.push(force);events.push('trace');original(ctx,force);};
     window.drawGuidelines=()=>events.push('guidelines');

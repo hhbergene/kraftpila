@@ -191,6 +191,52 @@ test('outdated localStorage stays untouched until approval and is filtered after
   assert.equal(localStorage.getItem('tk_app_version'),window.PLAYER_BUILD_TIME);
 });
 
+test('version filtering preserves optional force roles and supplied fields without requiring them in old tasks',async()=>{
+  const {window,document,elements}=setup();
+  const reference=[{id:'task',expectedForces:[{name:'G'}],initialForces:[{name:'N'}]}];
+  const force={name:'G_x',role:'component',componentOf:'G',studentGiven:{name:true}};
+  const data={tasks:[{id:'task',expectedForces:[force,{name:'G'}],
+    initialForces:[{name:'N',role:'force',studentGiven:{role:false}}]}],metadata:{appVersion:'old'}};
+  const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
+  assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.role|\.studentGiven|\.componentOf/);
+  elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
+  const result=await pending;
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.tasks[0].expectedForces)),[force,{name:'G'}]);
+  assert.equal(result.data.tasks[0].initialForces[0].studentGiven.role,false);
+});
+
+test('version filtering preserves optional relation tolerances without requiring overrides',async()=>{
+  for(const referenceOverrides of [{},{tol_rel:0.15}]){
+    const {window,document,elements}=setup();
+    const relation={lhs:[{name:'G'}],rhs:[{name:'N'}],ratio:1};
+    const reference=[{id:'task',relations:[{...relation,...referenceOverrides}]}];
+    const relations=[{...relation,tol_rel:0,tol_abs:3},{...relation}];
+    const data={tasks:[{id:'task',relations}],metadata:{appVersion:'old'}};
+    const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
+    assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.tol_rel|\.tol_abs/);
+    elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
+    const result=await pending;
+    assert.deepEqual(JSON.parse(JSON.stringify(result.data.tasks[0].relations)),relations);
+  }
+});
+
+test('version filtering preserves automatic ratio mode and optional answer geometry',async()=>{
+  const {window,document,elements}=setup();
+  const relation={lhs:[{name:'A'}],rhs:[{name:'B'}]};
+  const reference=[{id:'task',expectedForces:[{name:'A'}],
+    relations:[{...relation,ratio:1}]}];
+  const answer={name:'A',drawn:{anchor:[0,0],arrowBase:[0,0],arrowTip:[3,4]}};
+  const data={tasks:[{id:'task',expectedForces:[answer],
+    relations:[relation,{...relation,ratio:2}]}],metadata:{appVersion:'old'}};
+  const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
+  assert.doesNotMatch(document.body.modal.children[0].innerHTML,/\.ratio|\.drawn/);
+  elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
+  const result=await pending;
+  const imported=JSON.parse(JSON.stringify(result.data.tasks[0]));
+  assert.deepEqual(imported.expectedForces[0],answer);
+  assert.deepEqual(imported.relations,[relation,{...relation,ratio:2}]);
+});
+
 test('full reset from the storage warning clears only this mode and loads current defaults',async()=>{
   const {window,localStorage,elements,confirmations}=setup();
   localStorage.setItem('tk_app_version','2025-01-01 09:00');

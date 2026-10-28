@@ -7,8 +7,11 @@
       "help_lines": [
         "På en ball som faller fritt mot bakken virker det bare en kraft:",
         "G - Tyngdekraften",
+        "",
         "Tyngdekraften er en fjernkraft, og angrepspunktet skal tegnes i massemidtpunktet til ballen.",
-        "Tegn tyngdekraften."
+        "",
+        "Tegn tyngdekraften ved å klikke i ballens sentrum og dra rett nedover til passende lengde. ",
+        "Skriv inn navnet på kraften i panelet til høyre (enten før eller etter du tegner kraften)."
       ],
       "scene": {
         "plane": {
@@ -26,25 +29,30 @@
           "t_vec": [
             1,
             0
+          ],
+          "dirPoint": [
+            500,
+            340
           ]
         },
         "ellipses": [
           {
-            "width": 120,
-            "height": 120,
             "center": [
               500,
               240
+            ],
+            "width": 120,
+            "height": 120,
+            "t_vec": [
+              1,
+              0
             ],
             "n_vec": [
               0,
               -1
             ],
             "snapping": false,
-            "t_vec": [
-              1,
-              0
-            ]
+            "lockAxes": true
           }
         ],
         "texts": [
@@ -87,6 +95,11 @@
             "_renderedPos": [
               240,
               99
+            ],
+            "linked": true,
+            "pos": [
+              240,
+              99
             ]
           },
           {
@@ -96,6 +109,11 @@
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
+              240,
+              118
+            ],
+            "linked": true,
+            "pos": [
               240,
               118
             ]
@@ -155,7 +173,8 @@
               240
             ],
             "visible": true,
-            "valid": true
+            "valid": true,
+            "lineWidth": 1
           }
         ]
       },
@@ -191,7 +210,8 @@
               500,
               320
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -199,18 +219,43 @@
       "relations": [],
       "taskTitle": "Intro 1",
       "taskSubTitle": "Intro 1",
-      "subTitle": "Intro 1"
+      "subTitle": "Intro 1",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987568_2u5txto26",
       "title": "Snordrag på ball",
       "category": "Fysikk 1",
       "help_lines": [
-        "En ball henger i ro i en snor. Det virker to krefter:",
+        "En ball henger i ro i en snor. Det virker to krefter på ballen:",
         "G - Tyngdekraften",
         "S - Snordraget",
+        "",
         "Snordraget er en kontaktkraft som angriper i kontaktpunktet med ballen.",
-        "Tegn snordraget."
+        "",
+        "Tegn snordraget. ",
+        "",
+        "Ekstra: Prøv gjerne å forskyve den litt til siden så den ikke overlapper med snora."
       ],
       "scene": {
         "plane": {
@@ -329,7 +374,8 @@
               520,
               100
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -352,7 +398,8 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {},
@@ -369,14 +416,33 @@
               "name": "S",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Intro 2",
       "taskSubTitle": "Intro 2",
-      "subTitle": "Intro 2"
+      "subTitle": "Intro 2",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987569_qg12erkik",
@@ -386,9 +452,13 @@
         "På en ball som ligger i ro på bakken virker det to krefter:",
         "G - Tyngdekraften",
         "N - Normalkraften fra underlaget",
+        "",
         "Normalkraften er en kontaktkraft som angriper i kontaktpunktet med bakken.",
         "Legg merke til at vi har forskjøvet tyngdekraften litt til side for angrepspunktet slik at den ikke skal overlappe med normalkraften",
-        "Tegn normakraften. Prøv gjerne å forskyve den litt til siden."
+        "",
+        "Tegn normakraften. ",
+        "",
+        "Ekstra: Prøv gjerne å forskyve den litt til siden så den ikke går gjennom angrepspunktet til G."
       ],
       "scene": {
         "plane": {
@@ -474,7 +544,8 @@
               520,
               260
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -497,7 +568,8 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {},
@@ -505,21 +577,42 @@
         {
           "lhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
           ],
           "rhs": [
             {
-              "name": "N"
+              "name": "N",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Intro 3",
       "taskSubTitle": "Intro 3",
-      "subTitle": "Intro 3"
+      "subTitle": "Intro 3",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987570_9dzqpjzzk",
@@ -527,6 +620,7 @@
       "category": "Fysikk 1",
       "help_lines": [
         "En kloss ligger i ro på et horisontalt underlag.",
+        "",
         "Tegn kreftene som virker på klossen."
       ],
       "scene": {
@@ -652,7 +746,8 @@
               480,
               400
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -687,7 +782,8 @@
               520,
               260
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -699,27 +795,50 @@
         {
           "lhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
           ],
           "rhs": [
             {
-              "name": "N"
+              "name": "N",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Kloss i ro på horisontalt underlag",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987571_i2kw1klmh",
       "title": "Kloss med konstant fart på horisontalt underlag",
       "category": "Fysikk 1",
       "help_lines": [
-        "Vi trekker en kloss på et horisontalt underlag med friksjon med en kraft F horisontalt mot høyre.",
+        "En kloss beveger seg på et horisontalt underlag med friksjon.",
+        "Vi trekker klossen med en kraft F horisontalt mot høyre.",
+        "",
         "Tegn de andre kreftene som virker på klossen."
       ],
       "scene": {
@@ -775,7 +894,7 @@
         ],
         "texts": [
           {
-            "txt": "Tegn de andre kreftene som virker på A.",
+            "txt": "Tegn de andre kreftene som virker på klossen",
             "pos": [
               375,
               80
@@ -802,21 +921,6 @@
             "_renderedPos": [
               500,
               122
-            ]
-          },
-          {
-            "txt": "A",
-            "pos": [
-              442,
-              338
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              442,
-              338
             ]
           }
         ],
@@ -853,7 +957,8 @@
               540,
               400
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -887,7 +992,8 @@
               460,
               260
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "R",
@@ -920,7 +1026,8 @@
               360,
               340
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -943,7 +1050,8 @@
             "type": "point",
             "ref": "rect0",
             "point": "right_middle"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {
@@ -954,34 +1062,500 @@
         {
           "lhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
           ],
           "rhs": [
             {
-              "name": "N"
+              "name": "N",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
             {
-              "name": "F"
+              "name": "F",
+              "component": "magnitude"
             }
           ],
           "rhs": [
             {
-              "name": "R"
+              "name": "R",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Kloss med konstant fart på horisontalt underlag",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
+      "id": "task_1793180732065_yjcow4p6n",
+      "title": "Kloss-Trinse-Lodd",
+      "category": "Fysikk 1",
+      "origin": [
+        500,
+        340
+      ],
+      "help_lines": [
+        "En kloss dras langs et horisontalt bord med en snor koblet til et lodd via en trinse.",
+        "Klossen har konstant fart mot høyre.",
+        "",
+        "Vi har tegnet inn:",
+        "G_B - Tyngdekraften på loddet.",
+        "S_B - Snordraget på loddet.",
+        "",
+        "N_A - Normalkraften på klossen fra bordet.",
+        "",
+        "Tegn inn de andre kreftene som virker på klossen."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            580
+          ],
+          "draw": true,
+          "snapping": false
+        },
+        "rects": [
+          {
+            "width": 760,
+            "height": 20,
+            "bottomCenter": [
+              220,
+              300
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "color": "#545454",
+            "lineWidth": 3
+          },
+          {
+            "width": 120,
+            "height": 120,
+            "bottomCenter": [
+              360,
+              280
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          },
+          {
+            "width": 280,
+            "height": 20,
+            "bottomCenter": [
+              500,
+              440
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              1,
+              0
+            ],
+            "t_vec": [
+              0,
+              1
+            ],
+            "snapping": true,
+            "color": "#545454",
+            "lineWidth": 3
+          }
+        ],
+        "ellipses": [
+          {
+            "center": [
+              600,
+              240
+            ],
+            "width": 40,
+            "height": 40,
+            "t_vec": [
+              0,
+              1
+            ],
+            "n_vec": [
+              1,
+              0
+            ],
+            "lockAxes": true,
+            "color": "#4090ff",
+            "lineWidth": 2,
+            "snapping": true
+          },
+          {
+            "center": [
+              620,
+              380
+            ],
+            "width": 80,
+            "height": 80,
+            "t_vec": [
+              1,
+              0
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "lockAxes": true,
+            "color": "#4090ff",
+            "lineWidth": 2,
+            "snapping": true
+          }
+        ],
+        "segments": [
+          {
+            "a": [
+              420,
+              220
+            ],
+            "b": [
+              600,
+              220
+            ],
+            "snapping": false
+          },
+          {
+            "a": [
+              620,
+              240
+            ],
+            "b": [
+              620,
+              340
+            ],
+            "snapping": false
+          }
+        ],
+        "arrows": [
+          {
+            "a": [
+              420,
+              100
+            ],
+            "b": [
+              500,
+              100
+            ],
+            "snapping": false
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn de andre kreftene som virker på kloss A",
+            "pos": [
+              260,
+              40
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              260,
+              40
+            ]
+          },
+          {
+            "txt": "B",
+            "pos": [
+              600,
+              380
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              600,
+              380
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              320,
+              260
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              320,
+              260
+            ]
+          },
+          {
+            "txt": "v = konstant",
+            "pos": [
+              460,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "linked": false,
+            "_renderedPos": [
+              460,
+              80
+            ]
+          }
+        ],
+        "points": []
+      },
+      "expectedForces": [
+        {
+          "name": "G_A",
+          "role": "force",
+          "anchor": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "drawn": {
+            "anchor": [
+              360,
+              220
+            ],
+            "arrowBase": [
+              360,
+              220
+            ],
+            "arrowTip": [
+              360,
+              400
+            ]
+          }
+        },
+        {
+          "name": "R_A",
+          "role": "force",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect1",
+            "segment": "bottom",
+            "u": 0
+          },
+          "dir": [
+            -1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              300,
+              280
+            ],
+            "arrowBase": [
+              300,
+              260
+            ],
+            "arrowTip": [
+              200,
+              260
+            ]
+          }
+        },
+        {
+          "name": "S_A",
+          "role": "force",
+          "anchor": {
+            "type": "segment",
+            "ref": "segment0",
+            "segment": "segment",
+            "u": 0
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              420,
+              220
+            ],
+            "arrowBase": [
+              420,
+              200
+            ],
+            "arrowTip": [
+              520,
+              200
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G_B",
+          "role": "force",
+          "anchor": [
+            620,
+            380
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchorSpec": {
+            "type": "point",
+            "ref": "ellipse1",
+            "point": "center"
+          },
+          "arrowBase": [
+            620,
+            380
+          ],
+          "arrowTip": [
+            620,
+            480
+          ],
+          "moveable": false
+        },
+        {
+          "name": "N_A",
+          "role": "force",
+          "anchor": [
+            360,
+            280
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect1",
+            "segment": "bottom",
+            "u": 0.5
+          },
+          "arrowBase": [
+            380,
+            280
+          ],
+          "arrowTip": [
+            380,
+            100
+          ],
+          "moveable": false
+        },
+        {
+          "name": "S_B",
+          "role": "force",
+          "anchor": [
+            620,
+            340
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "studentGiven": {
+            "name": true,
+            "role": false
+          },
+          "anchorSpec": {
+            "type": "point",
+            "ref": "segment1",
+            "point": "end"
+          },
+          "arrowBase": [
+            640,
+            340
+          ],
+          "arrowTip": [
+            640,
+            240
+          ],
+          "moveable": false
+        }
+      ],
+      "sumF": {},
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_A",
+              "component": "magnitude"
+            }
+          ]
+        }
+      ],
+      "taskSubTitle": "Trinse",
+      "subTitle": "Trinse",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987572_yjio90r9e",
@@ -990,6 +1564,10 @@
       "help_lines": [
         "En kloss B ligger oppå kloss A på et horisontalt underlag. Begge klossene ligger i ro. ",
         "Tyngden til A er dobbelt så stor som tyngden til B. ",
+        "(Tyngdekraften på A er dobbelt så stor som tyngdekraften på B.)",
+        "",
+        "Kreftene som virker på kloss B er tegnet inn.",
+        "",
         "Tegn kreftene som virker på kloss A."
       ],
       "scene": {
@@ -1157,7 +1735,8 @@
           "aliases": [
             "N"
           ],
-          "nameBase": "N"
+          "nameBase": "N",
+          "role": "force"
         },
         {
           "name": "G_A",
@@ -1186,7 +1765,8 @@
               480,
               380
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N_B*",
@@ -1214,7 +1794,8 @@
               480,
               280
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -1237,7 +1818,8 @@
             "type": "point",
             "ref": "rect1",
             "point": "center"
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N_B",
@@ -1259,7 +1841,8 @@
             "ref": "rect1",
             "segment": "bottom",
             "u": 0.5
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {
@@ -1283,9 +1866,7 @@
               "name": "N_A",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
@@ -1299,13 +1880,249 @@
               "name": "N_B*",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Kloss på kloss i ro horisontalt",
-      "taskSubTitle": ""
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
+      "id": "task_1793183288671_76acbz79f",
+      "title": "Dekomponer trekk-kraften",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "Vi trekker en kasse med en kraft F som virker skrått oppver mot høyre i forhold til horisontalplanet.",
+        "",
+        "Tegn dekomponeringen av F:",
+        "F_x - Horisontalkomponenten av F. ",
+        "F_y - Vertikalkomponenten av F. ",
+        ""
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Dekomponer kraften F i x- og y-retning",
+            "pos": [
+              160,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              160,
+              99
+            ],
+            "linked": false
+          }
+        ],
+        "segments": [],
+        "rects": [
+          {
+            "width": 160,
+            "height": 60,
+            "bottomCenter": [
+              420,
+              360
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true
+          }
+        ],
+        "points": [],
+        "arrows": []
+      },
+      "expectedForces": [
+        {
+          "name": "F_x",
+          "role": "component",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_right"
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              540,
+              280
+            ],
+            "arrowTip": [
+              640,
+              280
+            ]
+          },
+          "studentGiven": {
+            "name": true,
+            "role": true
+          }
+        },
+        {
+          "name": "F_y",
+          "role": "component",
+          "anchor": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_right"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              540,
+              280
+            ],
+            "arrowTip": [
+              540,
+              220
+            ]
+          },
+          "componentOf": "F",
+          "studentGiven": {
+            "name": true,
+            "role": true
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "F",
+          "role": "force",
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "top_right"
+          },
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            540,
+            280
+          ],
+          "arrowTip": [
+            640,
+            220
+          ],
+          "moveable": false
+        }
+      ],
+      "taskTitle": "Trekke kasse med vinkel",
+      "taskSubTitle": "Dekomponering",
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "F_x",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F",
+              "component": "horizontal"
+            }
+          ]
+        },
+        {
+          "lhs": [
+            {
+              "name": "F_y",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F",
+              "component": "vertical"
+            }
+          ]
+        }
+      ],
+      "sumF": {},
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000003_ai0004abc",
@@ -1313,7 +2130,8 @@
       "category": "Fysikk 2",
       "help_lines": [
         "En kasse trekkes mot venstre langs et horisontalt underlag med en snor festet i senter av kassen slik at kassen får konstant fart",
-        "Snordraget-S og tyngdekraften-G er tegnet in. ",
+        "Snordraget-S og tyngdekraften-G er tegnet inn. ",
+        "",
         "Tegn de andre kreftene som virker på klossen:",
         "N - Normalkraften fra underlaget. ",
         "R - Friksjonen fra underlaget. "
@@ -1340,23 +2158,39 @@
           {
             "txt": "En kasse trekkes mot venstre.",
             "pos": [
-              150,
-              90
+              160,
+              80
             ],
             "size": 14,
             "align": "left",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
-              150,
-              90
+              160,
+              80
             ]
+          },
+          {
+            "txt": "Tegn normalkraften og friksjonskraften på kassa.",
+            "pos": [
+              160,
+              99
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              160,
+              99
+            ],
+            "linked": true
           },
           {
             "txt": "v = konstant",
             "pos": [
-              500,
-              122
+              660,
+              180
             ],
             "size": 14,
             "align": "center",
@@ -1364,8 +2198,8 @@
             "snapping": false,
             "linked": false,
             "_renderedPos": [
-              500,
-              122
+              660,
+              180
             ]
           }
         ],
@@ -1380,8 +2214,9 @@
               240
             ],
             "snapping": true,
-            "color": "#545454",
-            "lineWidth": 8
+            "color": "#7a7a7a",
+            "lineWidth": 8,
+            "body": "solid"
           }
         ],
         "rects": [
@@ -1409,45 +2244,19 @@
         "arrows": [
           {
             "a": [
-              460,
-              144
+              620,
+              160
             ],
             "b": [
-              540,
-              144
+              700,
+              160
             ],
-            "snapping": false
+            "snapping": false,
+            "lineWidth": 2
           }
         ]
       },
       "expectedForces": [
-        {
-          "name": "S",
-          "anchor": {
-            "type": "segment",
-            "ref": "segment0",
-            "segment": "segment",
-            "u": 1
-          },
-          "dir": [
-            -0.894,
-            -0.447
-          ],
-          "drawn": {
-            "anchor": [
-              380,
-              240
-            ],
-            "arrowBase": [
-              380,
-              240
-            ],
-            "arrowTip": [
-              300,
-              200
-            ]
-          }
-        },
         {
           "name": "N",
           "anchor": {
@@ -1471,9 +2280,10 @@
             ],
             "arrowTip": [
               520,
-              220
+              240
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "R",
@@ -1500,7 +2310,8 @@
               660,
               340
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -1523,7 +2334,35 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
-          }
+          },
+          "role": "force"
+        },
+        {
+          "name": "S",
+          "anchor": [
+            380,
+            240
+          ],
+          "dir": [
+            -0.894,
+            -0.447
+          ],
+          "role": "force",
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "segment0",
+            "segment": "segment",
+            "u": 1
+          },
+          "arrowBase": [
+            390,
+            220
+          ],
+          "arrowTip": [
+            310,
+            180
+          ],
+          "moveable": false
         }
       ],
       "taskTitle": "Trekke kasse med vinkel",
@@ -1545,21 +2384,40 @@
               "name": "G",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "sumF": {},
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000004_ai0005abc",
       "title": "Summer 4 krefter",
       "category": "Fysikk 2",
       "help_lines": [
-        "Fire krefter virker på en masse: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre ",
-        "Tegn ΣF - Summen av kreftene. "
+        "Fire krefter virker på en masse m: 8 N opp, 4 N ned, 8 N mot venstre og 12 N mot høyre ",
+        "Tegn ΣF - Summen av kreftene på m. "
       ],
       "scene": {
         "plane": {
@@ -1581,7 +2439,7 @@
         },
         "texts": [
           {
-            "txt": "Tegn resultanten \\sumF",
+            "txt": "Tegn summen av kreftene \\sumF",
             "pos": [
               150,
               90
@@ -1657,7 +2515,21 @@
           }
         ],
         "rects": [],
-        "points": []
+        "points": [
+          {
+            "id": "point-1",
+            "type": "free",
+            "pos": [
+              500,
+              300
+            ],
+            "visible": true,
+            "valid": true,
+            "size": 8,
+            "markerStyle": "filled",
+            "color": "#fb0404"
+          }
+        ]
       },
       "expectedForces": [
         {
@@ -1691,6 +2563,11 @@
               540,
               260
             ]
+          },
+          "role": "resultant",
+          "studentGiven": {
+            "name": true,
+            "role": true
           }
         }
       ],
@@ -1715,7 +2592,8 @@
             "ref": "plane",
             "segment": "plane",
             "u": 0.5
-          }
+          },
+          "role": "force"
         },
         {
           "name": "F_2",
@@ -1737,7 +2615,8 @@
             "ref": "plane",
             "segment": "plane",
             "u": 0.5
-          }
+          },
+          "role": "force"
         },
         {
           "name": "F_3",
@@ -1759,7 +2638,8 @@
             "ref": "plane",
             "segment": "plane",
             "u": 0.5
-          }
+          },
+          "role": "force"
         },
         {
           "name": "F_4",
@@ -1781,7 +2661,8 @@
             "ref": "plane",
             "segment": "plane",
             "u": 0.5
-          }
+          },
+          "role": "force"
         }
       ],
       "relations": [
@@ -1801,9 +2682,7 @@
               "name": "F_1",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
@@ -1821,15 +2700,273 @@
               "name": "F_4",
               "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Sum krefter",
       "taskSubTitle": "\\sum F",
       "sumF": {},
-      "subTitle": "\\sum F"
+      "subTitle": "\\sum F",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
+      "id": "task_1793183288671_rn1bqotbt",
+      "title": "Summer 3 krefter",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "Tre krefter virker på en masse m. ",
+        "Tegn ΣF - Summen av kreftene på m. "
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            300
+          ],
+          "draw": false,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "texts": [
+          {
+            "txt": "Tegn summen av kreftene \\sumF",
+            "pos": [
+              150,
+              90
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              150,
+              90
+            ]
+          }
+        ],
+        "rects": [],
+        "points": [
+          {
+            "id": "point-1",
+            "type": "free",
+            "pos": [
+              500,
+              300
+            ],
+            "visible": true,
+            "valid": true,
+            "size": 8,
+            "markerStyle": "filled",
+            "color": "#fb0404"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "\\sum F",
+          "aliases": [
+            "F",
+            "sumF",
+            "\\sumF"
+          ],
+          "anchor": {
+            "type": "custom",
+            "pos": [
+              500,
+              300
+            ]
+          },
+          "dir": [
+            -0.555,
+            0.832
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              500,
+              300
+            ],
+            "arrowTip": [
+              460,
+              360
+            ]
+          },
+          "role": "resultant",
+          "studentGiven": {
+            "name": true,
+            "role": true
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "F_1",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            460,
+            220
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane",
+            "u": 0.5
+          },
+          "role": "force"
+        },
+        {
+          "name": "F_2",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            580,
+            260
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane",
+            "u": 0.5
+          },
+          "role": "force"
+        },
+        {
+          "name": "F_3",
+          "anchor": [
+            500,
+            300
+          ],
+          "arrowBase": [
+            500,
+            300
+          ],
+          "arrowTip": [
+            500,
+            360
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "plane",
+            "segment": "plane",
+            "u": 0.5
+          },
+          "role": "force"
+        }
+      ],
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "F_2",
+              "component": "horizontal"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_1",
+              "component": "horizontal"
+            },
+            {
+              "name": "\\sum F",
+              "component": "horizontal"
+            }
+          ]
+        },
+        {
+          "lhs": [
+            {
+              "name": "F_1",
+              "component": "vertical"
+            },
+            {
+              "name": "F_2",
+              "component": "vertical"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "F_3",
+              "component": "vertical"
+            },
+            {
+              "name": "\\sum F",
+              "component": "vertical"
+            }
+          ]
+        }
+      ],
+      "taskTitle": "Sum krefter",
+      "taskSubTitle": "\\sum F",
+      "sumF": {},
+      "subTitle": "\\sum F",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000005_ai0006abc",
@@ -2007,7 +3144,8 @@
               640.001865797801,
               160.00093290071362
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "S_2",
@@ -2035,7 +3173,8 @@
               360.00046644854365,
               300.00000000362627
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -2058,7 +3197,8 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {
@@ -2075,11 +3215,10 @@
           ],
           "rhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
@@ -2090,20 +3229,40 @@
           ],
           "rhs": [
             {
-              "name": "S_2"
+              "name": "S_2",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Hengende kasse -/",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000006_ai0007abc",
-      "title": "Hengende kasse \\,-'",
+      "title": "Hengende kasse \\/",
       "category": "Fysikk 2",
       "help_lines": [
         "En kasse henger i ro, festet med to snorer til taket. Snorene går i ulike retninger langs rutenettet.",
@@ -2242,8 +3401,8 @@
             "point": "top_center"
           },
           "dir": [
-            -0.899,
-            -0.438
+            -0.894,
+            -0.447
           ],
           "drawn": {
             "anchor": [
@@ -2256,9 +3415,10 @@
             ],
             "arrowTip": [
               380,
-              181.53846153846155
+              180
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "S_2",
@@ -2282,10 +3442,11 @@
               240
             ],
             "arrowTip": [
-              616.9230769230769,
-              181.53846153846155
+              620,
+              179.99999999999997
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -2308,7 +3469,8 @@
             "type": "point",
             "ref": "rect0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "relations": [
@@ -2325,11 +3487,10 @@
           ],
           "rhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
@@ -2343,9 +3504,7 @@
               "name": "S_2",
               "component": "horizontal"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "sumF": {
@@ -2354,7 +3513,28 @@
       },
       "taskTitle": "Kasse \\,-'",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": true,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987573_3k1992zvk",
@@ -2480,7 +3660,18 @@
             ]
           }
         ],
-        "points": []
+        "points": [
+          {
+            "id": "point-1",
+            "type": "free",
+            "pos": [
+              480,
+              320
+            ],
+            "visible": false,
+            "valid": true
+          }
+        ]
       },
       "expectedForces": [
         {
@@ -2514,7 +3705,8 @@
               480,
               420
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -2549,7 +3741,8 @@
               480,
               270
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -2566,16 +3759,36 @@
           ],
           "rhs": [
             {
-              "name": "N"
+              "name": "N",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Kloss på glatt skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": true,
+        "snapMatchLT": true,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": true,
+        "snapMatchTT": true,
+        "snapMatchNT": true,
+        "snapMatchXN": true,
+        "snapMatchXT": true,
+        "snapMatchYN": true,
+        "snapMatchYT": true
+      }
     },
     {
       "id": "task_1791600000002_ai0003abc",
@@ -2777,7 +3990,8 @@
               580,
               280
             ]
-          }
+          },
+          "role": "resultant"
         }
       ],
       "initialForces": [
@@ -2800,7 +4014,8 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
-          }
+          },
+          "role": "force"
         },
         {
           "name": "S",
@@ -2821,14 +4036,16 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "top_center"
-          }
+          },
+          "role": "force"
         }
       ],
       "relations": [
         {
           "lhs": [
             {
-              "name": "ΣF"
+              "name": "ΣF",
+              "component": "magnitude"
             }
           ],
           "rhs": [
@@ -2836,15 +4053,34 @@
               "name": "S",
               "component": "horizontal"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Kjeglependel",
       "taskSubTitle": "Sirkelbevegelse",
       "sumF": {},
-      "subTitle": "Sirkelbevegelse"
+      "subTitle": "Sirkelbevegelse",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": true,
+        "snapMatchLT": true,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": true,
+        "snapMatchTT": true,
+        "snapMatchNT": true,
+        "snapMatchXN": true,
+        "snapMatchXT": true,
+        "snapMatchYN": true,
+        "snapMatchYT": true
+      }
     },
     {
       "id": "task_1791480987574_yqapzukcp",
@@ -2988,7 +4224,8 @@
               480,
               420
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -3020,10 +4257,11 @@
               350
             ],
             "arrowTip": [
-              480,
-              270
+              479.8328157299975,
+              269.6656314599949
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "R",
@@ -3053,10 +4291,11 @@
               300
             ],
             "arrowTip": [
-              610,
-              280
+              605.9266217969944,
+              282.0366891015028
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -3070,11 +4309,10 @@
           ],
           "rhs": [
             {
-              "name": "N"
+              "name": "N",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         },
         {
           "lhs": [
@@ -3085,11 +4323,10 @@
           ],
           "rhs": [
             {
-              "name": "R"
+              "name": "R",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "sumF": {
@@ -3098,7 +4335,28 @@
       },
       "taskTitle": "Kloss på skråplan",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": true,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791480987575_d5vxa3521",
@@ -3254,7 +4512,8 @@
               660,
               500
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -3289,7 +4548,8 @@
               680,
               400
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "R",
@@ -3322,7 +4582,8 @@
               500,
               460
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -3342,14 +4603,33 @@
               "name": "N",
               "component": "normal"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Bil i horisontal sving",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse"
+      "subTitle": "Sirkelbevegelse",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": true,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1792664909003_dnr0pvg73",
@@ -3459,7 +4739,7 @@
             "txt": "|v| = konstant",
             "pos": [
               280,
-              100
+              99
             ],
             "size": 14,
             "align": "left",
@@ -3467,7 +4747,7 @@
             "snapping": false,
             "_renderedPos": [
               280,
-              100
+              99
             ],
             "linked": true
           },
@@ -3475,7 +4755,7 @@
             "txt": "Friksjon: \\mu = 0",
             "pos": [
               280,
-              120
+              118
             ],
             "size": 14,
             "align": "left",
@@ -3483,7 +4763,7 @@
             "snapping": false,
             "_renderedPos": [
               280,
-              120
+              118
             ],
             "linked": true
           },
@@ -3538,7 +4818,8 @@
               680,
               480
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "N",
@@ -3573,7 +4854,8 @@
               720,
               280
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [],
@@ -3585,7 +4867,7 @@
           "lhs": [
             {
               "name": "G",
-              "component": "normal"
+              "component": "magnitude"
             }
           ],
           "rhs": [
@@ -3593,14 +4875,33 @@
               "name": "N",
               "component": "vertical"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "task_1791480987575_d5vxa3521.",
       "taskSubTitle": "Sirkelbevegelse",
-      "subTitle": "Sirkelbevegelse"
+      "subTitle": "Sirkelbevegelse",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000000_ai0001abc",
@@ -3783,7 +5084,8 @@
               576,
               168
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "S_2",
@@ -3810,7 +5112,8 @@
               394,
               300
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -3833,7 +5136,8 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {
@@ -3850,16 +5154,36 @@
           ],
           "rhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Ball _/",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     },
     {
       "id": "task_1791600000001_ai0002abc",
@@ -4111,7 +5435,8 @@
               257.1999969482422,
               157
             ]
-          }
+          },
+          "role": "force"
         },
         {
           "name": "S_2",
@@ -4138,7 +5463,8 @@
               552.1999969482422,
               211
             ]
-          }
+          },
+          "role": "force"
         }
       ],
       "initialForces": [
@@ -4161,7 +5487,8 @@
             "type": "point",
             "ref": "ellipse0",
             "point": "center"
-          }
+          },
+          "role": "force"
         }
       ],
       "sumF": {
@@ -4182,22 +5509,42 @@
           ],
           "rhs": [
             {
-              "name": "G"
+              "name": "G",
+              "component": "magnitude"
             }
-          ],
-          "ratio": 1,
-          "tol_rel": 0.15
+          ]
         }
       ],
       "taskTitle": "Hengende ball \\,-'",
       "taskSubTitle": "Dekomponering",
-      "subTitle": "Dekomponering"
+      "subTitle": "Dekomponering",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
     }
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-24T21:30:20.024Z",
-    "count": 17,
-    "appVersion": "2026-10-24 20:00"
+    "exported": "2026-10-28T10:33:00.720Z",
+    "count": 20,
+    "appVersion": "2026-10-25 17:45"
   }
 }

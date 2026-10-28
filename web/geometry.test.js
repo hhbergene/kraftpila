@@ -14,7 +14,7 @@ function loadModel(){
 }
 
 function taskWith(scene){
-  return {scene:{rects:[],segments:[],arrows:[],circles:[],ellipses:[],...scene}};
+  return {scene:{rects:[],segments:[],arrows:[],ellipses:[],...scene}};
 }
 
 test('ellipse angles are CCW in local coordinates and arcs expose only drawn anchors',()=>{
@@ -84,8 +84,9 @@ test('line/ellipse respects finite segments and filters hits outside ellipse arc
 
 test('curve/curve detects crossings and deduplicates a tangent',()=>{
   const {model}=loadModel();
-  const task=taskWith({circles:[
-    {center:[0,0],radius:5},{center:[6,0],radius:5},{center:[10,0],radius:5}
+  const task=taskWith({ellipses:[
+    {center:[0,0],width:10,height:10},{center:[6,0],width:10,height:10},
+    {center:[10,0],width:10,height:10}
   ]});
   const [a,b,c]=model.geometries(task);
   const crossings=model.intersections(task,a.source,b.source).hits;
@@ -111,7 +112,9 @@ test('rotated ellipse intersections satisfy both ellipse equations',()=>{
       assert.ok(geometry.distance(hit.pos,reconstructed)<1e-6);
     }
   }
-  const overlap=taskWith({circles:[{center:[0,0],radius:4},{center:[0,0],radius:4}]});
+  const overlap=taskWith({ellipses:[
+    {center:[0,0],width:8,height:8},{center:[0,0],width:8,height:8}
+  ]});
   const [c,d]=model.geometries(overlap);
   assert.match(model.intersections(overlap,c.source,d.source).reason,/overlapper|sammenfaller/);
 });
@@ -365,14 +368,14 @@ test('all anchor and geometry labels use actual references without changing bind
   const task=taskWith({plane:{through:[0,0],t_vec:[1,0],draw:true},
     rects:[{bottomCenter:[0,0],width:40,height:20},{bottomCenter:[100,0],width:40,height:20}],
     segments:[{a:[0,0],b:[30,0]}],arrows:[{a:[0,0],b:[40,0]}],
-    circles:[{center:[0,0],radius:20}],ellipses:[{center:[0,0],width:40,height:20}],
+    ellipses:[{center:[0,0],width:40,height:20}],
     points:[{id:'point-17',type:'free',pos:[5,5],visible:false}],texts:[{txt:'t',pos:[8,8]}]});
   const geometries=model.geometries(task);
   for(const geometry of geometries) assert.equal(geometry.label,
     [geometry.ref,geometry.source.segment].filter(Boolean).join(' '));
   const labels=model.candidates(task).map(candidate=>candidate.label);
   for(const label of ['rect0 bottom','rect1 right','segment0 segment','arrow0 head_left',
-    'circle0 center','ellipse0 top_center','plane plane','point-17 center','text0 pos']){
+    'ellipse0 center','ellipse0 top_center','plane plane','point-17 center','text0 pos']){
     assert.ok(labels.includes(label),label);
   }
   const bottom=model.candidates(task).find(c=>c.label==='rect1 bottom');
@@ -405,19 +408,20 @@ test('anchor ordering is natural and nearest uses finite segment distance with d
   assert.equal(result.all.length,10);
 });
 
-test('shared lookup exposes curve samples without offering them as force segment anchors',()=>{
+test('shared lookup migrates legacy circles and exposes ellipse curve samples',()=>{
   const {window,model,geometry}=loadModel();
   const ellipse={center:[100,100],width:120,height:60,t_vec:[Math.SQRT1_2,Math.SQRT1_2],startAngleDeg:300,endAngleDeg:60};
   const task=taskWith({ellipses:[ellipse],circles:[{center:[0,0],radius:20}],
     angles:[{vertex:{pos:[0,0]},start:{pos:[100,0]},end:{pos:[0,-100]},radius:40}]});
   const lookup=window.buildAllScenePoints(task),outline=lookup.ellipse0.curves.outline;
+  assert.equal(Object.hasOwn(task.scene,'circles'),false);
+  assert.ok(lookup.ellipse1.curves.outline.length>0);
   assert.ok(outline.length>0);
   assert.deepEqual(Object.keys(lookup.ellipse0.segments),[]);
   assert.deepEqual(Object.keys(lookup.angle0.segments),[]);
   assert.ok(lookup.angle0.curves.arc.length>0);
-  assert.ok(lookup.circle0.curves.outline.length>0);
   const candidates=model.candidates(task);
-  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='ellipse0'||c.ref==='angle0'||c.ref==='circle0')),false);
+  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='ellipse0'||c.ref==='ellipse1'||c.ref==='angle0')),false);
   assert.ok(geometry.distance(outline[0][0],geometry.ellipsePoint(ellipse,300))<1e-8);
   assert.ok(geometry.distance(outline.at(-1)[1],geometry.ellipsePoint(ellipse,60))<1e-8);
   outline.forEach(([a,b])=>{
@@ -425,9 +429,21 @@ test('shared lookup exposes curve samples without offering them as force segment
   });
   const excluded=geometry.ellipsePoint(ellipse,180);
   assert.ok(Math.min(...outline.map(([a,b])=>geometry.distPointToSegment(excluded,a,b)))>20);
-  const samples=model.sampleCurve(task,{ref:'ellipse0',curve:true});
-  assert.equal(samples.length,outline.length);
-  assert.equal(window.buildSceneLookup(task).ellipse0.curves.outline.length,outline.length);
+  const migratedOutline=lookup.ellipse1.curves.outline;
+  const samples=model.sampleCurve(task,{ref:'ellipse1',curve:true});
+  assert.equal(samples.length,migratedOutline.length);
+  assert.equal(window.buildSceneLookup(task).ellipse1.curves.outline.length,migratedOutline.length);
   ellipse.endAngleDeg=ellipse.startAngleDeg;
   assert.equal(window.buildAllScenePoints(task).ellipse0.curves.outline.length,0);
+});
+
+test('ellipse axis length helper keeps dimensions equal only while locked',()=>{
+  const {model}=loadModel();
+  const ellipse={width:40,height:20,lockAxes:true};
+  model.setEllipseAxisLength(ellipse,'height',60);
+  assert.deepEqual(ellipse,{width:60,height:60,lockAxes:true});
+  ellipse.lockAxes=false;
+  model.setEllipseAxisLength(ellipse,'width',80);
+  assert.deepEqual(ellipse,{width:80,height:60,lockAxes:false});
+  assert.throws(()=>model.setEllipseAxisLength(ellipse,'width',0),/større enn null/);
 });

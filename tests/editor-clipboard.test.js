@@ -25,6 +25,8 @@ class Element {
     return event;
   }
   closest(){ return null; }
+  querySelectorAll(){ return []; }
+  querySelector(){ return null; }
   replaceChildren(){ this.children=[]; }
   appendChild(child){ this.children.push(child); }
 }
@@ -44,7 +46,7 @@ function setup(){
     setTimeout:()=>1,clearTimeout(){},setupFloatingPanelPositioning:(...args)=>layouts.push(args),
     markEdited:(...args)=>window.markEdited(...args),collectHelpLines(){},
     normalizeTaskMeta:task=>task,loadTask:index=>load(index)});
-  for(const file of ['shared.js','geometry.js','scene_render.js','scene_model.js','forces.js','forcesManager.js']){
+  for(const file of ['shared.js','force_notation.js','geometry.js','scene_render.js','scene_model.js','forces.js','forcesManager.js']){
     vm.runInContext(read(file),context);
   }
   context.Force=window.Force;
@@ -128,18 +130,60 @@ test('accumulates deep independent scene copies, with no implicit forces or task
   assert.equal(s.clipboard.entries.length,2);
 });
 
+test('copied components retain role, parent and supplied fields through paste and undo/redo',()=>{
+  const s=setup();
+  const force=s.addForce('G_x');
+  force.role=force.manualRole='component';
+  force.componentOf='G';
+  s.window.syncForceSpec(force);
+  s.window.getForceSpec(force).spec.studentGiven={name:true,role:true};
+  s.clipboard.copy();
+  s.task();
+  s.window.markEdited('task','forces');s.window.autoSave();s.window.recordUndo();
+  s.clipboard.paste();
+  const pasted=s.window.fm.forces.find(f=>f.name==='G_x');
+  const spec=s.window.currentTask.expectedForces[0];
+  assert.equal(pasted.role,'component');
+  assert.equal(pasted.manualRole,'component');
+  assert.equal(pasted.componentOf,'G');
+  assert.deepEqual(plain(spec.studentGiven),{name:true,role:true});
+  s.window.undo();
+  assert.equal(s.window.currentTask.expectedForces.length,0);
+  s.window.redo();
+  assert.equal(s.window.fm.forces.find(f=>f.name==='G_x').role,'component');
+  assert.equal(s.window.currentTask.expectedForces[0].studentGiven.name,true);
+});
+
+test('pasting a parent and component together remaps the component to the renamed parent',()=>{
+  const s=setup();
+  const parent=s.addForce('G');
+  s.window.syncForceSpec(parent);
+  s.clipboard.copy();
+  const component=s.addForce('G_x');
+  component.role=component.manualRole='component';
+  s.window.syncForceSpec(component);
+  s.clipboard.copy();
+  s.clipboard.paste();
+  const copiedParent=s.window.fm.forces.find(f=>f.name==='G_1');
+  const copiedComponent=s.window.fm.forces.find(f=>f.name==='G_{x1}');
+  assert.ok(copiedParent);
+  assert.ok(copiedComponent);
+  assert.equal(copiedComponent.componentOf,'G_1');
+  const index=s.window.fm.forces.indexOf(copiedParent);
+  assert.equal(s.window.fm.forces[index+1],copiedComponent);
+});
+
 test('all ordinary scene types preserve properties and only exactly coincident geometry shifts',()=>{
   const examples={
     rect:{bottomCenter:[100,100],width:60,height:40},
     ellipse:{center:[100,100],width:60,height:40,startAngleDeg:20,endAngleDeg:150},
-    circle:{center:[100,100],radius:20},
     segment:{a:[100,100],b:[180,130]},arrow:{a:[100,100],b:[180,130]},
     text:{pos:[100,100],txt:'<b>literal</b>',size:18},
     point:{id:'source-point',type:'free',pos:[100,100],visible:true},
     angle:{vertex:{pos:[100,100]},start:{pos:[140,100]},end:{pos:[100,60]},radius:40}
   };
   for(const [type,data] of Object.entries(examples)){
-    const s=setup(), collection={rect:'rects',ellipse:'ellipses',circle:'circles',segment:'segments',
+    const s=setup(), collection={rect:'rects',ellipse:'ellipses',segment:'segments',
       arrow:'arrows',text:'texts',point:'points',angle:'angles'}[type];
     s.window.currentTask.scene[collection]=[plain(data)];
     s.select(type);
@@ -222,10 +266,52 @@ test('linked text snapshots use actual coordinates and omit runtime render field
   s.select('text',1);s.clipboard.copy();
   assert.deepEqual(plain(s.clipboard.entries[0].data.pos),[100,125]);
   assert.equal(s.clipboard.entries[0].data.linked,false);
-  s.window.currentTask.scene.texts[1]._renderedPos=[101.25,126.75];
+  s.window.currentTask.scene.texts[0].pos=[101.25,101.75];
+  s.window.currentTask.scene.texts[1]._renderedPos=[999,999];
   s.clipboard.copy();
   assert.deepEqual(plain(s.clipboard.entries[1].data.pos),[101.25,126.75]);
   assert.equal(s.clipboard.entries[1].data._renderedPos,undefined);
+});
+
+test('autosave persists resolved linked positions and export round-trips legacy chains',()=>{
+  const s=setup();
+  const task=s.window.currentTask;
+  task.scene.texts=[
+    {txt:'root',pos:[100,100],size:20},
+    {txt:'child',linked:true,pos:[900,900]},
+    {txt:'legacy child'},
+    {txt:'degrees',pos:[20,30],angle_deg:45},
+    {txt:'normal',pos:[40,50],n_vec:[1,0]},
+    {txt:'legacy both',pos:[60,70],angle_deg:15,n_vec:[1,0]}
+  ];
+  vm.runInContext('writeTask();',s.context);
+  const saved=JSON.parse(s.storage.get('editor_task_'+task.id));
+  assert.deepEqual(saved.scene.texts[1].pos,[100,125]);
+  assert.deepEqual(saved.scene.texts[2].pos,[100,144]);
+  assert.equal(saved.scene.texts[2].linked,true);
+  assert.equal(saved.scene.texts[5].angle_deg,15);
+  assert.equal(saved.scene.texts[5].n_vec,undefined);
+
+  const start=editor.indexOf('      // Remove rendering artifacts and linked flags from texts');
+  const end=editor.indexOf('      // Add aliases for each expectedForce',start);
+  s.context.task=plain(saved);
+  vm.runInContext(editor.slice(start,end),s.context);
+  const exported=plain(s.context.task);
+  assert.equal(exported.scene.texts[1].pos,undefined);
+  assert.equal(exported.scene.texts[1].linked,undefined);
+  assert.equal(exported.scene.texts[1]._renderedPos,undefined);
+  s.window.updateTextPositions(exported);
+  assert.deepEqual(Array.from(exported.scene.texts[1].pos),[100,125]);
+  assert.deepEqual(Array.from(exported.scene.texts[2].pos),[100,144]);
+  assert.equal(exported.scene.texts[2].linked,true);
+  assert.equal(exported.scene.texts[3].angle_deg,45);
+  assert.equal(exported.scene.texts[3].n_vec,undefined);
+  assert.deepEqual(exported.scene.texts[4].n_vec,[1,0]);
+  assert.equal(exported.scene.texts[4].angle_deg,undefined);
+  exported.scene.texts[1].linked=false;
+  exported.scene.texts[0].pos=[0,0];
+  s.window.updateTextPositions(exported);
+  assert.deepEqual(Array.from(exported.scene.texts[1].pos),[100,125]);
 });
 
 test('active force wins over stale scene selection; both force types remain free and preserve vectors/specs',()=>{

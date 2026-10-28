@@ -47,35 +47,6 @@ window.tasks = [];
     window.clearCanvas(ctx);
   }
 
-  // Helper: draw a text rotated by angle (angle_deg) or oriented by a normal (n_vec => tangent)
-  function drawRotatedText(g, t) {
-    if(!t || !t.txt || !t.pos) return;
-    const size = t.size || 14;
-    const color = t.color || '#222';
-    const align = t.align || 'center';
-    let angle = 0;
-    if(typeof t.angle_deg === 'number') {
-      angle = t.angle_deg * Math.PI / 180;
-    } else if (t.n_vec && Array.isArray(t.n_vec) && t.n_vec.length === 2) {
-      // Use tangent of the provided normal (y-down screen coords)
-      const nn = t.n_vec;
-      const len = geometry.length(nn) || 1;
-      const n_unit = [ nn[0]/len, nn[1]/len ];
-      const tv = geometry.tangentFromNormal(n_unit);
-      angle = Math.atan2(tv[1], tv[0]);
-    }
-    g.save();
-    g.translate(t.pos[0], t.pos[1]);
-    g.rotate(angle);
-    window.drawFormattedText(g, t.txt, 0, 0, {
-      size,
-      color,
-      align,
-      fontFamily: 'Segoe UI, Arial'
-    });
-    g.restore();
-  }
-
   function frame() {
     if(window.currentTask){
       window.sceneModel.update(window.currentTask);
@@ -95,17 +66,6 @@ window.tasks = [];
     if (gridOn) {
       drawGrid(ctx);
     }
-    // Collect texts that should be rotated and temporarily hide them before drawScene
-    let rotatedTexts = [];
-    if(window.currentTask && window.currentTask.scene && Array.isArray(window.currentTask.scene.texts)){
-      rotatedTexts = window.currentTask.scene.texts.filter(t => !window.isTaskTitleText(window.currentTask,t) && ('angle_deg' in t || 'n_vec' in t));
-      // Hide originals by making them transparent for drawScene
-      rotatedTexts.forEach(t=>{
-        if(!('_origColor' in t)) t._origColor = t.color;
-        t.color = 'rgba(0,0,0,0)';
-      });
-    }
-
     // Draw current task scene (before user forces)
     if(window.currentTask){
       drawScene(ctx, window.currentTask, true);
@@ -114,12 +74,6 @@ window.tasks = [];
     // Debug: Draw snap points if debug mode is on
     if(window.drawSnapPoints){
       drawSnapPoints(ctx);
-    }
-
-    // Restore colors and draw rotated overlays on top
-    if(rotatedTexts.length){
-      rotatedTexts.forEach(t=>{ t.color = t._origColor; delete t._origColor; });
-      rotatedTexts.forEach(t=> drawRotatedText(ctx, t));
     }
 
     // Guidelines (before forces for visibility)
@@ -154,7 +108,7 @@ window.tasks = [];
     
     // Draw test forces
     if(window.fm){
-      window.fm.drawAll(ctx);
+      window.fm.drawAll(ctx, shouldDrawActiveForceHandles());
     }
     
     // Draw expected direction guides in editor mode
@@ -163,7 +117,7 @@ window.tasks = [];
     }
     
     // Draw selection handles for selected scene element
-    if(window.selectedSceneElement){
+    if(shouldDrawSceneElementHandles()){
       drawSceneElementHandles(ctx, window.selectedSceneElement);
     }
     window.sceneEditor.drawOverlay(ctx);
@@ -172,6 +126,7 @@ window.tasks = [];
     if(window.snapIndicator?.pos){
       window.setLastCanvasCoordinates?.(window.snapIndicator.pos);
     }
+    refreshRelationsRatioInputs();
     requestAnimationFrame(frame);
   }
   
@@ -234,7 +189,8 @@ window.tasks = [];
     }
     
     // Draw selected element's points/segments (dim) always, but don't overdraw if hovered
-    if(window.selectedSceneElement){
+    if(window.selectedSceneElement && window.activePanel === 'scene' &&
+      window.hoveredInteraction?.domain!=='force'){
       const key = getLookupKey(window.selectedSceneElement.type, window.selectedSceneElement.index);
       const entry = window.sceneLookup[key];
       const hoveredKey = window.hoveredSceneElement ? 
@@ -266,7 +222,7 @@ window.tasks = [];
     }
     
     // Draw hovered element's points (bright)
-    if(window.hoveredSceneElement){
+    if(window.hoveredSceneElement && window.hoveredInteraction?.domain!=='force'){
       const key = getLookupKey(window.hoveredSceneElement.type, window.hoveredSceneElement.index);
       const entry = window.sceneLookup[key];
       if(entry && entry.points){
@@ -451,22 +407,6 @@ window.tasks = [];
       const clampedHeightHandle = window.clampToCanvas(heightHandle);
       drawHandle(clampedHeightHandle[0], clampedHeightHandle[1]);
     } 
-    else if(type === 'circle' && scene.circles && scene.circles[index]){
-      const circle = scene.circles[index];
-      const [cx, cy] = circle.center;
-      const r = circle.radius;
-      
-      // Center and 4 cardinal points - clamp for display
-      drawHandle(cx, cy);
-      const clampedRight = window.clampToCanvas([cx + r, cy]);
-      const clampedLeft = window.clampToCanvas([cx - r, cy]);
-      const clampedDown = window.clampToCanvas([cx, cy + r]);
-      const clampedUp = window.clampToCanvas([cx, cy - r]);
-      drawHandle(clampedRight[0], clampedRight[1]);
-      drawHandle(clampedLeft[0], clampedLeft[1]);
-      drawHandle(clampedDown[0], clampedDown[1]);
-      drawHandle(clampedUp[0], clampedUp[1]);
-    } 
     else if(type === 'segment' && scene.segments && scene.segments[index]){
       const seg = scene.segments[index];
       // Clamp handle positions for display while keeping actual coordinates unclamped
@@ -484,9 +424,9 @@ window.tasks = [];
       drawHandle(clampedB[0], clampedB[1]);
     }
     else if(type === 'text' && scene.texts && scene.texts[index]){
-      const text = scene.texts[index];
-      // Don't show handle for dragging text position if linked
-      if(!text.linked){
+      window.updateTextPositions(window.currentTask);
+      const text = scene.texts[window.textRootIndex(scene.texts,index)];
+      if(Array.isArray(text.pos)){
         const [x, y] = text.pos;
         drawHandle(x, y);
       }
@@ -574,7 +514,7 @@ window.tasks = [];
   // Load persisted settings from editor_ namespace
   try {
     const raw = localStorage.getItem('editor_settings');
-    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_force_coordinates==='boolean') window.settings.show_force_coordinates=s.show_force_coordinates; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
+    if(raw){ const s = JSON.parse(raw); if(typeof s.debug==='boolean') window.settings.debug=s.debug; if(typeof s.username==='string') window.settings.username=s.username; if(typeof s.show_scene_coordinates==='boolean') window.settings.show_scene_coordinates=s.show_scene_coordinates; }
   } catch {}
   // Show editor panels
   updateEditorMode();
@@ -670,6 +610,7 @@ window.tasks = [];
   // ===== Scene Element Selection and Hovering (Step 5) =====
   window.selectedSceneElement = null;  // {type, index} or null
   window.hoveredSceneElement = null;   // {type, index, feature} or null
+  window.hoveredInteraction = null;
   
   // ===== Anchor Candidate Highlighting (when dragging force anchor) =====
   window.anchorCandidates = null;      // array of candidate anchor points
@@ -686,11 +627,56 @@ window.tasks = [];
     return !force.anchor && !force.arrowBase && !force.arrowTip;
   }
 
-  // Helper: test proximity to all scene element points (including non-snap elements), prefer selected element within GRID_STEP
+  function isInteractionSelected(hit){
+    if(hit?.domain==='scene'){
+      const selected=window.selectedSceneElement;
+      return window.activePanel==='scene' && !!selected &&
+        selected.type===hit.type && (selected.index===hit.index ||
+          (hit.type==='text' && !!hit.handle &&
+            window.textRootIndex(window.currentTask.scene.texts,selected.index)===hit.index));
+    }
+    if(hit?.domain==='force'){
+      return window.activePanel==='force' &&
+        window.fm?.activeIndex===hit.forceIndex;
+    }
+    return false;
+  }
+
+  function compareInteractionHits(a,b){
+    if(!a) return b;
+    if(!b) return a;
+    if(Math.abs(a.distance-b.distance)>1e-6) return a.distance<b.distance ? a : b;
+    const aSelectedHandle=!!a.handle && isInteractionSelected(a);
+    const bSelectedHandle=!!b.handle && isInteractionSelected(b);
+    if(aSelectedHandle!==bSelectedHandle) return aSelectedHandle ? a : b;
+    const aTextBody=a.domain==='scene' && a.type==='text' && !a.handle;
+    const bTextBody=b.domain==='scene' && b.type==='text' && !b.handle;
+    if(aTextBody!==bTextBody) return aTextBody ? b : a;
+    const aSelected=isInteractionSelected(a);
+    const bSelected=isInteractionSelected(b);
+    if(aSelected!==bSelected) return aSelected ? a : b;
+    if(Math.abs(a.pointDistance-b.pointDistance)>1e-6){
+      return a.pointDistance<b.pointDistance ? a : b;
+    }
+    if(a.domain!==b.domain) return a.domain==='scene' ? a : b;
+    return a;
+  }
+
+  function shouldDrawSceneElementHandles(){
+    return !!window.selectedSceneElement &&
+      window.activePanel==='scene' &&
+      window.hoveredInteraction?.domain!=='force';
+  }
+
+  function shouldDrawActiveForceHandles(){
+    return window.activePanel!=='scene' &&
+      window.hoveredInteraction?.domain!=='scene';
+  }
+
+  // Find the closest scene hit, including non-snapping elements.
   function updateSceneElementHover(pos){
     if(isDrawArmed()){
-      window.hoveredSceneElement = null;
-      return;
+      return null;
     }
     // Build comprehensive point lookup including all elements (not just snap points)
     let pointLookup = null;
@@ -698,17 +684,20 @@ window.tasks = [];
       pointLookup = window.buildAllScenePoints(window.currentTask);
     }
     
-    if(!pointLookup || Object.keys(pointLookup).length === 0){
-      window.hoveredSceneElement = null;
-      return;
-    }
-    
     let bestCandidate = null;
-    let bestDistance = window.HOVER_THRESHOLD;
-    let bestIsSelected = false;
-    
+    function consider(candidate){
+      if(!candidate.textBody && candidate.distance>window.HOVER_THRESHOLD) return;
+      bestCandidate=compareInteractionHits(bestCandidate,candidate);
+    }
+
+    const handle=window.activePanel==='scene' ? getSceneHandleAtPos(pos) : null;
+    if(handle){
+      // The whole visible handle hit area belongs to the open scene element.
+      consider({domain:'scene',distance:0,pointDistance:0,
+        type:handle.type,index:handle.index,feature:handle.handleType,handle});
+    }
     // Iterate through all scene elements
-    Object.keys(pointLookup).forEach(key => {
+    (pointLookup ? Object.keys(pointLookup) : []).forEach(key => {
       const entry = pointLookup[key];
       if(!entry) return;
       
@@ -717,41 +706,14 @@ window.tasks = [];
       if(!match) return;
       let type = match[1];
       let index = match[2] ? parseInt(match[2]) : 0;
-      // Check if this element is selected
-      const isSelected = window.selectedSceneElement && 
-                        window.selectedSceneElement.type === type && 
-                        window.selectedSceneElement.index === index;
-      
+      if(type==='text') return;
       // Test all points in this element
       if(entry.points){
         Object.keys(entry.points).forEach(pointName => {
           const point = entry.points[pointName];
           if(!point) return;
           const dist = geometry.distance(pos, point);
-          if(dist > window.HOVER_THRESHOLD) return;
-          
-          // Priority: selected element within PREFER_SELECTED_DIST wins over everything else
-          // Then: closest element overall
-          let shouldUpdate = false;
-          if(isSelected && dist <= window.PREFER_SELECTED_DIST){
-            // Selected element within preferred distance: only update if closer than current best
-            shouldUpdate = !bestIsSelected || dist < bestDistance;
-          } else if(!bestIsSelected && dist < bestDistance){
-            // No selected element yet: update if closer than current best
-            shouldUpdate = true;
-          } else if(bestIsSelected && !isSelected){
-            // Current best is selected: don't replace with non-selected unless it's MUCH closer (not applicable here)
-            shouldUpdate = false;
-          } else if(bestIsSelected && isSelected && dist < bestDistance){
-            // Both selected: take closer one
-            shouldUpdate = true;
-          }
-          
-          if(shouldUpdate){
-            bestDistance = dist;
-            bestCandidate = {type, index, feature: pointName};
-            bestIsSelected = isSelected;
-          }
+          consider({domain:'scene',distance:dist,pointDistance:dist,type,index,feature:pointName});
         });
       }
       
@@ -765,31 +727,42 @@ window.tasks = [];
           if(!Array.isArray(seg) || seg.length < 2) return;
           
           const dist = window.geometry.distPointToSegment(pos, seg[0], seg[1]);
-          if(dist > window.HOVER_THRESHOLD) return;
-          
-          // Same priority logic as points
-          let shouldUpdate = false;
-          if(isSelected && dist <= window.PREFER_SELECTED_DIST){
-            shouldUpdate = !bestIsSelected || dist < bestDistance;
-          } else if(!bestIsSelected && dist < bestDistance){
-            shouldUpdate = true;
-          } else if(bestIsSelected && !isSelected){
-            shouldUpdate = false;
-          } else if(bestIsSelected && isSelected && dist < bestDistance){
-            shouldUpdate = true;
-          }
-          
-          if(shouldUpdate){
-            bestDistance = dist;
-            bestCandidate = {type, index, feature: segName};
-            bestIsSelected = isSelected;
-          }
+          const pointDistances=Object.values(entry.points || {})
+            .filter(point=>Array.isArray(point) && point.length>=2)
+            .map(point=>geometry.distance(pos,point));
+          const pointDistance=pointDistances.length
+            ? pointDistances.reduce((nearest,distance)=>Math.min(nearest,distance),Infinity)
+            : Math.min(geometry.distance(pos,seg[0]),geometry.distance(pos,seg[1]));
+          consider({domain:'scene',distance:dist,pointDistance,type,index,feature:segName});
         });
       }
     });
-    
-    window.hoveredSceneElement = bestCandidate ? 
-      {type: bestCandidate.type, index: bestCandidate.index, feature: bestCandidate.feature} : null;
+    const texts=window.currentTask?.scene?.texts || [];
+    texts.forEach((text,index)=>{
+      if(window.isTaskTitleText?.(window.currentTask,text)) return;
+      const textGeometry=window.getTextGeometry(ctx,text);
+      if(!textGeometry?.contains(pos)) return;
+      const distance=window.geometry.distPointToSegment(pos,...textGeometry.centerline);
+      const pointDistance=Math.min(
+        geometry.distance(pos,textGeometry.centerline[0]),
+        geometry.distance(pos,textGeometry.centerline[1])
+      );
+      consider({domain:'scene',distance,pointDistance,type:'text',index,
+        feature:'body',textBody:true});
+    });
+    return bestCandidate;
+  }
+
+  function updateEditorInteractionHover(pos){
+    const forceHit=isDrawArmed() ? null : window.fm?.getHoverCandidate(pos,true);
+    const sceneHit=updateSceneElementHover(pos);
+    const winner=compareInteractionHits(forceHit,sceneHit);
+    window.fm?.setHoverCandidate(winner?.domain==='force' ? forceHit : null);
+    window.hoveredSceneElement=winner?.domain==='scene'
+      ? {type:winner.type,index:winner.index,feature:winner.feature}
+      : null;
+    window.hoveredInteraction=winner;
+    return winner;
   }
 
   // Update delete force button visibility
@@ -901,6 +874,7 @@ window.tasks = [];
         f.arrowBase = P.slice();
         f.arrowTip = arrowTip;
         f.name = spec.name || '';
+        window.forceNotation?.restore(f,spec,true);
         f.moveable = false;
         f.isExpected = false;
         f.updateDirectionAndLength();
@@ -911,6 +885,7 @@ window.tasks = [];
         f.arrowBase = spec.arrowBase.slice();
         f.arrowTip = spec.arrowTip.slice();
         f.name = spec.name || '';
+        window.forceNotation?.restore(f,spec,true);
         f.moveable = false;
         f.isExpected = false;
         f.updateDirectionAndLength();
@@ -1025,42 +1000,40 @@ window.tasks = [];
     const topBarHeight = window.TOP_BAR_HEIGHT;
     const availableHeight = window.innerHeight - topBarHeight;
     
-    // Count forces and scene elements to estimate needed space
-    let forceCount = 0;
-    let sceneElementCount = 0;
-    
-    if(window.fm && window.fm.forces){
-      forceCount = window.fm.forces.length;
+    const sceneVisible = !!scenePanel && window.editorMode && !scenePanel.classList.contains('hidden');
+    forcePanel.style.height = 'auto';
+    if(scenePanel){
+      scenePanel.style.height = 'auto';
+      scenePanel.style.bottom = 'auto';
     }
-    
-    if(window.currentTask && window.currentTask.scene){
-      const scene = window.currentTask.scene;
-      sceneElementCount = (scene.rects?.length || 0) + 
-                          (scene.ellipses?.length || 0) +
-                          (scene.circles?.length || 0) +
-                          (scene.segments?.length || 0) +
-                          (scene.arrows?.length || 0) +
-                          (scene.points?.length || 0) +
-                          (scene.angles?.length || 0) +
-                          (scene.texts?.length || 0);
+    const forceNeeded = Math.max(forcePanel.scrollHeight, window.fm ? 80 : 0);
+    const sceneNeeded = sceneVisible ? Math.max(scenePanel.scrollHeight, 80) : 0;
+    let forcePanelHeight = forceNeeded;
+    let scenePanelHeight = sceneNeeded;
+    if(forceNeeded + sceneNeeded > availableHeight && sceneNeeded > 0){
+      const minimumHeight = Math.min(120, availableHeight / 2);
+      forcePanelHeight = Math.max(minimumHeight, Math.min(
+        availableHeight - minimumHeight,
+        Math.round(availableHeight * forceNeeded / (forceNeeded + sceneNeeded))
+      ));
+      scenePanelHeight = availableHeight - forcePanelHeight;
+    } else if(forceNeeded > availableHeight){
+      forcePanelHeight = availableHeight;
     }
-    
-    // The most recently used panel (force or scene element) gets 2/3 of the height
-    const forceActive = window.activePanel !== 'scene';
-    const forcePanelHeight = Math.round(availableHeight * (forceActive ? 2 / 3 : 1 / 3));
     
     // Set force panel height and top position
     if(forcePanel){
       forcePanel.style.top = topBarHeight + 'px';
       forcePanel.style.height = forcePanelHeight + 'px';
-      forcePanel.style.display = 'block';
+      forcePanel.style.display = window.fm ? 'block' : 'none';
     }
     
-    // Set scene panel position (directly after force panel) and extend to bottom
+    // Set scene panel position after the force panel, sized to its content when possible.
     if(scenePanel){
       scenePanel.style.top = (topBarHeight + forcePanelHeight) + 'px';
-      scenePanel.style.bottom = '0px'; // Extend to bottom of window
-      scenePanel.style.display = 'block';
+      scenePanel.style.height = scenePanelHeight + 'px';
+      scenePanel.style.bottom = 'auto';
+      scenePanel.style.display = sceneVisible ? 'block' : 'none';
     }
   }
 
@@ -1126,24 +1099,6 @@ window.tasks = [];
           candidates.push({
             ref, type: 'segment', segment: s.name, pos: midpoint
           });
-        });
-      });
-    }
-    
-    // Circles - center plus cardinal points on the circumference
-    if(Array.isArray(scene.circles)){
-      scene.circles.forEach((c, i) => {
-        if(!c || !c.center) return;
-        const [cx, cy] = c.center;
-        const r = c.radius || 0;
-        [
-          { name: 'center', pos: [cx, cy] },
-          { name: 'top_center', pos: [cx, cy - r] },
-          { name: 'bottom_center', pos: [cx, cy + r] },
-          { name: 'left_middle', pos: [cx - r, cy] },
-          { name: 'right_middle', pos: [cx + r, cy] }
-        ].forEach(p => {
-          candidates.push({ ref: `circle${i}`, type: 'point', point: p.name, pos: p.pos });
         });
       });
     }
@@ -1359,7 +1314,7 @@ window.tasks = [];
     return { valid, message };
   };
 
-  window.updateAppState = function(){
+  window.updateAppState = function(options = {}){
     //console.log('updateAppState() kjørt - oppdaterer snap points, guidelines, scene panel, etc.');
     if(!window.currentTask) return;
     window.sceneModel.update(window.currentTask);
@@ -1371,7 +1326,7 @@ window.tasks = [];
       const blankIndices = [];
       for(let i = window.fm.forces.length - 1; i >= 0; i--){
         const f = window.fm.forces[i];
-        if(!f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '')){
+        if(!f.anchor && !f.arrowBase && !f.arrowTip && (!f.name || f.name.trim() === '') && !f.studentSpecName && (!f.role || f.role==='force')){
           blankIndices.push(i);
         }
       }
@@ -1420,8 +1375,6 @@ window.tasks = [];
           elementOrigin = scene.points[index].pos;
         } else if(type === 'angle' && scene?.angles?.[index]){
           elementOrigin = scene.angles[index].vertex.pos;
-        } else if(type === 'circle' && scene?.circles?.[index]){
-          elementOrigin = scene.circles[index].center;
         } else if(type === 'segment' && scene?.segments?.[index]){
           elementOrigin = scene.segments[index].a;
         } else if(type === 'text' && scene?.texts?.[index]){
@@ -1452,7 +1405,8 @@ window.tasks = [];
     }
     
     // 3. Update scene panel (always in editor mode)
-    updateScenePanel();
+    if(!options.preserveScenePanel) updateScenePanel();
+    else window.refreshSceneTextCoordinates();
     
     // 4. Update help button text (shows task id and score)
     updateHelpButton();
@@ -1587,6 +1541,7 @@ window.tasks = [];
         f.arrowBase = dr.arrowBase.slice();
         f.arrowTip = dr.arrowTip.slice();
         f.name = spec.name || '';
+        window.forceNotation?.restore(f,spec,true);
         f.moveable = !isLocked;
         f.isExpected = !isLocked;
         f.updateDirectionAndLength();
@@ -1610,6 +1565,7 @@ window.tasks = [];
       f.arrowBase = [P[0], P[1]];
       f.arrowTip = [P[0] + dir[0]*len, P[1] + dir[1]*len];
       f.name = spec.name || '';
+      window.forceNotation?.restore(f,spec,true);
       f.moveable = !isLocked;
       f.isExpected = !isLocked;
       f.updateDirectionAndLength();
@@ -1623,7 +1579,42 @@ window.tasks = [];
     window.fm.setActive(window.fm.forces.length - 1);
   }
 
+  function syncGuidelinesButton(){
+    const button=document.getElementById('btn-guidelines');
+    if(button) button.classList.toggle('btn-active',window.enableGuidelines);
+  }
+
+  function applyTaskSnapChecklist(task){
+    const checklist=window.getTaskSnapChecklist(task);
+    window.currentSnapChecklist=checklist;
+    window.enableSnap=checklist.snapEnabled;
+    const snap=document.getElementById('settings-snap');
+    const snapButton=document.getElementById('btn-snap');
+    if(snap) snap.checked=checklist.snapEnabled;
+    if(snapButton) snapButton.classList.toggle('btn-active',checklist.snapEnabled);
+    window.enableGuidelines=checklist.guidelinesEnabled;
+    syncGuidelinesButton();
+    window.settings.show_force_coordinates=checklist.showForceCoordinates;
+    const coordinates=document.getElementById('settings-show-force-coordinates');
+    if(coordinates) coordinates.checked=checklist.showForceCoordinates;
+    return checklist;
+  }
+
+  function setTaskShowForceCoordinates(enabled){
+    if(!window.currentTask) return;
+    const checklist=window.getTaskSnapChecklist(window.currentTask);
+    checklist.showForceCoordinates=!!enabled;
+    window.currentTask.snapChecklist=checklist;
+    applyTaskSnapChecklist(window.currentTask);
+    markEdited('task');
+  }
+
   function loadTask(index){
+    if(!window.tasks || !window.tasks.length) return false;
+    const targetIndex = ((index % window.tasks.length) + window.tasks.length) % window.tasks.length;
+    const targetTask = window.tasks[targetIndex];
+    if(!resolveRelationsEditorBeforeTaskChange(targetTask.id)) return false;
+    const refreshRelationsEditor = window.currentTask && targetTask.id !== window.currentTask.id;
     window.sceneEditor.cancel();
     // Slipp fokus (utløser change på feltet i oppgaven vi forlater) og fjern valgt scene-element
     const ae = document.activeElement;
@@ -1633,10 +1624,7 @@ window.tasks = [];
     window.selectedSceneElement = null;
     window.hoveredSceneElement = null;
     document.querySelectorAll('#scene-items .scene-item.selected').forEach(el => el.classList.remove('selected'));
-    if(!window.tasks || !window.tasks.length) {
-      return;
-    }
-    window.currentTaskIndex = (index + window.tasks.length) % window.tasks.length;
+    window.currentTaskIndex = targetIndex;
     const task = normalizeTaskMeta(window.tasks[window.currentTaskIndex]);
     // NEW: persist current task index
     markEdited('index');
@@ -1658,6 +1646,7 @@ window.tasks = [];
       // First time loading this task - use default from tasks
       window.currentTask = task;
     }
+    applyTaskSnapChecklist(window.currentTask);
 
     for(const field of ['relations','sumF']){
       const key = `editor_${field}_${taskId}`;
@@ -1671,6 +1660,9 @@ window.tasks = [];
     // Keep array entry in sync after normalization
     if(window.tasks && window.currentTaskIndex !== undefined){
       window.tasks[window.currentTaskIndex] = window.currentTask;
+    }
+    if(window.sceneModel?.migrateCirclesToEllipses(window.currentTask)){
+      markEdited('task');
     }
     
     // Use ALL points for highlighting/hovering (includes segments, arrows, etc.)
@@ -1708,6 +1700,7 @@ window.tasks = [];
             f.arrowBase = spec.arrowBase ? [spec.arrowBase[0], spec.arrowBase[1]] : null;
             f.arrowTip = spec.arrowTip ? [spec.arrowTip[0], spec.arrowTip[1]] : null;
             f.name = spec.name || '';
+            window.forceNotation?.restore(f,spec);
             f.moveable = (spec.moveable !== false);
             // If isExpected not set, infer from moveable (false moveable = initial = not expected)
             if(spec.isExpected !== undefined){
@@ -1738,10 +1731,14 @@ window.tasks = [];
       seedInitialForces(window.currentTask);
       seedExpectedForces(window.currentTask);
     }
+    window.fm.forces.forEach(f=>window.forceNotation?.resolve(f,window.currentTask));
+    window.forceNotation?.sort(window.fm,window.currentTask);
     window.fm.syncInputs(inputsContainer);
     ensureInputMeta();
     // Update all derived state after task load
     window.updateAppState();
+    if(refreshRelationsEditor && relationsModal && !relationsModal.classList.contains('hidden')) showRelationsEditor();
+    return true;
   }
   
   // ===== Autolagring =====
@@ -1799,7 +1796,10 @@ window.tasks = [];
     if(f.task || f.help || f.forces) writeTask();
     if(f.order) writeTaskOrder();
     if(f.index) try { localStorage.setItem('editor_currentTaskIndex', String(window.currentTaskIndex)); } catch {}
-    if(f.settings) try { localStorage.setItem('editor_settings', JSON.stringify(window.settings)); } catch {}
+    if(f.settings){
+      const {show_force_coordinates,...globalSettings}=window.settings;
+      try { localStorage.setItem('editor_settings', JSON.stringify(globalSettings)); } catch {}
+    }
     if(f.scores) try { localStorage.setItem('editor_taskScores', JSON.stringify(window.taskScores)); } catch {}
     if(f.task || f.help || f.forces || f.order || f.storage) recordUndo();
   }
@@ -1954,7 +1954,10 @@ window.tasks = [];
   // Write current task to localStorage
   function writeTask(){
     if(!window.currentTask) return;
+    window.updateTextPositions(window.currentTask);
+    window.currentTask.scene?.texts?.forEach(window.normalizeTextRotation);
     window.sceneModel.update(window.currentTask);
+    window.fm?.forces.forEach(force=>window.syncForceSpec(force));
     const taskId = window.currentTask.id;
     try {
       localStorage.setItem(`editor_task_${taskId}`, JSON.stringify(window.currentTask));
@@ -1981,7 +1984,7 @@ window.tasks = [];
     if(!textarea) return;
     // Tekstfeltet kan vise en annen oppgave enn den gjeldende (f.eks. rett etter bytte); da skal det ikke kopieres inn.
     if(textarea.dataset.taskId !== String(window.currentTask.id)) return;
-    window.currentTask.help_lines = textarea.value.split('\n').filter(line => line.trim() !== '');
+    window.currentTask.help_lines = textarea.value === '' ? [] : textarea.value.split('\n');
   }
 
   // Remove task specs that no longer match any drawn force (e.g. leftovers from typing a name letter by letter)
@@ -2008,7 +2011,7 @@ window.tasks = [];
       const hasArrowBase = f.arrowBase !== null && f.arrowBase !== undefined;
       const hasArrowTip = f.arrowTip !== null && f.arrowTip !== undefined;
       const hasName = f.name && f.name.trim() !== '';
-      return hasAnchor || hasArrowBase || hasArrowTip || hasName;
+      return hasAnchor || hasArrowBase || hasArrowTip || hasName || (f.role && f.role!=='force');
     });
     
     const specs = nonBlankForces.map(f=>(
@@ -2017,6 +2020,7 @@ window.tasks = [];
         arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
         arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
         name: f.name || '',
+        ...window.forceNotation?.metadata(f),
         moveable: f.moveable,
         isExpected: f.isExpected !== false,
       }
@@ -2171,12 +2175,16 @@ window.tasks = [];
       if(!window.currentTask) return;
       const scene = window.currentTask.scene;
       if(!Array.isArray(scene.ellipses)) scene.ellipses = [];
+      const diameter = Math.min(wA,hA);
       scene.ellipses.push({
-        width: wA,
-        height: hA,
         center: [DRAW_CENTER[0], DRAW_CENTER[1]],
-        n_vec: [0, -1],
-        t_vec: [1, 0],
+        width: diameter,
+        height: diameter,
+        t_vec: [1,0],
+        n_vec: [0,-1],
+        lockAxes: true,
+        color: '#4090ff',
+        lineWidth: 2,
         snapping: true
       });
       selectNewElement('ellipse',scene.ellipses);
@@ -2255,17 +2263,25 @@ window.tasks = [];
     
     const force = window.fm.forces[forceIndex];
     const isExpected = force.isExpected !== false; // default to expected
+    const previous = window.getForceSpec(force)?.spec;
     
     // Move force between arrays
     if(isExpected){
       // Move from expected to initial
-      window.currentTask.expectedForces = window.currentTask.expectedForces.filter((f, i) => i !== forceIndex);
+      window.currentTask.expectedForces = window.currentTask.expectedForces.filter(f => f!==previous);
       if(!window.currentTask.initialForces) window.currentTask.initialForces = [];
-      window.currentTask.initialForces.push({ name: force.name });
+      const initial = {
+        ...previous, role:force.role || 'force', name:force.name,
+        anchorSpec:previous?.anchor, anchor:force.anchor?.slice(),
+        arrowBase:force.arrowBase?.slice(), arrowTip:force.arrowTip?.slice()
+      };
+      delete initial.drawn;
+      window.currentTask.initialForces.push(initial);
       force.isExpected = false;
+      force.moveable = false;
     } else {
       // Move from initial to expected
-      window.currentTask.initialForces = window.currentTask.initialForces.filter((f, i) => i !== forceIndex);
+      window.currentTask.initialForces = window.currentTask.initialForces.filter(f => f!==previous);
       if(!window.currentTask.expectedForces) window.currentTask.expectedForces = [];
       
       // Try to auto-detect best anchor based on force's drawn position
@@ -2292,13 +2308,18 @@ window.tasks = [];
       }
       
       // Set anchor, dir, and aliases for newly expected force
-      window.currentTask.expectedForces.push({ 
+      const expected = {
+        ...previous,
+        role:force.role || 'force',
         name: force.name,
-        aliases: [force.name.toLowerCase()],
-        dir: [0, 1], // default downward (gravity-like)
-        anchor: anchorSpec
-      });
+        aliases: previous?.aliases || [force.name.toLowerCase()],
+        dir: force.force_dir.slice(),
+        anchor: previous?.anchorSpec || anchorSpec
+      };
+      for(const field of ['anchorSpec','arrowBase','arrowTip','moveable','manualRole']) delete expected[field];
+      window.currentTask.expectedForces.push(expected);
       force.isExpected = true;
+      force.moveable = true;
     }
     
     // Save and refresh
@@ -2333,6 +2354,13 @@ window.tasks = [];
             term.name = name;
           }
         });
+        const nameKey = value=>window.forceNotation ? window.forceNotation.key(value) : value.toLowerCase().trim();
+        [...(window.currentTask.expectedForces || []),...(window.currentTask.initialForces || [])].forEach(spec=>{
+          if(spec.componentOf && nameKey(spec.componentOf)===nameKey(oldName)) spec.componentOf = name;
+        });
+        window.fm?.forces.forEach(other=>{
+          if(other.componentOf && nameKey(other.componentOf)===nameKey(oldName)) other.componentOf = name;
+        });
       });
       queueStorage(`editor_relations_${window.currentTask.id}`,JSON.parse(JSON.stringify(relations)));
     }
@@ -2355,6 +2383,9 @@ window.tasks = [];
       ref = { spec: created, prop: isExpected ? 'anchor' : 'anchorSpec' };
     }
     const { spec, prop } = ref;
+    spec.role = force.role || 'force';
+    if(force.componentOf) spec.componentOf = force.componentOf;
+    else delete spec.componentOf;
     if(opts.reanchor || !spec[prop] || !spec[prop].type){
       const exact = opts.reanchor && window.findSceneAnchorAtPosition
         ? window.findSceneAnchorAtPosition(force, task) : null;
@@ -2381,6 +2412,13 @@ window.tasks = [];
     if(isExpected && (opts.redir || !spec.dir)){
       spec.dir = force.force_dir.map(v => Math.round(v * 1000) / 1000);
     }
+    const drawn={
+      anchor:force.anchor.slice(),
+      arrowBase:force.arrowBase.slice(),
+      arrowTip:force.arrowTip.slice()
+    };
+    if(isExpected) spec.drawn=drawn;
+    else Object.assign(spec,drawn);
   };
 
   // Setup editor for help_lines text
@@ -2567,7 +2605,6 @@ window.tasks = [];
       const sig = {
         plane: scene.plane ? JSON.stringify(scene.plane) : null,
         rects: scene.rects ? JSON.stringify(scene.rects) : null,
-        circles: scene.circles ? JSON.stringify(scene.circles) : null,
         ellipses: scene.ellipses ? JSON.stringify(scene.ellipses) : null,
         segments: scene.segments ? JSON.stringify(scene.segments) : null,
         arrows: scene.arrows ? JSON.stringify(scene.arrows) : null,
@@ -2803,7 +2840,7 @@ window.tasks = [];
   
   /**
    * Detects if a mouse position is near any handle of the currently selected scene element.
-   * Checks all possible handles for the element type (plane, rect, ellipse, circle, segment, arrow, text, point).
+   * Checks all possible handles for the element type (plane, rect, ellipse, segment, arrow, text, point).
    * 
    * @param {Array<number>} pos - The mouse position [x, y] in canvas coordinates
    * @returns {Object|null} Handle info object if a handle is near the position:
@@ -2813,8 +2850,13 @@ window.tasks = [];
   function getSceneHandleAtPos(pos){
     if(!window.selectedSceneElement) return null;
     
-    const { type, index } = window.selectedSceneElement;
+    const { type } = window.selectedSceneElement;
+    let { index } = window.selectedSceneElement;
     const scene = window.currentTask?.scene;
+    if(type==='text' && scene?.texts){
+      window.updateTextPositions(window.currentTask);
+      index = window.textRootIndex(scene.texts,index);
+    }
     const tolerance = 8;
     
     // Helper to check if pos is near a handle
@@ -2908,25 +2950,6 @@ window.tasks = [];
       const clampedHeightHandle = window.clampToCanvas(heightHandle);
       if(isNear(clampedHeightHandle[0], clampedHeightHandle[1])) return {type: 'ellipse', index, handleType: 'height'};
     }
-    else if(type === 'circle' && scene?.circles?.[index]){
-      const circle = scene.circles[index];
-      const [cx, cy] = circle.center;
-      const r = circle.radius;
-      
-      // Center
-      if(isNear(cx, cy)) return {type: 'circle', index, handleType: 'center'};
-      
-      // Cardinal radius handles - use clamped positions for click detection
-      const clampedRight = window.clampToCanvas([cx + r, cy]);
-      const clampedLeft = window.clampToCanvas([cx - r, cy]);
-      const clampedDown = window.clampToCanvas([cx, cy + r]);
-      const clampedUp = window.clampToCanvas([cx, cy - r]);
-      
-      if(isNear(clampedRight[0], clampedRight[1])) return {type: 'circle', index, handleType: 'radius'};
-      if(isNear(clampedLeft[0], clampedLeft[1])) return {type: 'circle', index, handleType: 'radius'};
-      if(isNear(clampedDown[0], clampedDown[1])) return {type: 'circle', index, handleType: 'radius'};
-      if(isNear(clampedUp[0], clampedUp[1])) return {type: 'circle', index, handleType: 'radius'};
-    }
     else if(type === 'segment' && scene?.segments?.[index]){
       const seg = scene.segments[index];
       // Use clamped positions for click detection (handles are drawn clamped)
@@ -2945,11 +2968,13 @@ window.tasks = [];
       const clampedB = window.clampToCanvas(arrow.b);
       if(isNear(clampedA[0], clampedA[1])) return {type: 'arrow', index, handleType: 'a'};
       if(isNear(clampedB[0], clampedB[1])) return {type: 'arrow', index, handleType: 'b'};
+      if(distanceToSegment(arrow.a,arrow.b)<=tolerance){
+        return {type:'arrow',index,handleType:'body'};
+      }
     }
     else if(type === 'text' && scene?.texts?.[index]){
       const text = scene.texts[index];
-      // Don't detect handle for dragging text position if linked
-      if(!text.linked){
+      if(Array.isArray(text.pos)){
         const [x, y] = text.pos;
         if(isNear(x, y)) return {type: 'text', index, handleType: 'center'};
       }
@@ -3050,8 +3075,6 @@ window.tasks = [];
       oldPos = [scene.rects[index].bottomCenter[0], scene.rects[index].bottomCenter[1]];
     } else if(type === 'ellipse' && scene.ellipses?.[index]){
       oldPos = [scene.ellipses[index].center[0], scene.ellipses[index].center[1]];
-    } else if(type === 'circle' && scene.circles?.[index]){
-      oldPos = [scene.circles[index].center[0], scene.circles[index].center[1]];
     } else if(type === 'segment' && scene.segments?.[index]){
       // For segments, only track 'a' position (the main reference point)
       oldPos = [scene.segments[index].a[0], scene.segments[index].a[1]];
@@ -3085,8 +3108,6 @@ window.tasks = [];
       guidelineOrigin = scene.rects?.[index]?.bottomCenter;
     } else if(type === 'ellipse'){
       guidelineOrigin = scene.ellipses?.[index]?.center;
-    } else if(type === 'circle'){
-      guidelineOrigin = scene.circles?.[index]?.center;
     } else if(type === 'text'){
       guidelineOrigin = scene.texts?.[index]?.pos;
     }
@@ -3211,10 +3232,11 @@ window.tasks = [];
         const widthRightPos = [useNewPos[0], useNewPos[1]];
         const widthVec = [widthRightPos[0] - cx, widthRightPos[1] - cy];
         const newHalfWidth = geometry.length(widthVec);
+        if(newHalfWidth <= 0.01) return;
         const newWidth = newHalfWidth * 2;
         const newT = [widthVec[0] / newHalfWidth, widthVec[1] / newHalfWidth];
         
-        ellipse.width = newWidth;
+        window.sceneModel.setEllipseAxisLength(ellipse,'width',newWidth);
         ellipse.t_vec = newT;
         // n_vec is perpendicular to t_vec (90° counter-clockwise)
         ellipse.n_vec = geometry.normalFromTangent(newT);
@@ -3225,29 +3247,15 @@ window.tasks = [];
         const heightTopPos = [useNewPos[0], useNewPos[1]];
         const heightVec = [heightTopPos[0] - cx, heightTopPos[1] - cy];
         const newHalfHeight = geometry.length(heightVec);
+        if(newHalfHeight <= 0.01) return;
         const newHeight = newHalfHeight * 2;
         const newN = [heightVec[0] / newHalfHeight, heightVec[1] / newHalfHeight];
         
-        ellipse.height = newHeight;
+        window.sceneModel.setEllipseAxisLength(ellipse,'height',newHeight);
         ellipse.n_vec = newN;
         // Update t_vec to be perpendicular to n_vec (90° counter-clockwise: [-n[1], n[0]])
         ellipse.t_vec = geometry.tangentFromNormal(newN);
         window.selectedSceneElement._handleStartPos = useNewPos;
-      }
-    }
-    else if(type === 'circle' && handleType === 'center' && scene.circles?.[index]){
-      const circle = scene.circles[index];
-      // For center moves, set absolute position for grid alignment
-      const clampedPos = window.clampToCanvas(useNewPos);
-      circle.center[0] = clampedPos[0];
-      circle.center[1] = clampedPos[1];
-      window.selectedSceneElement._handleStartPos = clampedPos;
-      
-      // Synkroniser krefter
-      if(oldPos){
-        const displacement = [useNewPos[0] - oldPos[0], useNewPos[1] - oldPos[1]];
-        syncForcesWithSceneElement('circle', index, displacement);
-        oldPos = [useNewPos[0], useNewPos[1]];
       }
     }
     else if(type === 'text' && handleType === 'center' && scene.texts?.[index]){
@@ -3329,6 +3337,23 @@ window.tasks = [];
         arrow.b[1] = clampedPos[1];
         window.selectedSceneElement._handleStartPos = clampedPos;
       }
+      else if(handleType === 'body'){
+        const startA=handleInfo._arrowStartA || [arrow.a[0],arrow.a[1]];
+        const startB=handleInfo._arrowStartB || [arrow.b[0],arrow.b[1]];
+        const refStart=handleInfo._arrowSnapRef==='b' ? startB : startA;
+        const target=[
+          refStart[0]+newPos[0]-startPos[0],
+          refStart[1]+newPos[1]-startPos[1]
+        ];
+        const snapped=snapping.snap(target,{
+          points:[],gridStep:window.GRID_STEP,origin:gridOrigin,axesDir:null
+        });
+        const dx=snapped.pos[0]-refStart[0];
+        const dy=snapped.pos[1]-refStart[1];
+        arrow.a=[startA[0]+dx,startA[1]+dy];
+        arrow.b=[startB[0]+dx,startB[1]+dy];
+        window.snapIndicator=snapped.source ? {pos:snapped.pos} : null;
+      }
     }
     else if(type === 'rect' && scene.rects?.[index]){
       const rect = scene.rects[index];
@@ -3394,6 +3419,7 @@ window.tasks = [];
     
     // Handle scene element dragging in edit mode
     if(window.draggingHandle){
+      canvas.dataset.draggable = 'true';
       moveSceneElement(window.draggingHandle, pos);
       return;
     }
@@ -3402,10 +3428,13 @@ window.tasks = [];
 
     // Only update hover when not interacting (no drawing/dragging)
     const isInteracting = active && (active.drawing || !!active.dragging);
+    canvas.dataset.draggable = String(!!active?.dragging);
     if(!isInteracting){
-      window.fm.updateHover(pos);
-      // Also update scene element hover (Step 5)
-      updateSceneElementHover(pos);
+      const winner = updateEditorInteractionHover(pos);
+      const handle = winner?.handle;
+      const forceHit = isDrawArmed() ? window.fm.getHoverCandidate(pos,true) : null;
+      canvas.dataset.draggable = String(!!handle || winner?.domain === 'scene' ||
+        winner?.domain === 'force' || !!forceHit);
       // Clear anchor candidates when not dragging
       window.anchorCandidates = null;
       window.anchorHoverIndex = -1;
@@ -3453,7 +3482,6 @@ window.tasks = [];
     // If active force is drawing/dragging, forward motion
     if(active){
       let usePos = pos;
-      let snapDirection = null;
       // snapping for arrowTip while drawing or dragging arrowTip
       if(window.enableSnap && (active.drawing || active.dragging==='arrowTip')){
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
@@ -3470,7 +3498,6 @@ window.tasks = [];
           tip:true
         });
         usePos = res.pos;
-        snapDirection = res.direction;
         if(geometry.length([usePos[0]-pos[0], usePos[1]-pos[1]]) > 1){
           window.snapIndicator = {pos:usePos};
         } else {
@@ -3483,7 +3510,7 @@ window.tasks = [];
       if(active.dragging==='anchor'){
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
         // Anchor origin: DRAW_CENTER
-        const res = snapping.snap(usePos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER, axesDir:plane});
+        const res = snapping.snap(usePos, {points:window.snapPoints, forces:window.fm.forces, excludeForce:active, gridStep:GRID_STEP, origin:window.DRAW_CENTER, axesDir:plane});
         usePos = res.pos;
         window.snapIndicator = res.source ? {pos:res.pos} : null;
       }
@@ -3494,7 +3521,6 @@ window.tasks = [];
         const anchorOrigin = active.anchor ? active.anchor : (plane && plane.through ? plane.through : window.DRAW_CENTER);
         const base = active.arrowBase;
         const resBase = snapping.snapForce(base, {force:active,task:window.currentTask,forces:window.fm.forces,gridStep:GRID_STEP,origin:anchorOrigin});
-        snapDirection = resBase.direction;
         const snappedBase = resBase.pos;
         const dx = snappedBase[0]-base[0];
         const dy = snappedBase[1]-base[1];
@@ -3510,7 +3536,7 @@ window.tasks = [];
       if(window.enableGuidelines){
         const originForGuidelines = active.dragging==='body' && active.anchor
           ? active.anchor : (active.arrowBase || window.DRAW_CENTER);
-        window.currentGuidelines = snapping.buildGuidelines(originForGuidelines, usePos, snapDirection ? {t_vec:snapDirection} : null);
+        window.currentGuidelines = snapping.buildForceGuidelines(originForGuidelines, usePos, window.currentTask, active.anchor);
         if(active.drawing || active.dragging==='arrowTip'){
           window.currentGuidelines.push(...snapping.buildMatchedComponentGuidelines(active,window.fm.forces,GRID_STEP,window.currentTask));
         }
@@ -3527,10 +3553,12 @@ window.tasks = [];
     // Any interaction on canvas clears feedback panel
     clearFeedback();
     const pos = getMousePos(e);
+    const hoverWinner=updateEditorInteractionHover(pos);
     
     // Check if clicking on scene element handle in edit mode
-    const handle = isDrawArmed() ? null : getSceneHandleAtPos(pos);
+    const handle = hoverWinner?.handle;
     if(handle){
+      window.selectedSceneElement = {type:handle.type,index:handle.index};
       window.draggingHandle = handle;
         window.selectedSceneElement._handleStartPos = pos;
         window.setActivePanel('scene');
@@ -3555,6 +3583,16 @@ window.tasks = [];
               const distB = Math.hypot(pos[0] - segment.b[0], pos[1] - segment.b[1]);
               window.draggingHandle._segmentSnapRef = distB < distA ? 'b' : 'a';
             }
+          } else if(type === 'arrow' && scene.arrows?.[index]){
+            const arrow=scene.arrows[index];
+            window.draggingHandle._snapOriginAtDragStart=[arrow.a[0],arrow.a[1]];
+            if(handle.handleType==='body'){
+              window.draggingHandle._arrowStartA=[arrow.a[0],arrow.a[1]];
+              window.draggingHandle._arrowStartB=[arrow.b[0],arrow.b[1]];
+              const distA=Math.hypot(pos[0]-arrow.a[0],pos[1]-arrow.a[1]);
+              const distB=Math.hypot(pos[0]-arrow.b[0],pos[1]-arrow.b[1]);
+              window.draggingHandle._arrowSnapRef=distB<distA ? 'b' : 'a';
+            }
           } else if(type === 'plane' && scene.plane){
             window.draggingHandle._snapOriginAtDragStart = [scene.plane.through[0], scene.plane.through[1]];
           }
@@ -3565,16 +3603,7 @@ window.tasks = [];
         return;
       }
     
-    // NEW: ensure hover state reflects this exact click position (user may click without prior mousemove)
-    if(window.fm){ window.fm.updateHover(pos); }
-    
-    // Determine if there's a hovered force (takes priority over scene elements in editor mode)
-    let hoveredForceIndex = -1;
-    if(window.fm && window.fm.forces){
-      for(let i=0;i<window.fm.forces.length;i++){
-        if(window.fm.forces[i].hovering){ hoveredForceIndex = i; break; }
-      }
-    }
+    let hoveredForceIndex = hoverWinner?.domain==='force' ? hoverWinner.forceIndex : -1;
     
     // Valgt tom krafttekstboks: klikk starter alltid ny tegning, selv over en eksisterende kraft
     const activeBlank = window.fm && window.fm.forces[window.fm.activeIndex];
@@ -3583,10 +3612,7 @@ window.tasks = [];
     }
     
     // In task mode: forces only (no scene element interaction)
-    // In editor mode: scene elements take priority when hovered and no force is hovered
-    updateSceneElementHover(pos);
-    
-    // Handle scene element selection only if no force is hovered/dragged
+    // Handle scene element selection only when it wins the shared hit test.
     if(window.hoveredSceneElement && hoveredForceIndex === -1){
       // User clicked on a scene element - select it
       window.selectedSceneElement = {
@@ -3677,7 +3703,7 @@ window.tasks = [];
       let snapPos = pos;
       const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
       // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
-      snapPos = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+      snapPos = snapping.snap(pos, {points:window.snapPoints, forces:window.fm.forces, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
       window.setLastCanvasCoordinates?.(snapPos);
       window.fm.forces[targetIndex].handleMouseDown(snapPos);
       if(window.enableGuidelines){ window.currentGuidelines = snapping.buildGuidelines(snapPos, snapPos, window.currentTask.scene.plane); }
@@ -3702,7 +3728,7 @@ window.tasks = [];
     let clickPos = pos;
     const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
     // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
-    clickPos = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+    clickPos = snapping.snap(pos, {points:window.snapPoints, forces:window.fm.forces, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
     window.setLastCanvasCoordinates?.(clickPos);
     const consumed = f.handleMouseDown(clickPos);
     // CHANGED: focus/select after syncInputs to avoid losing focus due to re-render
@@ -3723,7 +3749,7 @@ window.tasks = [];
         let np = pos;
         const plane = window.currentTask && window.currentTask.scene && window.currentTask.scene.plane;
         // Use DRAW_CENTER as origin for grid snapping (not plane.through which can be at arbitrary positions)
-        np = snapping.snap(pos, {points:window.snapPoints, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
+        np = snapping.snap(pos, {points:window.snapPoints, forces:window.fm.forces, gridStep:GRID_STEP, origin:window.DRAW_CENTER}).pos;
         window.setLastCanvasCoordinates?.(np);
         window.fm.forces[window.fm.activeIndex].handleMouseDown(np);
         // CHANGED: sync then focus new blank's input
@@ -3838,14 +3864,14 @@ window.tasks = [];
       }
       if(action === 'guidelines'){
         window.enableGuidelines = !window.enableGuidelines;
-        btn.classList.toggle('btn-active', window.enableGuidelines);
+        syncGuidelinesButton();
         if(!window.enableGuidelines) window.currentGuidelines = null;
         return;
       }
       if(action === 'next'){
         // Save current help_lines if in editor mode
         markEdited('help', 'task');
-        loadTask(window.currentTaskIndex+1);
+        if(!loadTask(window.currentTaskIndex+1)) return;
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
         if(settingsPanel && !settingsPanel.classList.contains('hidden')){
@@ -3884,7 +3910,7 @@ window.tasks = [];
       if(action === 'prev'){
         // Save current help_lines if in editor mode
         markEdited('help', 'task');
-        loadTask(window.currentTaskIndex-1);
+        if(!loadTask(window.currentTaskIndex-1)) return;
         // Update settings window if it's open
         const settingsPanel = document.getElementById('settings-panel');
         if(settingsPanel && !settingsPanel.classList.contains('hidden')){
@@ -3921,6 +3947,7 @@ window.tasks = [];
         return;
       }
       if(action === 'check'){
+        window.fm.normalizeNames?.();
         // Cleanup task in editor mode before evaluation
         if(window.cleanupTaskForEvaluation){
           const cleanup = window.cleanupTaskForEvaluation();
@@ -4001,7 +4028,7 @@ window.tasks = [];
         if(!helpPanel) { console.warn('❌ helpPanel not found'); return; }
         if(!window.currentTask) { console.warn('❌ currentTask not found'); return; }
         if(!helpPanel.classList.contains('hidden')){
-          helpPanel.classList.add('hidden');
+          closeHelpPanel();
           return;
         }
         // Show help lines editor in editor mode
@@ -4092,8 +4119,12 @@ window.tasks = [];
   
   // Help panel interactions
   const helpPanel = document.getElementById('help-panel');
+  function closeHelpPanel(){
+    if(autoSaveTimer !== null) autoSave();
+    helpPanel?.classList.add('hidden');
+  }
   const helpCloseBtn = document.getElementById('help-close');
-  if(helpCloseBtn){ helpCloseBtn.addEventListener('click', ()=>{ helpPanel && helpPanel.classList.add('hidden'); }); }
+  if(helpCloseBtn){ helpCloseBtn.addEventListener('click', closeHelpPanel); }
   
   // Save help lines from textarea to task object
   // Help lines functions have been moved to ui.js
@@ -4112,8 +4143,8 @@ window.tasks = [];
   if(dbg){ dbg.addEventListener('change', ()=>{ window.settings.debug = !!dbg.checked; persist(); }); }
   if(usr){ usr.addEventListener('change', ()=>{ window.settings.username = usr.value || 'Isaac Newton'; persist(); updateUserDisplay(); }); }
   if(sSnap){ sSnap.addEventListener('change', ()=>{ window.enableSnap = !!sSnap.checked; }); }
-  if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; window.updateAppState(); }); }
-  if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>{ window.settings.show_force_coordinates = !!sShowForceCoords.checked; persist(); }); }
+  if(sGuides){ sGuides.addEventListener('change', ()=>{ window.enableGuidelines = !!sGuides.checked; syncGuidelinesButton(); window.updateAppState(); }); }
+  if(sShowForceCoords){ sShowForceCoords.addEventListener('change', ()=>setTaskShowForceCoordinates(sShowForceCoords.checked)); }
   if(sShowSceneCoords){ sShowSceneCoords.addEventListener('change', ()=>{ window.settings.show_scene_coordinates = !!sShowSceneCoords.checked; persist(); }); }
   if(sEditor){ 
     sEditor.addEventListener('change', ()=>{ 
@@ -4155,6 +4186,7 @@ window.tasks = [];
 
   function populateSnapChecklist(){
     if(!window.currentTask||!snapChecklistModal) return;
+    window.populateSnapMatchOptions(snapChecklistModal);
     const checklist=window.getTaskSnapChecklist(window.currentTask);
     snapChecklistModal.querySelectorAll('[data-snap-checklist]').forEach(input=>{
       input.checked=checklist[input.dataset.snapChecklist]===true;
@@ -4172,6 +4204,7 @@ window.tasks = [];
         checklist[input.dataset.snapChecklist]=!!input.checked;
       });
       window.currentTask.snapChecklist=checklist;
+      applyTaskSnapChecklist(window.currentTask);
       markEdited('task');
       snapChecklistModal.classList.add('hidden');
     });
@@ -4181,20 +4214,18 @@ window.tasks = [];
     btnSaveTask.addEventListener('click', ()=>{
       if(!window.currentTask) return;
       
-      // Create a copy of current task with modified ID
-      const newTask = JSON.parse(JSON.stringify(window.currentTask));
-      newTask.id = window.currentTask.id + '.';
-      newTask.title = (window.currentTask.title || '') + ' (kopi)';
-      
-      // Insert the new task right after current task
-      const currentIdx = window.currentTaskIndex !== undefined ? window.currentTaskIndex : 0;
-      window.tasks.splice(currentIdx + 1, 0, newTask);
-      
-      // Load the new task (flushes pending edits of the old one first), then save the copy
-      loadTask(currentIdx + 1);
-      markEdited('task', 'order');
-      
-      alert(`Oppgave duplikert: "${newTask.title}"`);
+      const newTaskId=window.currentTask.id+'.';
+      const finish=()=>{
+        const newTask=JSON.parse(JSON.stringify(window.currentTask));
+        newTask.id=newTaskId;
+        newTask.title=(window.currentTask.title||'')+' (kopi)';
+        const currentIdx = window.currentTaskIndex !== undefined ? window.currentTaskIndex : 0;
+        window.tasks.splice(currentIdx + 1, 0, newTask);
+        loadTask(currentIdx + 1);
+        markEdited('task', 'order');
+        alert(`Oppgave duplikert: "${newTask.title}"`);
+      };
+      if(resolveRelationsEditorBeforeTaskChange(newTaskId)) finish();
     });
   }
   
@@ -4214,7 +4245,6 @@ window.tasks = [];
           plane: { angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false },
           rects: [],
           ellipses: [],
-          circles: [],
           segments: [],
           arrows: [],
           texts: []
@@ -4224,17 +4254,15 @@ window.tasks = [];
         sumF: {},
         relations: []
       };
-      
-      // Add to tasks array
-      if(!window.tasks) window.tasks = [];
-      window.tasks.push(newTask);
-      
-      // Load the new task, then save it and the updated order
-      const newIndex = window.tasks.length - 1;
-      loadTask(newIndex);
-      markEdited('task', 'order');
-      
-      alert(`Ny oppgave "${title}" opprettet. Du kan nå redigere scenen og definere krefter.`);
+      const finish=()=>{
+        if(!window.tasks) window.tasks = [];
+        window.tasks.push(newTask);
+        const newIndex = window.tasks.length - 1;
+        loadTask(newIndex);
+        markEdited('task', 'order');
+        alert(`Ny oppgave "${title}" opprettet. Du kan nå redigere scenen og definere krefter.`);
+      };
+      if(resolveRelationsEditorBeforeTaskChange(newTask.id)) finish();
     });
   }
   
@@ -4247,25 +4275,24 @@ window.tasks = [];
       const taskIndex = window.currentTaskIndex;
       
       if(!confirm(`Slett oppgave "${window.currentTask.title}"?`)) return;
-      
-      // Ventende lagring gjelder den slettede oppgaven og må ikke gjenopprette den
-      cancelAutoSave();
-      
-      // Remove from task list; autoSave() removes the stored data and updates the order
-      window.tasks.splice(taskIndex, 1);
-      ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(prefix => queueStorage(prefix + taskId, null));
-      markEdited('order');
-      
-      // Load next task or last task
-      let nextIdx = taskIndex;
-      if(nextIdx >= window.tasks.length) nextIdx = window.tasks.length - 1;
-      
-      if(nextIdx >= 0){
-        loadTask(nextIdx);
-      } else {
-        // No tasks left - in editor, we still keep the UI visible
-        window.currentTask = null;
-      }
+      const remainingTask = window.tasks.length > 1
+        ? window.tasks[taskIndex + 1] || window.tasks[taskIndex - 1]
+        : null;
+      const finish=()=>{
+        // Pending writes must not recreate the task being deleted.
+        cancelAutoSave();
+        window.tasks.splice(taskIndex, 1);
+        ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(prefix => queueStorage(prefix + taskId, null));
+        markEdited('order');
+        let nextIdx = taskIndex;
+        if(nextIdx >= window.tasks.length) nextIdx = window.tasks.length - 1;
+        if(nextIdx >= 0){
+          loadTask(nextIdx);
+        } else {
+          window.currentTask = null;
+        }
+      };
+      if(resolveRelationsEditorBeforeTaskChange(remainingTask?.id ?? null)) finish();
     });
   }
   
@@ -4273,6 +4300,7 @@ window.tasks = [];
   if(btnExportTask){
     btnExportTask.addEventListener('click', ()=>{
       if(!window.currentTask) return;
+      if(relationsModal && !relationsModal.classList.contains('hidden') && !saveRelationsEditor('merge')) return;
       autoSave();
       if(!window.confirmAuthorExport([window.currentTask])) return;
       window.sceneModel.update(window.currentTask);
@@ -4294,10 +4322,12 @@ window.tasks = [];
             const isExpected = f.isExpected !== false;
             
             if(isExpected){
-              // Expected forces are exported as specs (anchor object + dir), not coordinates
+              // Keep the spec and reference geometry, not a pre-filled student answer.
               if(ref){ expectedForcesFromUI.push(JSON.parse(JSON.stringify(ref.spec))); }
             } else {
               const forceSpec = {
+                role:f.role || 'force',
+                ...(f.componentOf ? {componentOf:f.componentOf} : {}),
                 anchor: [f.anchor[0], f.anchor[1]],
                 arrowBase: f.arrowBase ? [f.arrowBase[0], f.arrowBase[1]] : null,
                 arrowTip: f.arrowTip ? [f.arrowTip[0], f.arrowTip[1]] : null,
@@ -4328,6 +4358,7 @@ window.tasks = [];
       
       // Remove rendering artifacts and linked flags from texts
       if(task.scene && Array.isArray(task.scene.texts)){
+        window.updateTextPositions(task);
         task.scene.texts = task.scene.texts.map((text, idx) => {
           const clean = {
             txt: text.txt,
@@ -4337,6 +4368,11 @@ window.tasks = [];
             color: text.color || '#222',
             snapping: text.snapping !== false
           };
+          if(Number.isFinite(text.angle_deg)) clean.angle_deg=text.angle_deg;
+          else if(Array.isArray(text.n_vec) && text.n_vec.length===2 &&
+                  text.n_vec.every(Number.isFinite) && Math.hypot(...text.n_vec)>1e-8){
+            clean.n_vec=text.n_vec.slice();
+          }
           // Only include pos if text is not linked
           if(text.linked) delete clean.pos;
           // Første tekst har ingen forrige å henge etter, så den trenger alltid absolutt pos
@@ -4415,8 +4451,13 @@ window.tasks = [];
     const title = document.getElementById('force-details-title');
     const aliasInput = document.getElementById('force-details-aliases');
     const baseInput = document.getElementById('force-details-namebase');
+    const roleInput = document.getElementById('force-details-role');
+    const parentInput = document.getElementById('force-details-parent');
+    const givenName = document.getElementById('force-details-given-name');
+    const givenRole = document.getElementById('force-details-given-role');
     const errorEl = document.getElementById('force-details-error');
     let editing = null; // spec being edited
+    let editingForce = null;
 
     window.openForceDetails = function(forceIndex){
       const force = window.fm && window.fm.forces[forceIndex];
@@ -4425,15 +4466,21 @@ window.tasks = [];
       const ref = window.getForceSpec(force);
       if(!ref) return;
       editing = ref.spec;
+      editingForce = force;
       title.textContent = `Detaljer for kraft ${editing.name}`;
       aliasInput.value = (editing.aliases || []).join(', ');
       baseInput.value = editing.nameBase || '';
+      roleInput.value = force.role || 'force';
+      parentInput.value = editing.componentOf || '';
+      givenName.checked = !!editing.studentGiven?.name;
+      givenRole.checked = !!editing.studentGiven?.role;
+      document.getElementById('force-details-student-given').hidden = force.isExpected===false;
       errorEl.textContent = '';
       modal.classList.remove('hidden');
       aliasInput.focus();
     };
 
-    const close = () => { modal.classList.add('hidden'); editing = null; };
+    const close = () => { modal.classList.add('hidden'); editing = null; editingForce = null; };
     document.getElementById('force-details-cancel').addEventListener('click', close);
     modal.addEventListener('mousedown', e => { if(e.target === modal) close(); });
     modal.addEventListener('keydown', e => {
@@ -4449,6 +4496,14 @@ window.tasks = [];
       // A base equal to another expected force's own name (outside the group) would make the two ambiguous
       const clash = (window.currentTask.expectedForces || []).find(s => s !== editing && base && norm(s.name) === norm(base) && s.nameBase !== base);
       if(base && clash){ errorEl.textContent = `Grunnnavnet er allerede navnet på kraften ${clash.name}.`; return; }
+      const parent = window.forceNotation.normalize(parentInput.value);
+      if(parent && roleInput.value!=='component'){
+        errorEl.textContent = 'Bare komponenter kan ha en hovedkraft.'; return;
+      }
+      if(parent && ![...(window.currentTask.expectedForces || []),...(window.currentTask.initialForces || [])]
+        .some(spec=>spec!==editing && window.forceNotation.key(spec.name)===window.forceNotation.key(parent))){
+        errorEl.textContent = 'Hovedkraften må være en annen kraft i oppgaven.'; return;
+      }
       const seen = new Set();
       const aliases = aliasInput.value.split(',').map(s => s.trim()).filter(s => {
         const k = norm(s);
@@ -4457,31 +4512,52 @@ window.tasks = [];
       });
       if(aliases.length) editing.aliases = aliases; else delete editing.aliases;
       if(base) editing.nameBase = base; else delete editing.nameBase;
+      editing.role = roleInput.value;
+      editingForce.role = roleInput.value;
+      editingForce.manualRole = roleInput.value;
+      if(parent){ editing.componentOf = parent; editingForce.componentOf = parent; }
+      else { delete editing.componentOf; delete editingForce.componentOf; }
+      if(givenName.checked || givenRole.checked){
+        editing.studentGiven = {name:givenName.checked,role:givenRole.checked};
+      }else delete editing.studentGiven;
+      window.forceNotation.sort(window.fm,window.currentTask);
       close();
-      markEdited('forces');
+      markEdited('forces','task');
       if(window.fm) window.fm.syncInputs(document.getElementById('force-inputs'));
     });
   })();
 
   // Relations editor modal logic
+  function discardRelationsEditor(){
+    relationsModal.classList.add('hidden');
+    relationsList._relations = undefined;
+    relationsList._sumF = undefined;
+    relationsList._taskId = undefined;
+  }
+
   if(btnEditRelations && relationsModal && relationsList && relationsSave && relationsCancel){
     btnEditRelations.addEventListener('click', ()=>{
       relationsList._relations = undefined; // les alltid på nytt for gjeldende oppgave
       relationsList._sumF = undefined;
+      relationsList._taskId = undefined;
       showRelationsEditor();
     });
-    relationsCancel.addEventListener('click', ()=>{
-      relationsModal.classList.add('hidden');
-    });
+    relationsCancel.addEventListener('click', discardRelationsEditor);
     relationsSave.addEventListener('click', ()=>{
-      saveRelationsEditor();
-      relationsModal.classList.add('hidden');
+      if(saveRelationsEditor()) relationsModal.classList.add('hidden');
     });
   }
 
   function showRelationsEditor(){
     if(!window.currentTask || !window.fm) return;
-    relationsModal.classList.remove('hidden');
+    const taskChanged = relationsList._taskId !== window.currentTask.id;
+    const scrollContainer = relationsModal.querySelector?.('.relations-body') || relationsList;
+    const scrollTop = scrollContainer.scrollTop;
+    if(taskChanged){
+      relationsList._relations = undefined;
+      relationsList._sumF = undefined;
+    }
+    if(relationsModal.classList.contains('hidden')) relationsModal.classList.remove('hidden');
     // The current task is authoritative; the modal holds only unsaved edits.
     let relations = relationsList._relations || [];
     if(relationsList._relations === undefined){
@@ -4500,6 +4576,7 @@ window.tasks = [];
     // Build UI
     let html = '';
     html += '<div style="margin-bottom:8px;">Legg til eller rediger relasjoner mellom krefter:</div>';
+    html += '<div style="margin-bottom:8px;">Tomt forhold bruker den grå verdien beregnet fra fasitens komponenter. Skriv inn et tall for å overstyre.</div>';
     relations.forEach((rel, idx) => {
       html += `<div class="relation-row" data-idx="${idx}" style="margin-bottom:12px; padding:8px; border:1px solid #ddd; border-radius:4px;">`;
       
@@ -4555,9 +4632,10 @@ window.tasks = [];
       html += `<button class="add-rhs-term" style="margin-left:16px; padding:2px 6px;">+ Legg til kraft</button>`;
       html += `</div>`;
       
-      html += ` Forhold: <input type="number" step="any" class="ratio-input" value="${rel.ratio}" style="width:60px;" />`;
-      html += ` Toleranse: <input type="number" step="any" class="tolerance-input" value="${rel.tol_rel||0.15}" style="width:50px;" />`;
-      html += ` <span class="auto-relation" style="color:#888;">(auto: ${autoRelationValue(rel, forces)})</span>`;
+      html += ` Forhold: <input type="number" step="any" class="ratio-input" value="${rel.ratio ?? ''}" style="width:90px;" />`;
+      html += ` <label>Relativ toleranse (%): <input type="number" min="0" max="100" step="any" class="tolerance-input" data-key="tol_rel" placeholder="${window.RELATION_TOL_REL*100}" value="${rel.tol_rel === undefined ? '' : rel.tol_rel*100}" style="width:70px;" /></label>`;
+      html += ` <label>Absolutt toleranse (px): <input type="number" min="0" step="any" class="tolerance-input" data-key="tol_abs" placeholder="${window.RELATION_TOL_ABS}" value="${rel.tol_abs ?? ''}" style="width:70px;" /></label>`;
+      html += ' <span style="color:#888;">Tomt = standard. Innenfor én av grensene er tilstrekkelig.</span>';
       html += ` <button class="remove-relation" data-idx="${idx}">Fjern relasjon</button>`;
       html += '</div>';
     });
@@ -4572,6 +4650,7 @@ window.tasks = [];
     });
     html += '</div>';
     relationsList.innerHTML = html;
+    scrollContainer.scrollTop = scrollTop;
     relationsList.querySelectorAll('.sumf-input').forEach(inp => {
       inp.addEventListener('input', () => {
         const v = parseFloat(inp.value);
@@ -4637,6 +4716,7 @@ window.tasks = [];
         const compVal = row.querySelector(`.lhs-component[data-term-idx="${termIdx}"]`).value;
         relations[relIdx].lhs[termIdx].name = forceVal;
         relations[relIdx].lhs[termIdx].component = compVal;
+        refreshRelationsRatioInputs();
       });
     });
     relationsList.querySelectorAll('.rhs-force, .rhs-component').forEach(sel => {
@@ -4648,58 +4728,157 @@ window.tasks = [];
         const compVal = row.querySelector(`.rhs-component[data-term-idx="${termIdx}"]`).value;
         relations[relIdx].rhs[termIdx].name = forceVal;
         relations[relIdx].rhs[termIdx].component = compVal;
+        refreshRelationsRatioInputs();
       });
     });
     
-    // Wire up ratio and tolerance inputs
-    relationsList.querySelectorAll('.ratio-input, .tolerance-input').forEach(input => {
+    relationsList.querySelectorAll('.ratio-input').forEach(input => {
       input.addEventListener('change', () => {
         const row = input.closest('.relation-row');
         const idx = parseInt(row.dataset.idx);
-        const ratioInput = row.querySelector('.ratio-input');
-        const tolInput = row.querySelector('.tolerance-input');
-        relations[idx].ratio = parseFloat(ratioInput.value) || 1.0;
-        relations[idx].tol_rel = parseFloat(tolInput.value) || 0.15;
+        window.readRelationRatioInput(input,window.currentTask,relations[idx],window.fm.forces,false);
+      });
+    });
+    relationsList.querySelectorAll('.tolerance-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const idx = parseInt(input.closest('.relation-row').dataset.idx);
+        updateRelationTolerance(input,relations[idx]);
       });
     });
     
     const addBtn = relationsList.querySelector('#add-relation');
     if(addBtn){
       addBtn.addEventListener('click', ()=>{
-        relations.push({lhs:[],rhs:[],ratio:1.0,tol_rel:0.15});
+        relations.push({lhs:[],rhs:[]});
         showRelationsEditor();
       });
     }
     // Save current relations to modal for later
     relationsList._relations = relations;
+    relationsList._taskId = window.currentTask.id;
+    refreshRelationsRatioInputs();
   }
 
-  function saveRelationsEditor(){
-    if(!window.currentTask || !relationsList._relations) return;
+  function refreshRelationsRatioInputs(){
+    if(!relationsModal || relationsModal.classList.contains('hidden') || !relationsList._relations) return;
+    relationsList.querySelectorAll('.ratio-input').forEach(input=>{
+      const relation=relationsList._relations[parseInt(input.closest('.relation-row').dataset.idx)];
+      if(relation) window.refreshRelationRatioInput(input,window.currentTask,relation,window.fm.forces);
+    });
+  }
+
+  function resolveRelationsEditorBeforeTaskChange(nextTaskId){
+    if(!relationsModal || relationsModal.classList.contains('hidden') ||
+      !window.currentTask || nextTaskId === window.currentTask.id ||
+      relationsList._taskId !== window.currentTask.id){
+      return true;
+    }
+    if(window.tasks && !window.tasks.some(task=>task.id===window.currentTask.id)) return true;
+    // Keep existing snap matches and add relation-derived matches without prompting.
+    return saveRelationsEditor('merge');
+  }
+
+  function syncRelationsEditorInputs(){
+    const relations = relationsList._relations || [];
+    relationsList.querySelectorAll('.relation-row').forEach(row => {
+      const idx = parseInt(row.dataset.idx);
+      const relation = relations[idx];
+      if(!relation) return;
+      ['lhs','rhs'].forEach(side => {
+        const forceClass = `.${side}-force`;
+        const componentClass = `.${side}-component`;
+        row.querySelectorAll(forceClass).forEach(select => {
+          const termIdx = parseInt(select.dataset.termIdx);
+          const term = relation[side][termIdx];
+          if(!term) return;
+          term.name = select.value;
+          term.component = row.querySelector(`${componentClass}[data-term-idx="${termIdx}"]`).value;
+        });
+      });
+    });
+    relationsList.querySelectorAll('.sumf-input').forEach(input => {
+      const value = parseFloat(input.value);
+      if(Number.isFinite(value)) relationsList._sumF[input.dataset.key] = value;
+      else delete relationsList._sumF[input.dataset.key];
+    });
+  }
+
+  function updateRelationTolerance(input,relation){
+    const key = input.dataset.key;
+    const value = Number(input.value);
+    const invalid = input.validity.badInput || !Number.isFinite(value) ||
+      value < 0 || (key === 'tol_rel' && value > 100);
+    input.setCustomValidity(invalid ? 'Oppgi en gyldig toleranse: 0–100 % eller et ikke-negativt antall px.' : '');
+    if(!input.reportValidity()) return false;
+    if(input.value === '') delete relation[key];
+    else relation[key] = key === 'tol_rel' ? value/100 : value;
+    return true;
+  }
+
+  function showRelationSnapChoice(checklist,relevant){
+    const dialog=document.getElementById('relation-snap-choice');
+    const differences=document.getElementById('relation-snap-differences');
+    const missing=window.snapMatchCategories.filter(({key})=>relevant[key]&&!checklist[key]);
+    const extra=window.snapMatchCategories.filter(({key})=>checklist[key]&&!relevant[key]);
+    const section=(title,categories)=>categories.length
+      ? `<strong>${title}</strong><ul>${categories.map(({label})=>`<li>${escapeHtml(label)}</li>`).join('')}</ul>` : '';
+    differences.innerHTML=section('Mangler i sjekklista',missing)+section('Valgt utover relevante kategorier',extra);
+    const task=window.currentTask;
+    for(const [id,mode] of [['relation-snap-merge','merge'],['relation-snap-replace','replace']]){
+      document.getElementById(id).onclick=()=>{
+        if(window.currentTask!==task){
+          dialog.close();
+          return;
+        }
+        if(saveRelationsEditor(mode)){
+          dialog.close();
+          relationsModal.classList.add('hidden');
+        }
+      };
+    }
+    dialog.showModal();
+  }
+
+  function saveRelationsEditor(matchChoice=null){
+    if(!window.currentTask || !relationsList._relations) return false;
+    for(const input of relationsList.querySelectorAll('.sumf-input')){
+      const invalid=input.validity.badInput || (input.value!==''&&!Number.isFinite(Number(input.value)));
+      input.setCustomValidity(invalid ? 'Oppgi et gyldig tall eller la feltet stå tomt.' : '');
+      if(!input.reportValidity()) return false;
+    }
+    syncRelationsEditorInputs();
+    for(const input of relationsList.querySelectorAll('.ratio-input')){
+      const idx=parseInt(input.closest('.relation-row').dataset.idx);
+      if(!window.readRelationRatioInput(input,window.currentTask,relationsList._relations[idx],window.fm.forces)) return false;
+    }
+    for(const input of relationsList.querySelectorAll('.tolerance-input')){
+      const idx = parseInt(input.closest('.relation-row').dataset.idx);
+      if(!updateRelationTolerance(input,relationsList._relations[idx])) return false;
+    }
     // Use the cached relations array that's been updated by event listeners
     const relations = relationsList._relations;
+    const checklist=window.getTaskSnapChecklist(window.currentTask);
+    const relevant=window.getRelationSnapMatches(relations,window.currentTask,window.fm.forces);
+    const differs=window.snapMatchCategories.some(({key})=>checklist[key]!==relevant[key]);
+    if(differs&&!matchChoice){
+      showRelationSnapChoice(checklist,relevant);
+      return false;
+    }
+    for(const {key} of window.snapMatchCategories){
+      checklist[key]=matchChoice==='merge' ? checklist[key]||relevant[key] : relevant[key];
+    }
+    window.currentTask.snapChecklist=checklist;
+    window.fm.forces.forEach(force=>window.syncForceSpec?.(force));
     window.currentTask.relations = JSON.parse(JSON.stringify(relations));
     queueStorage(`editor_relations_${window.currentTask.id}`, relations);
+    applyTaskSnapChecklist(window.currentTask);
     markEdited('task');
     if(relationsList._sumF){
       const sf = Object.assign({}, relationsList._sumF);
       window.currentTask.sumF = sf;
       queueStorage(`editor_sumF_${window.currentTask.id}`, sf);
     }
-  }
-
-  function autoRelationValue(rel, forces){
-    // Example: sum of LHS force lengths / sum of RHS force lengths
-    if(!rel.lhs.length || !rel.rhs.length) return '?';
-    function sumLen(arr){
-      return arr.map(f=>{
-        const ff = forces.find(x=>x.name===f.name);
-        return ff && ff.force_len ? ff.force_len : 0;
-      }).reduce((a,b)=>a+b,0);
-    }
-    const lhsSum = sumLen(rel.lhs);
-    const rhsSum = sumLen(rel.rhs);
-    return rhsSum ? (lhsSum/rhsSum).toFixed(2) : '?';
+    return true;
   }
 
   // Task order manager modal logic
@@ -4814,8 +4993,7 @@ window.tasks = [];
         const taskId = item.dataset.taskId;
         const taskIndex = window.tasks.findIndex(t => t.id === taskId);
         if(taskIndex >= 0) {
-          loadTask(taskIndex);
-          closeTaskOrderModal();
+          if(loadTask(taskIndex)) closeTaskOrderModal();
         }
       });
 
@@ -5005,23 +5183,23 @@ window.tasks = [];
   // ===== EKSPORTER: Export full task objects to JSON file =====
   if (tasksetExportBtn) {
     tasksetExportBtn.addEventListener('click', () => {
-      autoSave();
       const selectedIds = getSelectedTaskIds();
+      if(selectedIds.includes(window.currentTask?.id) && relationsModal &&
+        !relationsModal.classList.contains('hidden') && !saveRelationsEditor('merge')) return;
+      autoSave();
       if (selectedIds.length === 0) {
         tasksetResultDiv.style.display = 'block';
         tasksetReportDiv.innerHTML = '<div class="taskset-report-item skipped">⏭️ Ingen oppgaver valgt for eksport</div>';
         return;
       }
 
-      // Build full task objects WITHOUT forces (only task structure and initialForces)
+      // Export definitions and teacher reference geometry, not student answers.
       const tasksToExport = [];
       selectedIds.forEach(taskId => {
         const task = window.tasks.find(t => t.id === taskId);
         if (task) {
-          // Deep clone task - do NOT include any drawn forces
           const taskClone = JSON.parse(JSON.stringify(task));
-          // Forces are intentionally NOT included in export
-          // Players start with only initialForces, no pre-drawn user forces
+          // Only initialForces are shown initially; expected drawn data is a ratio reference.
           
           // Merge help_lines from editor localStorage (if modified)
           const editorTaskKey = `editor_task_${taskId}`;
@@ -5049,7 +5227,7 @@ window.tasks = [];
               if (locked.length || oldInitial.length === 0) {
                 taskClone.initialForces = locked.map(f => {
                   const old = oldInitial.find(o => o.name && o.name.toLowerCase().trim() === f.name.toLowerCase().trim());
-                  const spec = { name: f.name, anchor: f.anchor, arrowBase: f.arrowBase, arrowTip: f.arrowTip, moveable: false };
+                  const spec = { ...old, role:f.role || 'force', ...(f.componentOf ? {componentOf:f.componentOf} : {}), name: f.name, anchor: f.anchor, arrowBase: f.arrowBase, arrowTip: f.arrowTip, moveable: false };
                   if (old && old.anchorSpec) spec.anchorSpec = old.anchorSpec;
                   return spec;
                 });
@@ -5059,7 +5237,7 @@ window.tasks = [];
               const drawnNames = isExp => new Set(drawn.filter(f => f.name && (f.isExpected !== false) === isExp).map(f => nameKey(f.name)));
               const expNames = drawnNames(true);
               if (expNames.size) taskClone.expectedForces = (taskClone.expectedForces || []).filter(s => expNames.has(nameKey(s.name)));
-              // Den tegnede fasitkraften lagres ved siden av spesifikasjonen (index.html ignorerer feltet)
+              // Fasitgeometrien brukes til automatiske forhold, ikke som et forhåndsutfylt elevsvar.
               (taskClone.expectedForces || []).forEach(spec => {
                 const d = drawn.find(f => f.isExpected !== false && f.name && spec.name && f.name.toLowerCase().trim() === spec.name.toLowerCase().trim() && f.anchor && f.arrowBase && f.arrowTip);
                 if (d) spec.drawn = { anchor: d.anchor, arrowBase: d.arrowBase, arrowTip: d.arrowTip };
@@ -5263,28 +5441,36 @@ window.tasks = [];
       }
       if(!confirm(`Er du sikker på at du vil slette ${ids.size} oppgave${ids.size === 1 ? '' : 'r'}?\n\nDu kan angre med Ctrl+Z.`)) return;
 
-      autoSave(); // ventende redigeringer blir eget steg som angre kan gå tilbake til
-      rememberSelection();
-      cancelAutoSave();
       const currentId = window.currentTask && window.currentTask.id;
       const oldIdx = window.currentTaskIndex || 0;
-      window.tasks = window.tasks.filter(t => !ids.has(t.id));
-      ids.forEach(id => ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(p => queueStorage(p + id, null)));
-      markEdited('order');
+      const finish=()=>{
+        autoSave(); // ventende redigeringer blir eget steg som angre kan gå tilbake til
+        rememberSelection();
+        cancelAutoSave();
+        window.tasks = window.tasks.filter(t => !ids.has(t.id));
+        ids.forEach(id => ['editor_task_', 'editor_forces_', 'editor_relations_', 'editor_sumF_'].forEach(p => queueStorage(p + id, null)));
+        markEdited('order');
 
-      if(window.tasks.length === 0){
-        window.currentTask = null;
-        window.currentTaskIndex = 0;
-        autoSave();
-      } else if(ids.has(currentId)){
-        loadTask(Math.min(oldIdx, window.tasks.length - 1));
-        autoSave();
-      } else {
-        window.currentTaskIndex = window.tasks.findIndex(t => t.id === currentId);
-        markEdited('index');
-        autoSave();
+        if(window.tasks.length === 0){
+          window.currentTask = null;
+          window.currentTaskIndex = 0;
+          autoSave();
+        } else if(ids.has(currentId)){
+          loadTask(Math.min(oldIdx, window.tasks.length - 1));
+          autoSave();
+        } else {
+          window.currentTaskIndex = window.tasks.findIndex(t => t.id === currentId);
+          markEdited('index');
+          autoSave();
+        }
+        updateTaskOrderList();
+      };
+      if(ids.has(currentId)){
+        const remainingTasks = window.tasks.filter(task => !ids.has(task.id));
+        const nextTask = remainingTasks[Math.min(oldIdx, remainingTasks.length - 1)];
+        if(!resolveRelationsEditorBeforeTaskChange(nextTask?.id ?? null)) return;
       }
-      updateTaskOrderList();
+      finish();
     });
   }
   const taskOrderSelectAll = document.getElementById('task-order-select-all');
@@ -5488,6 +5674,13 @@ window.tasks = [];
   // ESC key closes settings/help/feedback panels
   document.addEventListener('keydown', (e)=>{
     if(e.key !== 'Escape') return;
+    if(document.getElementById('relation-snap-choice')?.open) return;
+    if(relationsModal && !relationsModal.classList.contains('hidden')){
+      discardRelationsEditor();
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     const settingsPanel = document.getElementById('settings-panel');
     const helpPanelEl = document.getElementById('help-panel');
     // Close settings panel if open

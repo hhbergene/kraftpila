@@ -4,6 +4,7 @@
   const WIDTH = window.WIDTH || 1000;
   const HEIGHT = window.HEIGHT || 640;
   const GRID_COLOR = window.GRID_COLOR || '#dcdcdc';
+  const textGeometryCache = new WeakMap();
 
   window.isTaskTitleText = function(task,text){
     const title = typeof task?.title === 'string' ? task.title.trim() : '';
@@ -97,7 +98,9 @@
     if(isDim) ctx.globalAlpha = 0.5;
     ctx.strokeStyle = plane.color || '#777';
     ctx.lineWidth = plane.lineWidth || 4;
+    if(plane.body === 'dashed') ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(ax + 0.5, ay + 0.5); ctx.lineTo(bx + 0.5, by + 0.5); ctx.stroke();
+    ctx.setLineDash([]);
     if(isDim) ctx.globalAlpha = 1.0;
   }
 
@@ -137,9 +140,6 @@
     (task?.scene?.ellipses||[]).forEach((ellipse,i)=>{
       if(lookup[`ellipse${i}`])lookup[`ellipse${i}`].curves={outline:modelGeometry.sampleEllipse(ellipse)};
     });
-    (task?.scene?.circles||[]).forEach((circle,i)=>{
-      if(lookup[`circle${i}`])lookup[`circle${i}`].curves={outline:modelGeometry.sampleEllipse({center:circle.center,width:2*circle.radius,height:2*circle.radius})};
-    });
     return lookup;
   }
 
@@ -163,13 +163,6 @@
     if(s.body === 'dashed') ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(s.a[0] + 0.5, s.a[1] + 0.5); ctx.lineTo(s.b[0] + 0.5, s.b[1] + 0.5); ctx.stroke();
     ctx.setLineDash([]);
-  }
-
-  function drawCircle(ctx, c){
-    ctx.strokeStyle = c.color || '#999';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(c.center[0], c.center[1], c.radius, 0, Math.PI*2); ctx.stroke();
-    if(c.fill_color){ ctx.fillStyle = c.fill_color; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(c.center[0], c.center[1], c.radius, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1.0; }
   }
 
   function drawEllipse(ctx, e){
@@ -226,97 +219,147 @@
     const dx = a.b[0]-a.a[0]; const dy = a.b[1]-a.a[1];
     const ang = Math.atan2(dy,dx);
     const len = Math.hypot(dx,dy);
-    const head = 12; const tEnd = 1 - head/len;
+    if(len <= 1e-8) return;
+    const requestedHeadLength = Number.isFinite(a.arrowHeadLength) ? a.arrowHeadLength : 12;
+    const head = Math.min(Math.max(4, requestedHeadLength), len);
+    const tEnd = 1 - head/len;
     const bodyEnd = [a.a[0]+dx*tEnd, a.a[1]+dy*tEnd];
+    ctx.save();
     ctx.strokeStyle = a.color || '#00f';
-    ctx.lineWidth = 2;
-    if(a.body==='dashed'){
-      ctx.setLineDash([8,6]);
-    }
+    ctx.lineWidth = Number.isFinite(a.lineWidth) && a.lineWidth > 0 ? a.lineWidth : 2;
+    ctx.setLineDash(a.body==='dashed' ? [8,6] : []);
     ctx.beginPath(); ctx.moveTo(a.a[0] + 0.5, a.a[1] + 0.5); ctx.lineTo(bodyEnd[0] + 0.5, bodyEnd[1] + 0.5); ctx.stroke();
-    ctx.setLineDash([]);
     // head
-    const left=[a.b[0]-12*Math.cos(ang-Math.PI/6), a.b[1]-12*Math.sin(ang-Math.PI/6)];
-    const right=[a.b[0]-12*Math.cos(ang+Math.PI/6), a.b[1]-12*Math.sin(ang+Math.PI/6)];
+    const left=[a.b[0]-head*Math.cos(ang-Math.PI/6), a.b[1]-head*Math.sin(ang-Math.PI/6)];
+    const right=[a.b[0]-head*Math.cos(ang+Math.PI/6), a.b[1]-head*Math.sin(ang+Math.PI/6)];
     ctx.fillStyle = a.color || '#00f';
     ctx.beginPath(); ctx.moveTo(a.b[0] + 0.5, a.b[1] + 0.5); ctx.lineTo(left[0] + 0.5, left[1] + 0.5); ctx.lineTo(right[0] + 0.5, right[1] + 0.5); ctx.closePath(); ctx.fill();
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
-  function drawText(ctx, t, textIndex, allTexts){
-    // Calculate position: if linked and not first text, position below previous text
-    let pos = t.pos;
-    
-    // If pos is missing, assume text is linked and position it below previous text
-    if(!pos && textIndex > 0 && allTexts) {
-      const prevText = allTexts[textIndex - 1];
-      if(prevText && prevText._renderedPos && Array.isArray(prevText._renderedPos) && prevText._renderedPos.length >= 2) {
-        const prevY = prevText._renderedPos[1];
-        const prevX = prevText._renderedPos[0];
-        const prevSize = prevText.size || 14;
-        const padding = 5;
-        const newY = prevY + prevSize + padding;
-        pos = [prevX, newY];
+  function updateTextPositions(task){
+    const texts = task?.scene?.texts || [];
+    texts.forEach((text,index)=>{
+      if(!text) return;
+      // Missing pos is the legacy export representation of a linked text.
+      if(index>0 && !text.pos) text.linked = true;
+      if(index===0 && text.linked) text.linked = false;
+      if(index>0 && text.linked){
+        const previous = texts[index-1];
+        if(!validPos(previous?._renderedPos)){
+          delete text._renderedPos;
+          console.warn('updateTextPositions: invalid previous text position', index);
+          return;
+        }
+        text.pos = [previous.pos[0],previous.pos[1]+(previous.size || 14)+5];
       }
+      if(validPos(text.pos)) text._renderedPos = text.pos.slice();
+      else delete text._renderedPos;
+    });
+  }
+
+  function textRootIndex(texts,index){
+    while(index>0 && texts[index]?.linked) index--;
+    return index;
+  }
+
+  function textAngle(text){
+    if(Number.isFinite(text.angle_deg)) return text.angle_deg*Math.PI/180;
+    if(Array.isArray(text.n_vec) && text.n_vec.length===2 &&
+       text.n_vec.every(Number.isFinite) && Math.hypot(...text.n_vec)>1e-8){
+      const tangent=window.geometry.tangentFromNormal(text.n_vec);
+      return Math.atan2(tangent[1],tangent[0]);
     }
-    
-    // If linked=true and pos is defined, use pos as-is (explicit positioning)
-    if(t.linked && textIndex > 0 && allTexts && t.pos) {
-      pos = t.pos;
-    } else if(t.linked && textIndex > 0 && allTexts && !t.pos) {
-      // linked=true but no pos: position below previous text
-      const prevText = allTexts[textIndex - 1];
-      if(prevText && prevText._renderedPos && Array.isArray(prevText._renderedPos) && prevText._renderedPos.length >= 2) {
-        const prevY = prevText._renderedPos[1];
-        const prevX = prevText._renderedPos[0];
-        const prevSize = prevText.size || 14;
-        const padding = 5;
-        const newY = prevY + prevSize + padding;
-        pos = [prevX, newY];
+    return 0;
+  }
+
+  function normalizeTextRotation(text){
+    if(Number.isFinite(text?.angle_deg)){
+      delete text.n_vec;
+      return 'angle';
+    }
+    if(Array.isArray(text?.n_vec) && text.n_vec.length===2 &&
+       text.n_vec.every(Number.isFinite) && Math.hypot(...text.n_vec)>1e-8){
+      const length=Math.hypot(...text.n_vec);
+      text.n_vec=text.n_vec.map(value=>value/length);
+      delete text.angle_deg;
+      return 'normal';
+    }
+    delete text.angle_deg;
+    delete text.n_vec;
+    return 'none';
+  }
+
+  function getTextGeometry(ctx,text){
+    const pos=text?._renderedPos || text?.pos;
+    if(!validPos(pos) || typeof text.txt!=='string' || !text.txt.trim()) return null;
+    const size=text.size||14;
+    const angle=textAngle(text);
+    const align=text.align||(Number.isFinite(text.angle_deg)||text.n_vec?'center':'left');
+    const fontFamily=Number.isFinite(text.angle_deg)||text.n_vec?'Segoe UI, Arial':'Arial';
+    const key=JSON.stringify([text.txt,size,align,fontFamily,angle,pos]);
+    const cached=textGeometryCache.get(text);
+    if(cached?.key===key) return cached.geometry;
+    const layout=window.layoutFormattedText(ctx,text.txt,0,0,{size,align,fontFamily});
+    if(!layout.segments.length) return null;
+    const top=layout.top-2,bottom=layout.bottom+2,left=layout.left-2,right=layout.right+2;
+    const cos=Math.cos(angle),sin=Math.sin(angle);
+    const world=(x,y)=>[pos[0]+x*cos-y*sin,pos[1]+x*sin+y*cos];
+    const corners=[
+      world(left,top),world(right,top),world(right,bottom),world(left,bottom)
+    ];
+    const middleY=(top+bottom)/2;
+    const geometry={
+      angle,layout,corners,
+      centerline:[world(layout.left,middleY),world(layout.right,middleY)],
+      contains(point){
+        const dx=point[0]-pos[0],dy=point[1]-pos[1];
+        const localX=dx*cos+dy*sin,localY=-dx*sin+dy*cos;
+        return localX>=left && localX<=right && localY>=top && localY<=bottom;
       }
-    }
-    
+    };
+    textGeometryCache.set(text,{key,geometry});
+    return geometry;
+  }
+
+  function drawText(ctx, t, textIndex){
+    const pos = t._renderedPos;
     // Ensure pos is defined before using it
     if(!pos || !Array.isArray(pos) || pos.length < 2) {
       console.warn('drawText: invalid position for text', t, '(index:', textIndex, ')');
       return;
     }
-    
-    // Store the actual rendered position for linked texts
-    t._renderedPos = pos;
-    
-    window.drawFormattedText(ctx, t.txt, pos[0], pos[1], {size:t.size||14, color:t.color||'#000', align:t.align||'left'});
-    
+    const textGeometry=getTextGeometry(ctx,t);
+    const angle=textGeometry?.angle || 0;
+    const align=t.align||(Number.isFinite(t.angle_deg)||t.n_vec?'center':'left');
+    const fontFamily=Number.isFinite(t.angle_deg)||t.n_vec?'Segoe UI, Arial':'Arial';
+    ctx.save();
+    ctx.translate(pos[0],pos[1]);
+    ctx.rotate(angle);
+    window.drawFormattedText(ctx,t.txt,0,0,{
+      size:t.size||14,color:t.color||'#000',
+      align,fontFamily,layout:textGeometry?.layout
+    });
+
     // Draw bounding box if this text is selected in editor
     if(window.selectedSceneElement && window.selectedSceneElement.type === 'text' && window.selectedSceneElement.index === textIndex) {
-      const baseSize = t.size || 14;
-      ctx.save();
-      ctx.font = `${baseSize}px Segoe UI, Arial`;
-      const metrics = ctx.measureText(t.txt);
-      const width = metrics.width;
-      const height = baseSize * 1.2;  // Slightly larger for padding
-      const align = t.align || 'left';
-      
-      // Calculate bounding box position based on text alignment
-      let boxX = pos[0];
-      if(align === 'center') {
-        boxX = pos[0] - width / 2;
-      } else if(align === 'right') {
-        boxX = pos[0] - width;
-      }
-      const boxY = pos[1] - height / 2;
-      
-      // Draw bounding box with handle color
+      const layout=textGeometry?.layout || window.layoutFormattedText(ctx,t.txt,0,0,{
+        size:t.size||14,align,fontFamily
+      });
       ctx.strokeStyle = '#ff9800';
       ctx.lineWidth = 2;
-      ctx.strokeRect(boxX - 2, boxY - 2, width + 4, height + 4);
-      ctx.restore();
+      ctx.strokeRect(layout.left-2,layout.top-2,
+        layout.right-layout.left+4,layout.bottom-layout.top+4);
     }
+    ctx.restore();
   }
 
   function drawScene(ctx, task, editorMode){
     if(!task) return;
     if(window.sceneModel) window.sceneModel.update(task);
     task.scene = task.scene || {};
+    updateTextPositions(task);
     const planeDef = task.scene.plane;
     if(planeDef){
       if(planeDef.draw === true){
@@ -329,12 +372,11 @@
     }
     if(task.scene.rects){ task.scene.rects.forEach(r=>drawRect(ctx,r)); }
     if(task.scene.segments){ task.scene.segments.forEach(s=>drawSegment(ctx,s)); }
-    if(task.scene.circles){ task.scene.circles.forEach(c=>drawCircle(ctx,c)); }
     if(task.scene.ellipses){ task.scene.ellipses.forEach(e=>drawEllipse(ctx,e)); }
     if(task.scene.arrows){ task.scene.arrows.forEach(a=>drawArrow(ctx,a)); }
     if(task.scene.texts){
       task.scene.texts.forEach((t,idx)=>{
-        if(!window.isTaskTitleText(task,t)) drawText(ctx,t,idx,task.scene.texts);
+        if(!window.isTaskTitleText(task,t)) drawText(ctx,t,idx);
       });
     }
     drawScenePoints(ctx, task, editorMode);
@@ -353,7 +395,7 @@
     return {key,ref,type:'segment',curve:false,value:{a:cp(a),b:cp(b)},source:{ref,segment},label:label||key};
   }
   function curveRecord(key, ref, value, label){
-    return {key,ref,type:value.radius !== undefined ? 'circle' : 'ellipse',curve:true,value,source:{ref,curve:true},label:label||key};
+    return {key,ref,type:'ellipse',curve:true,value,source:{ref,curve:true},label:label||key};
   }
   function geometrySources(task){
     const scene = task?.scene || {};
@@ -380,7 +422,6 @@
       out.push(lineRecord(`arrow${i}:head_left`,`arrow${i}`,'head_left',s.b,left,`arrow${i} head_left`));
       out.push(lineRecord(`arrow${i}:head_right`,`arrow${i}`,'head_right',s.b,right,`arrow${i} head_right`));
     });
-    (scene.circles||[]).forEach((c,i)=>{ if(validPos(c?.center)&&Number.isFinite(c.radius)&&c.radius>0) out.push(curveRecord(`circle${i}`,`circle${i}`,{center:cp(c.center),radius:c.radius},`circle${i}`)); });
     (scene.ellipses||[]).forEach((e,i)=>{ if(modelGeometry.ellipseFrame(e)) out.push(curveRecord(`ellipse${i}`,`ellipse${i}`,e,`ellipse${i}`)); });
     return out;
   }
@@ -630,6 +671,7 @@
   }
   function update(task){
     if(!task || !task.scene) return;
+    migrateCirclesToEllipses(task);
     const scene=task.scene;
     if(!Array.isArray(scene.points)) scene.points=[];
     const sources=geometrySources(task);
@@ -774,18 +816,73 @@
     update(task);return point;
   }
 
-  function remapReference(ref,type,index,action){
+  function migrateCirclesToEllipses(task){
+    const scene=task?.scene;
+    if(!scene || scene.circles===undefined) return false;
+    if(!Array.isArray(scene.circles)){
+      throw new TypeError('Kan ikke migrere scene.circles fordi verdien ikke er en liste.');
+    }
+    if(scene.circles.length===0){
+      delete scene.circles;
+      return false;
+    }
+    if(!Array.isArray(scene.ellipses)) scene.ellipses=[];
+    const converted=Array.from(scene.circles,(circle,index)=>{
+      if(!circle || !validPos(circle.center) || !Number.isFinite(circle.radius) ||
+         circle.radius<=0 || !Number.isFinite(circle.radius*2)){
+        throw new TypeError(`Kan ikke migrere ugyldig sirkel i scene.circles[${index}].`);
+      }
+      const ellipse={
+        ...circle,
+        center:cp(circle.center),
+        width:circle.radius*2,
+        height:circle.radius*2,
+        t_vec:[1,0],
+        n_vec:[0,-1],
+        color:circle.color || '#999999',
+        lockAxes:true
+      };
+      delete ellipse.radius;
+      delete ellipse.startAngleDeg;
+      delete ellipse.endAngleDeg;
+      return ellipse;
+    });
+    for(const ellipse of converted){
+      remapReferences(task,'circle',0,'convert','ellipse',scene.ellipses.length);
+      scene.circles.shift();
+      scene.ellipses.push(ellipse);
+    }
+    delete scene.circles;
+    return true;
+  }
+
+  function setEllipseAxisLength(ellipse,axis,length){
+    if(!ellipse || !['width','height'].includes(axis) || !Number.isFinite(length) || length<=0){
+      throw new TypeError('Ellipseakse må ha en endelig lengde større enn null.');
+    }
+    ellipse[axis]=length;
+    if(ellipse.lockAxes) ellipse[axis==='width'?'height':'width']=length;
+  }
+
+  function remapReference(ref,type,index,action,targetIndex){
     const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
     if(prefix==='plane') return ref;
     const m=new RegExp(`^${prefix}(\\d+)(.*)$`).exec(ref||'');
     if(!m)return ref;
     const old=Number(m[1]);
+    if(action.startsWith('convert:')){
+      const targetType=action.slice('convert:'.length);
+      const targetPrefix={circle:'circle',ellipse:'ellipse'}[targetType] || targetType;
+      if(old===index) return `${targetPrefix}${targetIndex}${m[2]}`;
+      if(old>index) return `${prefix}${old-1}${m[2]}`;
+      return ref;
+    }
     if(action==='delete') return old===index ? null : old>index ? `${prefix}${old-1}${m[2]}` : ref;
     if(action==='up') return old===index ? `${prefix}${index-1}${m[2]}` : old===index-1 ? `${prefix}${index}${m[2]}` : ref;
     if(action==='down') return old===index ? `${prefix}${index+1}${m[2]}` : old===index+1 ? `${prefix}${index}${m[2]}` : ref;
     return ref;
   }
-  function remapReferences(task,type,index,action){
+  function remapReferences(task,type,index,action,targetType,targetIndex){
     const scene=task?.scene;if(!scene)return;
     const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
     const deletedPoint=prefix==='point'&&action==='delete' ? scene.points?.[index] : null;
@@ -794,7 +891,8 @@
       const a=spec.anchor||spec;
       if(a.type!=='point'&&a.type!=='segment')return;
       const pointDeleted=deletedPoint && a.type==='point' && (a.ref===deletedPoint.id||a.ref===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(a.ref,type,index,action);
+      const mapped=pointDeleted?null:remapReference(a.ref,type,index,
+        action==='convert' ? `convert:${targetType}` : action,targetIndex);
       if(mapped===null){
         const cached=angle&&angleRuntime.get(angle)?.geometry;
         const cachedPos=cached?.[part];
@@ -819,7 +917,8 @@
       const anchor=spec?.[field];
       if(!anchor||typeof anchor!=='object'||Array.isArray(anchor)||(anchor.type!=='point'&&anchor.type!=='segment'))return;
       const pointDeleted=deletedPoint&&anchor.type==='point'&&(anchor.ref===deletedPoint.id||anchor.ref===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(anchor.ref,type,index,action);
+      const mapped=pointDeleted?null:remapReference(anchor.ref,type,index,
+        action==='convert' ? `convert:${targetType}` : action,targetIndex);
       if(mapped===null){
         const resolved=resolveAnchor(task,anchor);
         const pos=validPos(anchor.pos)?anchor.pos:resolved.pos;
@@ -829,7 +928,8 @@
     const remapLegacyForceSpec=spec=>{
       if(typeof spec?.anchorFrom!=='string')return;
       const pointDeleted=deletedPoint&&(spec.anchorFrom===deletedPoint.id||spec.anchorFrom===`point${index}`);
-      const mapped=pointDeleted?null:remapReference(spec.anchorFrom,type,index,action);
+      const mapped=pointDeleted?null:remapReference(spec.anchorFrom,type,index,
+        action==='convert' ? `convert:${targetType}` : action,targetIndex);
       if(mapped===null){
         const resolved=resolveAnchor(task,{type:'point',ref:spec.anchorFrom,point:spec.point||'center'});
         if(validPos(resolved.pos)) spec.anchorSpec={type:'custom',pos:cp(resolved.pos),detachedReason:'Kildegeometrien ble slettet; ankeret er nå fritt.'};
@@ -846,7 +946,8 @@
     (scene.points||[]).forEach(point=>{
       if(point.type==='intersection'&&Array.isArray(point.sources)){
         point.sources=point.sources.map(source=>{
-          const mapped=remapReference(source.ref,type,index,action);
+          const mapped=remapReference(source.ref,type,index,
+            action==='convert' ? `convert:${targetType}` : action,targetIndex);
           return mapped===null?{...source,deleted:true}:mapped!==source.ref?{...source,ref:mapped}:source;
         });
         if(point.sources.some(s=>s.deleted)) point._deletedSource=true;
@@ -868,6 +969,8 @@
     },
     createPoint,
     createIntersectionPoint,
+    migrateCirclesToEllipses,
+    setEllipseAxisLength,
     resolveAnchor,
     angleGeometry,
     pointStatus,
@@ -889,15 +992,30 @@
       const [x,y] = point.pos;
       ctx.save();
       const invalidMarker=editorMode && point.valid === false;
-      ctx.lineWidth = invalidMarker ? 2 : 1.5;
+      const radius = Number.isFinite(point.size) && point.size > 0 ? point.size : 4;
+      const markerRadius = invalidMarker ? Math.max(radius, 6) : radius;
+      const markerStyle = point.markerStyle || (point.color ? 'filled' : 'circle');
+      ctx.lineWidth = invalidMarker ? Math.max(point.lineWidth || 1.5, 2) :
+        (Number.isFinite(point.lineWidth) && point.lineWidth > 0 ? point.lineWidth : 1.5);
       ctx.strokeStyle = invalidMarker ? '#d22' : (point.color || '#222');
-      ctx.fillStyle = invalidMarker ? '#fff' : (point.color || '#fff');
-      ctx.beginPath(); ctx.arc(x,y,invalidMarker ? 6 : 4,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = invalidMarker ? '#fff' : (markerStyle === 'filled' ? (point.color || '#222') : '#fff');
       if(editorMode && point.valid === false){
+        ctx.beginPath(); ctx.arc(x,y,markerRadius,0,Math.PI*2);
+        ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#c00'; ctx.font = 'bold 12px Segoe UI, Arial';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('!',x,y-0.5);
+      } else if(markerStyle === 'square'){
+        ctx.beginPath(); ctx.rect(x-markerRadius,y-markerRadius,markerRadius*2,markerRadius*2);
+        ctx.fill(); ctx.stroke();
+      } else if(markerStyle === 'cross'){
+        ctx.beginPath();
+        ctx.moveTo(x-markerRadius,y); ctx.lineTo(x+markerRadius,y);
+        ctx.moveTo(x,y-markerRadius); ctx.lineTo(x,y+markerRadius);
+        ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(x,y,markerRadius,0,Math.PI*2);
+        ctx.fill(); ctx.stroke();
       }
       ctx.restore();
     });
@@ -990,24 +1108,6 @@
         };
       });
     }
-    // Add circles snap points if snapping enabled
-    if(task.scene.circles){
-      task.scene.circles.forEach((c,i)=>{
-        const id='circle'+i;
-        const snappingEnabled = (c.snapping !== false);
-        lookup[id]={
-          snapping: snappingEnabled,
-          points: snappingEnabled ? {
-            center: c.center,
-            top_center: [c.center[0], c.center[1] - (c.radius || 0)],
-            bottom_center: [c.center[0], c.center[1] + (c.radius || 0)],
-            left_middle: [c.center[0] - (c.radius || 0), c.center[1]],
-            right_middle: [c.center[0] + (c.radius || 0), c.center[1]]
-          } : {},
-          segments: {}
-        };
-      });
-    }
     // Add ellipses snap points if snapping enabled
     if(task.scene.ellipses){
       task.scene.ellipses.forEach((e,i)=>{
@@ -1050,6 +1150,7 @@
    * Returns same structure as buildSceneLookup but includes points for ALL elements.
    */
   function buildAllScenePointsBase(task){
+    updateTextPositions(task);
     const lookup = {};
     if(!task || !task.scene) return lookup;
     
@@ -1082,23 +1183,6 @@
             bottom_left: pts.bottomLeft, bottom_right: pts.bottomRight
           },
           segments: { top: [pts.topLeft, pts.topRight], bottom: [pts.bottomLeft, pts.bottomRight], left: [pts.bottomLeft, pts.topLeft], right: [pts.bottomRight, pts.topRight] }
-        };
-      });
-    }
-    
-    // Circles (same as buildSceneLookup)
-    if(Array.isArray(scene.circles)){
-      scene.circles.forEach((c, i)=>{
-        if(!c || !c.center) return;
-        lookup[`circle${i}`] = {
-          points: {
-            center: [c.center[0], c.center[1]],
-            top_center: [c.center[0], c.center[1] - (c.radius || 0)],
-            bottom_center: [c.center[0], c.center[1] + (c.radius || 0)],
-            left_middle: [c.center[0] - (c.radius || 0), c.center[1]],
-            right_middle: [c.center[0] + (c.radius || 0), c.center[1]]
-          },
-          segments: {}
         };
       });
     }
@@ -1139,7 +1223,7 @@
     // Texts - add position point
     if(Array.isArray(scene.texts)){
       scene.texts.forEach((txt, i)=>{
-        if(!txt || !txt.pos) return;
+        if(!txt?._renderedPos) return;
         lookup[`text${i}`] = {
           points: { pos: [txt.pos[0], txt.pos[1]] },
           segments: {}
@@ -1186,18 +1270,28 @@
     return lookup;
   }
 
-  function forceSnapDirections(task,anchor){
-    const g=window.geometry, directions=[];
-    if(!g.finitePoint(anchor) || !task?.scene) return directions;
+  function forceSnapFrames(task,anchor){
+    const g=window.geometry, frames=[];
+    if(!g.finitePoint(anchor) || !task?.scene) return frames;
     const lookup=buildSceneLookup(task);
-    const add=vector=>{
-      if(!g.finitePoint(vector)) return;
-      const length=Math.hypot(...vector);
-      if(length<1e-10) return;
-      const unit=vector.map(v=>v/length);
-      if(!directions.some(d=>Math.abs(g.cross(d,unit))<1e-8)) directions.push(unit);
+    const add=(tangent,normal=[-tangent[1],tangent[0]])=>{
+      if(!g.finitePoint(tangent)||!g.finitePoint(normal)) return;
+      const tl=Math.hypot(...tangent),nl=Math.hypot(...normal);
+      if(tl<1e-10||nl<1e-10) return;
+      const frame=[tangent.map(v=>v/tl),normal.map(v=>v/nl)];
+      if(!frames.some(other=>Math.abs(g.cross(other[0],frame[0]))<1e-8)) frames.push(frame);
     };
-    for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['rects','rect'],['circles','circle'],['ellipses','ellipse']]){
+    const checklist=window.getActiveSnapChecklist(task);
+    const plane=task.scene.plane;
+    if(window.hasLocalSnapMatches(checklist) && plane){
+      // Geometry matching uses the plane frame independently of visibility and point snapping.
+      const angle=(plane.angleDeg||0)*Math.PI/180;
+      const tangent=plane.t_vec || [Math.cos(angle),-Math.sin(angle)];
+      if(g.finitePoint(tangent)){
+        add(tangent,plane.n_vec||[-tangent[1],tangent[0]]);
+      }
+    }
+    for(const [collection,prefix] of [['segments','segment'],['arrows','arrow'],['rects','rect'],['ellipses','ellipse']]){
       (task.scene[collection]||[]).forEach((element,index)=>{
         const entry=lookup[`${prefix}${index}`];
         if(!entry || entry.snapping===false) return;
@@ -1205,30 +1299,43 @@
         if(!atPoint) return;
         if(collection==='segments'||collection==='arrows'){
           const direction=[element.b[0]-element.a[0],element.b[1]-element.a[1]];
-          add(direction);add([-direction[1],direction[0]]);
+          add(direction);
         } else if(collection==='rects'){
-          add(element.t_vec||[1,0]);
-          add(element.n_vec||[0,-1]);
+          add(element.t_vec||[1,0],element.n_vec||[0,-1]);
         } else {
-          const ellipse=collection==='circles'
-            ? {...element,width:element.radius*2,height:element.radius*2} : element;
-          const frame=g.ellipseFrame(ellipse);
+          const frame=g.ellipseFrame(element);
           if(!frame) return;
           if(atPoint[0]==='center'){
-            add(frame.t);add(frame.n);
+            add(frame.t,frame.n);
           } else {
             const delta=[anchor[0]-frame.center[0],anchor[1]-frame.center[1]];
             const x=g.dot(delta,frame.t)/(frame.rx*frame.rx);
             const y=g.dot(delta,frame.n)/(frame.ry*frame.ry);
             const normal=[x*frame.t[0]+y*frame.n[0],x*frame.t[1]+y*frame.n[1]];
-            add(normal);add([-normal[1],normal[0]]);
+            add([-normal[1],normal[0]],normal);
           }
         }
       });
     }
+    return frames;
+  }
+
+  function forceSnapDirections(task,anchor){
+    const directions=[],g=window.geometry;
+    for(const frame of forceSnapFrames(task,anchor)){
+      for(const axis of frame){
+        if(!directions.some(other=>Math.abs(g.cross(other,axis))<1e-8)) directions.push(axis);
+      }
+    }
     return directions;
   }
 
+  window.forceSnapFrames = forceSnapFrames;
+  window.updateTextPositions = updateTextPositions;
+  window.textRootIndex = textRootIndex;
+  window.textAngle = textAngle;
+  window.normalizeTextRotation = normalizeTextRotation;
+  window.getTextGeometry = getTextGeometry;
   window.forceSnapDirections = forceSnapDirections;
   window.drawScene = drawScene;
   window.buildSceneLookup = buildSceneLookup;

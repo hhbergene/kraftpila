@@ -65,7 +65,7 @@ function setup(){
       t.scene.points.push(p); return p;
     },
     geometries:()=>[{key:'a',label:'a',source:{ref:'segment0',segment:'segment'}},
-      {key:'b',label:'b',source:{ref:'circle0',curve:true}}],
+      {key:'b',label:'b',source:{ref:'ellipse0',curve:true}}],
     intersections:()=>({hits:[{pos:[40,50],params:[0.5,0.2],branch:{id:'one',params:[0.5,0.2]}}]}),
     update(){}, pointStatus:()=>({valid:true})
   };
@@ -218,6 +218,52 @@ test('angle fields expose Symbol/tekst, remove manual control, and reject nonfin
   assert.equal(field('Symbol/tekst:').value,'"><img src=x>');
 });
 
+test('point properties expose marker styling and use the shared compact delete button',()=>{
+  const s=setup(), parent=new Element('div');
+  const point={id:'point-1',type:'free',pos:[10,20],visible:true,snapping:true};
+  s.task.scene.points.push(point);
+  let remapped=null;
+  s.window.sceneModel.remapReferences=(task,type,index,action)=>{remapped={task,type,index,action};};
+  s.window.sceneEditor.buildProperties(parent,'point',point,0);
+  const row=label=>parent.children.find(item=>item.children[0]?.textContent===label);
+  const coordinateRow=parent.children.find(item=>item.children.some(child=>child.textContent==='x:') &&
+    item.children.some(child=>child.textContent==='y:'));
+  assert.ok(coordinateRow,'x and y controls share a row');
+  assert.equal(coordinateRow.children.filter(child=>child.tagName==='INPUT').length,2);
+  assert.equal(coordinateRow.children[0].textContent,'O:');
+  assert.equal(parent.children.some(item=>['Type:','ID:'].includes(item.children[0]?.textContent)),false,
+    'free point omits type and ID rows');
+  const sizeStyle=parent.children.find(item=>item.children.some(child=>child.textContent==='Stil:'));
+  assert.ok(sizeStyle);
+  assert.ok(sizeStyle.children.findIndex(child=>child.textContent==='Størrelse:')<
+    sizeStyle.children.findIndex(child=>child.textContent==='Stil:'));
+  const markerStyle=sizeStyle.children.find(child=>child.tagName==='SELECT');
+  assert.deepEqual(Array.from(markerStyle.options,option=>option.textContent),['○','●','□','×']);
+  markerStyle.value='square';
+  markerStyle.fire('change');
+  assert.equal(point.markerStyle,'square');
+  const color=row('Farge:').children[1];
+  color.value='#123456';
+  color.fire('change');
+  assert.equal(point.color,'#123456');
+  const size=sizeStyle.children.find(child=>child.tagName==='INPUT' && child.type==='number');
+  size.value='7';
+  size.fire('change');
+  assert.equal(point.size,7);
+  const width=row('Linje px:').children[1];
+  width.value='3';
+  width.fire('change');
+  assert.equal(point.lineWidth,3);
+  const snapRow=row('Snap');
+  const remove=snapRow.children.find(child=>child.className==='scene-delete-element-btn');
+  assert.ok(remove);
+  assert.equal(remove.textContent,'🗑️');
+  assert.equal(remove.title,'Slett point');
+  remove.fire('click');
+  assert.equal(s.task.scene.points.length,0);
+  assert.deepEqual(remapped,{task:s.task,type:'point',index:0,action:'delete'});
+});
+
 test('angle vertex picker only offers points and commits point anchor',()=>{
   const s=setup(), parent=new Element('div');
   const angle={start:{pos:[20,0]},vertex:{pos:[0,0]},end:{pos:[0,20]}};
@@ -273,7 +319,7 @@ test('actual scene renderer draws only invalid marker; actual overlay owns one c
   }
   s.task.scene.points=[{id:'point-broken',type:'intersection',pos:[579,340],
     lastValidPos:[579,340],sources:[{ref:'segment0',segment:'segment',deleted:true},
-      {ref:'circle0',curve:true}],_deletedSource:true,visible:false}];
+      {ref:'ellipse0',curve:true}],_deletedSource:true,visible:false}];
   const canvas=s.nodes['app-canvas'], viewport=new Element('div');
   canvas.width=1000;canvas.height=700;
   canvas.getBoundingClientRect=()=>({left:-400,top:0,right:600,bottom:700,width:1000,height:700});

@@ -5,7 +5,10 @@
  * - Reads ONLY from task.expectedForces (forces that must be drawn by the user)
  * - Does NOT evaluate task.initialForces (pre-drawn forces locked in place)
  * - initialForces should NEVER be in the expectedForces array
+ * - Non-expected student components are helper arrows, excluded from evaluation
  * - expectedForces must have complete anchor specifications (type, ref, point/segment)
+ * - Explicit sumF: {} disables equilibrium checks
+ * - Missing sumF defaults to {x:0, y:0} only when no complete relations exist
  * - Use window.cleanupTaskForEvaluation() before calling evaluation to ensure consistency
  */
 (function(){
@@ -27,7 +30,8 @@
   function computeNeatness(task, forceResults, allForces){
     const matched = (forceResults||[]).filter(r=> r.found && typeof r.index==='number' && r.index>=0)
       .map(r => allForces[r.index])
-      .filter(f => f && Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip));
+      .filter(f => f && Array.isArray(f.arrowBase) && Array.isArray(f.arrowTip) &&
+        !(typeof window!=='undefined' && window.forceNotation && isIgnoredComponent(task,f)));
     const initialNames = new Set((task.initialForces||[])
       .map(f => f && f.name)
       .filter(Boolean)
@@ -77,6 +81,11 @@
       for(let j=i+1;j<forces.length;j++){
         const {force:fj,isInitial:fjInitial} = forces[j];
         if(fiInitial && fjInitial) continue;
+        if(typeof window!=='undefined' && window.forceNotation){
+          const linked = (component,parent)=>window.forceNotation.role(component,task)==='component' &&
+            window.forceNotation.key(window.forceNotation.parentName(component,task))===window.forceNotation.key(parent.name);
+          if(linked(fi,fj) || linked(fj,fi)) continue;
+        }
         const vj = [fj.arrowTip[0]-fj.arrowBase[0], fj.arrowTip[1]-fj.arrowBase[1]];
         const ang = angleBetweenDeg(vi, vj);
         const parallel = ang <= PARALLEL_TOL_DEG || Math.abs(180-ang) <= PARALLEL_TOL_DEG;
@@ -206,7 +215,7 @@
    * @param {string} raw - Raw force name
    * @returns {string} Normalized name
    */
-  function normalizeName(raw){ if(!raw) return ''; return raw.toLowerCase().replace(/[ _^{}]/g,''); }
+  function normalizeName(raw){ if(!raw) return ''; return window.forceNotation ? window.forceNotation.key(raw) : raw.toLowerCase().replace(/[ _^{}]/g,''); }
 
   /**
    * Build alias map for force name matching
@@ -241,6 +250,16 @@
     if(drawn === normalizeName(spec.name)) return true;
     if(aliasMap[drawn] === spec.name) return true;
     return !!spec.nameBase && matchesNameBase(rawName, spec.nameBase);
+  }
+
+  function isIgnoredComponent(task,force){
+    const notation = window.forceNotation;
+    if(!notation || force.isExpected===false || force.moveable===false) return false;
+    if((task.initialForces || []).some(spec=>normalizeName(spec.name)===normalizeName(force.name))) return false;
+    if(notation.role(force,task)!=='component' || notation.givenSpec(force,task)) return false;
+    const expected = task.expectedForces || [];
+    const aliases = buildAliasMap(expected);
+    return !expected.some(spec=>nameMatchesSpec(force.name,spec,aliases));
   }
 
   /**
@@ -286,6 +305,7 @@
     const aliasMap = buildAliasMap(task.expectedForces||[]);
     const expectedDict = {};
     (task.expectedForces||[]).forEach(spec=>{ expectedDict[spec.name] = spec; });
+    const initialNames = new Set((task.initialForces || []).map(spec=>normalizeName(spec.name)));
     
     // Compute pairwise match scores
     const pairs = []; // { score, taskName, forceIdx }
@@ -293,6 +313,8 @@
       const spec = expectedDict[taskName];
       for(let idx=0; idx<forces.length; idx++){
         const drawnF = forces[idx];
+        if(drawnF.isExpected===false || drawnF.moveable===false || initialNames.has(normalizeName(drawnF.name))) continue;
+        if(isIgnoredComponent(task,drawnF)) continue;
         const hasGeom = drawnF.anchor && drawnF.arrowBase && drawnF.arrowTip;
         if(!hasGeom) continue;
         
@@ -460,7 +482,7 @@
   function componentMagnitude(f, dir){ const v=f.vec; if(!v) return 0; const u=unit(dir); return Math.abs(v[0]*u[0]+v[1]*u[1]); }
 
   /**
-   * Evaluate sum of forces (equilibrium check)
+   * Evaluate explicit sum-of-forces requirements; an empty object disables the check.
    * Checks if total force equals task requirements (tolerance ±5 units)
    * Penalizes extra unmatched forces that maintain equilibrium by 0.3 per force
    * @param {Object} task - Task with optional sumF: {x, y, n} requirements
@@ -472,11 +494,13 @@
     
     const sumF = task.sumF || {};
     const result = { x: null, y: null, n: null, score: 1.0, errors: [] };
+    if(!['x','y','n','t'].some(key => typeof sumF[key] === 'number')) return result;
     
     // Calculate sum of all forces (including unmatched ones)
     let sumX = 0, sumY = 0, sumN = 0, sumT = 0;
     (allForces || []).forEach((f, idx) => {
       if(!f.vec) return;
+      if(window.forceNotation && window.forceNotation.role(f,task)!=='force') return;
       const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
       if(!isCompleted) return;
       
@@ -484,7 +508,7 @@
       sumY += f.vec[1];
       
       // Component sums (if plane exists)
-      if(task.scene && task.scene.plane){
+      if(task.scene && task.scene.plane && (typeof sumF.n === 'number' || typeof sumF.t === 'number')){
         const plane = task.scene.plane;
         const n_unit = unit(plane.n_vec);
         const t_unit = unit(plane.t_vec || geometry.tangentFromNormal(plane.n_vec));
@@ -544,9 +568,9 @@
    * Checks that force ratios (e.g., G = N, F = R) match expected values
    * Handles component-based comparisons (normal, tangent, vertical) when specified
    * Returns score 0 if any involved force is missing
-   * @param {Object} task - Task with relations array: [{lhs: [{name, component?}], rhs: [...], ratio, tol_rel}]
+   * @param {Object} task - Task with optional tol_rel (fraction) and tol_abs (px) per relation
    * @param {Object[]} forceResults - Force evaluation results with found/index properties
-   * @returns {Object[]} Array of relation results: {lhs, rhs, measuredRatio, expectedRatio, relError, ok, indices, tolRel}
+   * @returns {Object[]} Relation results with scores, absolute errors and effective tolerances
    */
   function evalRelations(task, forceResults){
     const forceByName = {};
@@ -564,7 +588,7 @@
     if(task.initialForces && Array.isArray(task.initialForces)){
       task.initialForces.forEach(initSpec => {
         if(initSpec.name && window.fm && window.fm.forces){
-          const matchingForce = window.fm.forces.find(f => f && f.name && f.name.toLowerCase().trim() === initSpec.name.toLowerCase().trim());
+          const matchingForce = window.fm.forces.find(f => f && f.name && normalizeName(f.name) === normalizeName(initSpec.name));
           if(matchingForce){
             const idx = window.fm.forces.indexOf(matchingForce);
             if(idx >= 0){
@@ -579,7 +603,8 @@
     const out=[];
     const rels = (task.relations || []).filter(r => r && r.lhs && r.lhs.length && r.rhs && r.rhs.length); // hopp over ufullstendige relasjoner
     rels.forEach(rel=>{
-      const tolRel = (typeof rel.tol_rel === 'number')? rel.tol_rel : 0.15;
+      const tolRel = rel.tol_rel ?? window.RELATION_TOL_REL;
+      const tolAbs = rel.tol_abs ?? window.RELATION_TOL_ABS;
       function sum(side){
         let s=0; side.forEach(term=>{
           const f = forceByName[term.name];
@@ -610,9 +635,14 @@
       };
       
       const lhsV = sum(rel.lhs); const rhsV = sum(rel.rhs);
-      const measuredRatio = rhsV===0? 0 : lhsV/rhsV;
-      const expected = rel.ratio || 1.0;
-      const relError = expected===0? 0 : Math.abs(measuredRatio - expected)/expected;
+      const measuredRatio = rhsV===0? null : lhsV/rhsV;
+      const resolvedRatio=window.getEffectiveRelationRatio(task,rel);
+      if(resolvedRatio.error) throw new Error(`Ugyldig kraftforhold: ${resolvedRatio.error}`);
+      const expected = resolvedRatio.value;
+      const expectedValue = expected*rhsV;
+      const absError = Math.abs(lhsV-expectedValue);
+      const relError = expectedValue===0 ? null : absError/Math.abs(expectedValue);
+      const tolerance = Math.max(tolRel*Math.abs(expectedValue),tolAbs);
 
       const involvedIdx = [];
       allNames.forEach(name=>{
@@ -623,8 +653,8 @@
       const missingNames = allNames.filter(n => typeof indexByName[n] !== 'number');
       
       // If any involved force is missing, relation score is 0 (not gradual)
-      const relScore = missingNames.length > 0 ? 0 : rampDownLinear(relError, tolRel, tolRel);
-      const ok = relError <= tolRel && missingNames.length === 0;
+      const relScore = missingNames.length > 0 ? 0 : relationScore(absError,tolerance);
+      const ok = absError <= tolerance && missingNames.length === 0;
 
       out.push({
         lhs: lhsNames.join('+'),
@@ -637,13 +667,25 @@
         expectedRatio: expected,
         measuredRatio,
         relError,
+        absError,
+        tolerance,
         relScore, 
         ok,
         indices: involvedIdx,
-        tolRel
+        tolRel,
+        tolAbs
       });
     });
     return out;
+  }
+
+  // Gentle deductions up to 3 tolerances, then a steeper falloff to zero at 6.
+  function relationScore(error, tolerance){
+    if(error <= tolerance) return 1;
+    if(tolerance === 0) return 0;
+    const normalized = error/tolerance;
+    if(normalized <= 3) return 1 - 0.15*(normalized-1);
+    return 0.7*clamp((6-normalized)/3,0,1);
   }
 
   /**
@@ -815,8 +857,7 @@ if(r.anchorType === 'point'){
           const expected = rr.expectedRatio.toFixed(2);
           feedback = ` (målt ${measured}, forventet ${expected})`;
         } else {
-          const errPct = (rr.relError*100).toFixed(1)+'%';
-          feedback = ` (feil ${errPct})`;
+          feedback = ` (avvik ${rr.absError.toFixed(1)}px)`;
         }
       }
       
@@ -842,7 +883,7 @@ if(r.anchorType === 'point'){
       const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
       // Exclude forces that are initialForces (matched by name)
       const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
-      return isCompleted && !matchedIndices.has(idx) && !isInitialForce;
+      return isCompleted && !matchedIndices.has(idx) && !isInitialForce && !isIgnoredComponent(task,f);
     });
     
     if(extraForces.length > 0){
@@ -906,7 +947,7 @@ if(r.anchorType === 'point'){
       const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
       // Exclude initialForces from extras count
       const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
-      return count + (isCompleted && !matchedIndices.has(idx) && !isInitialForce ? 1 : 0);
+      return count + (isCompleted && !matchedIndices.has(idx) && !isInitialForce && !isIgnoredComponent(task,f) ? 1 : 0);
     }, 0);
 
     // NEW: Per-force scoring including missing forces (count as 0)
@@ -925,7 +966,8 @@ if(r.anchorType === 'point'){
       const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
       const posScore = (typeof r.posErr==='number') ? positionScore(r.posErr) : 0.0;
       // Use arithmetic mean instead of geometric mean for more balanced scoring
-      const combined = (nameScore + dirScore + posScore) / 3;
+      const spec = (task.expectedForces || []).find(force=>force.name===name);
+      const combined = spec?.studentGiven?.name ? (dirScore + posScore) / 2 : (nameScore + dirScore + posScore) / 3;
       perForceScores.push(combined);
     });
 
@@ -937,14 +979,16 @@ if(r.anchorType === 'point'){
     // NEW: Relations score with strict missing handling
     let relationsScore = 1.0;
     if(relationResults && relationResults.length){
-      const relScores = relationResults.map(rr => rr.relScore !== undefined ? rr.relScore : (rr.missingInvolved ? 0 : rampDownLinear(rr.relError, rr.tolRel||0.15, rr.tolRel||0.15)));
+      const relScores = relationResults.map(rr => rr.relScore);
       relationsScore = relScores.length? (relScores.reduce((a,b)=>a+b,0)/relScores.length) : 1.0;
     }
     const hasRelations = (task.relations || []).some(r => r && r.lhs && r.lhs.length && r.rhs && r.rhs.length);
-    const hasSumF = !!task.sumF && ['x','y','n','t'].some(k => typeof task.sumF[k] === 'number');
+    // Missing requirements default to equilibrium only when relations do not govern lengths.
+    const sumFTask = task.sumF === undefined && !hasRelations ? {...task, sumF:{x:0,y:0}} : task;
+    const hasSumF = !!sumFTask.sumF && ['x','y','n','t'].some(k => typeof sumFTask.sumF[k] === 'number');
     
     // Sum of forces check (penalize extra forces if they break equilibrium)
-    const sumFResult = evalSumF(task, forceResults, allForces);
+    const sumFResult = evalSumF(sumFTask, forceResults, allForces);
     const sumFScore = sumFResult.score;
     
     // Combine scores based on what we have
@@ -1018,8 +1062,9 @@ if(r.anchorType === 'point'){
           const dirTol = r.dirTolDeg || DIR_TOL_DEG;
           const dirScore = (typeof r.dirErr==='number') ? rampDownLinear(r.dirErr, dirTol, DIR_SPAN_DEG) : 0.0;
           const posScore = (typeof r.posErr==='number') ? positionScore(r.posErr) : 0.0;
-          const combined = (nameScore + dirScore + posScore) / 3;
-          debugOutput += `  ${name}: Navn=${nameScore.toFixed(2)} Dir=${dirScore.toFixed(2)} (tol=${dirTol.toFixed(2)}°) Pos=${posScore.toFixed(2)} → Gjennomsnitt=${(combined*100).toFixed(0)}%\n`;
+          const combined = perForceScores[idx];
+          const nameInfo = (task.expectedForces || []).find(spec=>spec.name===name)?.studentGiven?.name ? 'oppgitt' : nameScore.toFixed(2);
+          debugOutput += `  ${name}: Navn=${nameInfo} Dir=${dirScore.toFixed(2)} (tol=${dirTol.toFixed(2)}°) Pos=${posScore.toFixed(2)} → Gjennomsnitt=${(combined*100).toFixed(0)}%\n`;
         }
       });
       
@@ -1037,8 +1082,8 @@ if(r.anchorType === 'point'){
         const plane = task.scene && task.scene.plane;
         const fx = Array.isArray(vec) ? vec[0] : null;
         const fy = Array.isArray(vec) ? vec[1] : null;
-        const ftDir = plane && getComponentDir('tangent', task);
-        const fnDir = plane && getComponentDir('normal', task);
+        const ftDir = plane && plane.t_vec && getComponentDir('tangent', task);
+        const fnDir = plane && plane.n_vec && getComponentDir('normal', task);
         const ft = Array.isArray(vec) && ftDir ? vec[0]*ftDir[0] + vec[1]*ftDir[1] : null;
         const fn = Array.isArray(vec) && fnDir ? vec[0]*fnDir[0] + vec[1]*fnDir[1] : null;
         const fmt = value => typeof value === 'number' ? value.toFixed(1) : '?';
@@ -1049,7 +1094,9 @@ if(r.anchorType === 'point'){
         debugOutput += `⚖️ RELASJONER:\n`;
         relationResults.forEach(r => {
           const status = r.ok ? '✓' : '✗';
-          debugOutput += `  ${status} ${r.lhsExpression || r.lhs} = ${r.rhsExpression || r.rhs}: målt forhold ${r.measuredRatio.toFixed(2)}, forventet ${r.expectedRatio}, avvik ${(r.relError*100).toFixed(0)}% (tol ${(r.tolRel*100).toFixed(0)}%), score ${(r.relScore*100).toFixed(0)}%`;
+          const ratioText = r.measuredRatio === null ? 'udefinert' : r.measuredRatio.toFixed(2);
+          const relativeError = r.relError === null ? '' : ` / ${(r.relError*100).toFixed(1)}%`;
+          debugOutput += `  ${status} ${r.lhsExpression || r.lhs} = ${r.rhsExpression || r.rhs}: målt forhold ${ratioText}, forventet ${r.expectedRatio}, avvik ${r.absError.toFixed(2)}px${relativeError} (tol ${(r.tolRel*100).toFixed(1)}% eller ${r.tolAbs.toFixed(2)}px; effektiv ${r.tolerance.toFixed(2)}px), score ${(r.relScore*100).toFixed(1)}%`;
           if(r.missingNames && r.missingNames.length) debugOutput += `, mangler: ${r.missingNames.join(', ')}`;
           debugOutput += `\n`;
         });
@@ -1057,15 +1104,18 @@ if(r.anchorType === 'point'){
 
       if(hasSumF){
         debugOutput += `Σ SUM AV KREFTER:\n`;
+        if(sumFTask !== task) debugOutput += `  Fallback: manglende sumF uten relasjoner gir ΣF_x = ΣF_y = 0\n`;
         ['x','y','n','t'].forEach(k => {
-          if(typeof task.sumF[k] === 'number') debugOutput += `  ΣF_${k} = ${sumFResult[k] === null ? '?' : sumFResult[k].toFixed(1)} (krav ${task.sumF[k]})\n`;
+          if(typeof sumFTask.sumF[k] === 'number') debugOutput += `  ΣF_${k} = ${sumFResult[k] === null ? '?' : sumFResult[k].toFixed(1)} (krav ${sumFTask.sumF[k]})\n`;
         });
         (sumFResult.errors || []).forEach(e => { debugOutput += `  ⚠️ ${e}\n`; });
       }
       
       debugOutput += `📈 SCORE COMPONENTS:\n`;
       debugOutput += `  Base score (kraft-gjennomsnitt): ${baseScoreInfo}\n`;
-      debugOutput += `  Sum of forces (equilibrium): ${sumFScoreInfo}${sumFResult.errors && sumFResult.errors.length ? ' ⚠️ ' + sumFResult.errors.length + ' feil' : ' ✓'}\n`;
+      debugOutput += hasSumF
+        ? `  Sum of forces (equilibrium): ${sumFScoreInfo}${sumFResult.errors && sumFResult.errors.length ? ' ⚠️ ' + sumFResult.errors.length + ' feil' : ' ✓'}\n`
+        : `  Sum of forces (equilibrium): ikke evaluert\n`;
       
       if(hasRelations){
         debugOutput += `  Relations score: ${(relationsScore*100).toFixed(0)}%\n`;
@@ -1130,6 +1180,21 @@ if(r.anchorType === 'point'){
       return;
     }
     const t = window.currentTask;
+    const relationErrors=(t.relations || []).map((relation,index)=>{
+      const result=window.getEffectiveRelationRatio(t,relation);
+      return result.error ? `Relasjon ${index+1}: ${result.error}` : null;
+    }).filter(Boolean);
+    if(relationErrors.length){
+      const message=`Oppgaven kan ikke vurderes. ${relationErrors.join(' ')}`;
+      console.error(message);
+      window.lastEvaluation=null;
+      if(window.showFeedback) window.showFeedback([{text:message}], 'Ugyldig oppgave');
+      else if(typeof alert==='function') alert(message);
+      return;
+    }
+    window.fm.normalizeNames?.();
+    const inputs = typeof document!=='undefined' && document.getElementById('force-inputs');
+    if(inputs) window.fm.syncInputs?.(inputs);
     if(Array.isArray(t.expectedForces) && Array.isArray(t.initialForces) && t.initialForces.length){
       const locked = new Set(t.initialForces.map(f => f && f.name).filter(Boolean));
       t.expectedForces = t.expectedForces.filter(f => !(f && locked.has(f.name)));
@@ -1140,7 +1205,7 @@ if(r.anchorType === 'point'){
     
     // Convert finalScore (0-1) to points (0-2) with strict thresholds
     const points = scoreToPoints(summary.finalScore);
-    const scoreText = `Score: ${summary.finalScore.toFixed(2)} (${points.toFixed(1)} poeng)`;
+    const scoreText = `Score: ${summary.finalScore.toFixed(2)} (${points.toFixed(points === 1.75 ? 2 : 1)} poeng)`;
     
     // Build feedback lines
     const lines = [];

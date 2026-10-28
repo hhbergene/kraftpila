@@ -68,6 +68,42 @@ test('legacy origin-shaped points can be detached and deleted like ordinary poin
   });
 });
 
+test('legacy circles migrate to locked ellipses and remap force, angle, and intersection references',()=>{
+  const runtime=sceneRuntime();
+  const ellipses=[{center:[5,5],width:10,height:20}];
+  const circles=[
+    {center:[10,10],radius:5,color:'#123456',snapping:false},
+    {center:[20,20],radius:8,fill_color:'#abcdef'}
+  ];
+  const force={anchor:{type:'point',ref:'circle0',point:'center'}};
+  const laterForce={anchor:{type:'point',ref:'circle1',point:'center'}};
+  const angle={start:{pos:[0,0]},vertex:{pos:[0,0],anchor:{type:'point',ref:'circle1',point:'center'}},
+    end:{pos:[1,1]}};
+  const intersection={type:'intersection',sources:[
+    {ref:'circle0',curve:true},{ref:'circle1',curve:true}
+  ]};
+  const task={scene:{ellipses,circles,angles:[angle],points:[intersection]},
+    forces:[force,laterForce]};
+
+  assert.equal(runtime.sceneModel.migrateCirclesToEllipses(task),true);
+  assert.equal(Object.hasOwn(task.scene,'circles'),false);
+  assert.deepEqual(JSON.parse(JSON.stringify(ellipses.slice(1))),[
+    {center:[10,10],color:'#123456',snapping:false,width:10,height:10,
+      t_vec:[1,0],n_vec:[0,-1],lockAxes:true},
+    {center:[20,20],fill_color:'#abcdef',width:16,height:16,
+      t_vec:[1,0],n_vec:[0,-1],color:'#999999',lockAxes:true}
+  ]);
+  assert.equal('radius' in ellipses[1],false);
+  assert.equal(force.anchor.ref,'ellipse1');
+  assert.equal(laterForce.anchor.ref,'ellipse2');
+  assert.equal(angle.vertex.anchor.ref,'ellipse2');
+  assert.deepEqual(JSON.parse(JSON.stringify(intersection.sources)),[
+    {ref:'ellipse1',curve:true},{ref:'ellipse2',curve:true}
+  ]);
+  assert.equal(runtime.sceneModel.migrateCirclesToEllipses(task),false,
+    'migration is idempotent after the legacy collection is removed');
+});
+
 test('default taskset no longer stores legacy origin fields or points',()=>{
   const taskset=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
   for(const task of taskset.tasks){

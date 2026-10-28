@@ -76,10 +76,17 @@ test('editor and player scene highlights use the shared renderer',()=>{
     window.sceneLookup={rect0:{points:{top_left:[10,20]},segments:{}}};
     window.selectedSceneElement={type:'rect',index:0};
     window.hoveredSceneElement={type:'rect',index:0};
+    window.activePanel='scene';
     window.drawHighlights({});
     assert.deepEqual(calls,[
       {pos:[10,20],state:'sceneSelected'},{pos:[10,20],state:'sceneHovered'}
     ],filename);
+    if(filename==='editor.js'){
+      calls.length=0;
+      window.hoveredInteraction={domain:'force'};
+      window.drawHighlights({});
+      assert.deepEqual(calls,[]);
+    }
   }
 });
 

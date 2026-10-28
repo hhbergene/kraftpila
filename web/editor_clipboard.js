@@ -1,9 +1,9 @@
 // Internal editor clipboard; never reads or writes the system clipboard.
 (function(){
   if(!window.editorMode) return;
-  const collections = {rect:'rects', ellipse:'ellipses', circle:'circles', point:'points',
+  const collections = {rect:'rects', ellipse:'ellipses', point:'points',
     segment:'segments', arrow:'arrows', text:'texts', angle:'angles'};
-  const labels = {rect:'Rektangel', ellipse:'Ellipse', circle:'Sirkel', point:'Punkt',
+  const labels = {rect:'Rektangel', ellipse:'Ellipse', point:'Punkt',
     segment:'Segment', arrow:'Pil', text:'Tekst', angle:'Vinkel', plane:'Plan',
     expectedForce:'Fasitkraft', initialForce:'Låst kraft'};
   const entries = [];
@@ -20,6 +20,7 @@
   const status = document.getElementById('clipboard-status');
 
   function textPosition(task,index){
+    window.updateTextPositions(task);
     const texts = task.scene.texts;
     const text = texts[index];
     if(position(text.pos)) return text.pos.slice();
@@ -54,6 +55,8 @@
     } else if(type==='text'){
       data.pos = textPosition(task,index);
       data.linked = false;
+      if(Number.isFinite(data.angle_deg)) delete data.n_vec;
+      else if(Array.isArray(data.n_vec)) delete data.angle_deg;
     }
     const entry = {type,data};
     validate(entry);
@@ -70,6 +73,9 @@
     const data = clone(window.getForceSpec(force)?.spec || {name:force.name});
     const drawn = {anchor:force.anchor.slice(), arrowBase:force.arrowBase.slice(), arrowTip:force.arrowTip.slice()};
     data.name = force.name;
+    data.role = force.role || 'force';
+    const parent = force.componentOf || window.forceNotation?.parentName(force,window.currentTask);
+    if(parent) data.componentOf = parent;
     delete data.anchorFrom;
     delete data.point;
     if(expected){
@@ -106,18 +112,18 @@
     if(type==='angle') return [data.start.pos,data.vertex.pos,data.end.pos];
     if(type==='segment' || type==='arrow') return [data.a,data.b];
     return [data[type==='rect' ? 'bottomCenter' : type==='plane' ? 'through' :
-      type==='ellipse' || type==='circle' ? 'center' : 'pos']];
+      type==='ellipse' ? 'center' : 'pos']];
   }
 
   function validate(entry){
     if(!coordinates(entry).every(position)) throw new ClipboardError('Elementet har ugyldige koordinater.');
     const {type,data} = entry;
+    if(type==='text' && data.angle_deg!==undefined && !Number.isFinite(data.angle_deg)){
+      throw new ClipboardError('Elementet har en ugyldig tekstvinkel.');
+    }
     if(['rect','ellipse'].includes(type) &&
        ![data.width,data.height].every(n=>Number.isFinite(n) && n>0)){
       throw new ClipboardError('Elementet har ugyldig bredde eller høyde.');
-    }
-    if(type==='circle' && !(Number.isFinite(data.radius) && data.radius>0)){
-      throw new ClipboardError('Sirkelen har ugyldig radius.');
     }
     for(const axis of ['t_vec','n_vec']){
       if(data[axis]!==undefined && (!position(data[axis]) || Math.hypot(...data[axis])<1e-8)){
@@ -139,7 +145,6 @@
       if(!frame) throw new ClipboardError('Ellipsen har ugyldig geometri.');
       key.push(frame.rx,frame.ry,...frame.t,...frame.n,sweep.start,sweep.sweep);
     }
-    if(type==='circle') key.push(data.radius);
     if(type==='angle') key.push(angleRadius(data));
     return key;
   }
@@ -230,12 +235,24 @@
       }
       return entry;
     });
+    const renamed = new Map();
+    entries.forEach((entry,index)=>{
+      if(!forceEntry(entry.type)) return;
+      const key = nameKey(entry.data.name);
+      renamed.set(key,renamed.has(key) ? null : result[index].data.name);
+    });
+    result.forEach(entry=>{
+      if(!forceEntry(entry.type) || !entry.data.componentOf) return;
+      const parent = renamed.get(nameKey(entry.data.componentOf));
+      if(parent) entry.data.componentOf = parent;
+    });
     const forces = result.filter(e=>forceEntry(e.type)).map(entry=>{
       const drawn = entry.type==='expectedForce' ? entry.data.drawn : entry.data;
       const force = new window.Force();
       Object.assign(force,{name:entry.data.name, anchor:drawn.anchor.slice(),
         arrowBase:drawn.arrowBase.slice(), arrowTip:drawn.arrowTip.slice(),
         isExpected:entry.type==='expectedForce', moveable:entry.type==='expectedForce'});
+      window.forceNotation?.restore(force,entry.data,true);
       force.updateDirectionAndLength();
       return force;
     });
@@ -283,6 +300,7 @@
       if(forces.length){
         window.fm.ensureTrailingBlank();
         window.fm.forces.splice(window.fm.forces.length-1,0,...forces);
+        window.forceNotation?.sort(window.fm,task);
       }
       window.markEdited('task',...(forces.length ? ['forces'] : []));
       window.updateAppState();

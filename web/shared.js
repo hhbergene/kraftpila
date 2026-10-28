@@ -7,6 +7,8 @@
 window.WIDTH = 1000;
 window.HEIGHT = 640;
 window.GRID_STEP = 20;
+window.RELATION_TOL_REL = 0.05;
+window.RELATION_TOL_ABS = 2; // px; either tolerance can accept a relation
 window.TOP_BAR_HEIGHT = 80;  // Height of the top navigation panel
 window.FORCE_HEADER_HEIGHT = 16;  // Height of "Krefter" title: 12px font + 2px padding top + 2px padding bottom with line-height:1
 window.DRAW_CENTER = [500, 320 + 20];  // [WIDTH/2, HEIGHT/2 + GRID_STEP]
@@ -115,7 +117,47 @@ window.ICONS = {
   settings: '⚙'
 };
 
-window.getSnapChecklistDefaults = function(task){
+window.snapMatchCategories = [
+  ['LL','length','length','Lengde–lengde',true],
+  ['LX','length','x','Lengde–x',true],
+  ['LY','length','y','Lengde–y',true],
+  ['LN','length','n','Lengde–normal (n)',false],
+  ['LT','length','t','Lengde–tangent (t)',false],
+  ['XX','x','x','x–x',true],
+  ['YY','y','y','y–y',true],
+  ['XY','x','y','x–y',false],
+  ['NN','n','n','Normal–normal (n–n)',false],
+  ['TT','t','t','Tangent–tangent (t–t)',false],
+  ['NT','n','t','Normal–tangent (n–t)',false],
+  ['XN','x','n','x–normal (n)',false],
+  ['XT','x','t','x–tangent (t)',false],
+  ['YN','y','n','y–normal (n)',false],
+  ['YT','y','t','y–tangent (t)',false]
+].map(([id,a,b,label,enabled])=>({key:`snapMatch${id}`,a,b,label,enabled}));
+
+window.snapMatchCategory = function(a,b){
+  return window.snapMatchCategories.find(category=>
+    (category.a===a&&category.b===b)||(category.a===b&&category.b===a));
+};
+
+window.getSnapChecklistDefaults = function(){
+  const defaults={
+    snapEnabled:true,
+    guidelinesEnabled:true,
+    showForceCoordinates:false,
+    snapForceEndpoints:true
+  };
+  for(const category of window.snapMatchCategories) defaults[category.key]=category.enabled;
+  return defaults;
+};
+
+window.normalizeSnapChecklist = function(task,saved,base){
+  const checklist={...(base||window.getSnapChecklistDefaults())};
+  if(!saved||typeof saved!=='object'||Array.isArray(saved)) return checklist;
+  const legacyKeys=['snapSameAxisComponents','snapCrossAxisComponents','snapLocalComponents',
+    'snapForceLengths','snapComponentToLength'];
+  const hasLegacy=legacyKeys.some(key=>typeof saved[key]==='boolean');
+  // A legacy task starts with its old defaults; an override changes only its saved fields.
   const plane=task?.scene?.plane;
   let inclined=false;
   if(plane){
@@ -128,27 +170,148 @@ window.getSnapChecklistDefaults = function(task){
       inclined=x>1e-8&&y>1e-8;
     }
   }
-  return {
-    snapEnabled:true,
-    guidelinesEnabled:true,
-    showForceCoordinates:false,
-    snapForceEndpoints:true,
+  const legacy={
     snapSameAxisComponents:true,
     snapCrossAxisComponents:false,
     snapLocalComponents:false,
     snapForceLengths:false,
     snapComponentToLength:inclined
   };
+  if(hasLegacy){
+    for(const category of window.snapMatchCategories){
+      const {a,b}=category;
+      const key=a==='length'&&b==='length' ? 'snapForceLengths'
+        : a==='length'||b==='length' ? 'snapComponentToLength'
+        : a==='n'||a==='t'||b==='n'||b==='t' ? 'snapLocalComponents'
+        : a===b ? 'snapSameAxisComponents' : 'snapCrossAxisComponents';
+      if(typeof saved[key]==='boolean') checklist[category.key]=saved[key];
+      else if(!base) checklist[category.key]=legacy[key];
+    }
+    if(!base){
+      const local=typeof saved.snapLocalComponents==='boolean' ? saved.snapLocalComponents : legacy.snapLocalComponents;
+      const length=typeof saved.snapComponentToLength==='boolean' ? saved.snapComponentToLength : legacy.snapComponentToLength;
+      checklist.snapMatchLN=checklist.snapMatchLT=local&&length;
+    }else if(saved.snapLocalComponents===false){
+      checklist.snapMatchLN=checklist.snapMatchLT=false;
+    }
+  }
+  // Explicit fine-grained values always win over legacy flags in the same object.
+  for(const key of Object.keys(checklist)){
+    if(typeof saved[key]==='boolean') checklist[key]=saved[key];
+  }
+  return checklist;
 };
 
 window.getTaskSnapChecklist = function(task){
-  const defaults=window.getSnapChecklistDefaults(task);
-  const saved=task?.snapChecklist;
-  if(!saved||typeof saved!=='object'||Array.isArray(saved)) return defaults;
-  for(const key of Object.keys(defaults)){
-    if(typeof saved[key]==='boolean') defaults[key]=saved[key];
+  return window.normalizeSnapChecklist(task,task?.snapChecklist);
+};
+
+window.getActiveSnapChecklist = function(task){
+  const checklist=window.getTaskSnapChecklist(task);
+  return task===window.currentTask&&window.currentSnapChecklist
+    ? window.normalizeSnapChecklist(task,window.currentSnapChecklist,checklist) : checklist;
+};
+
+window.hasLocalSnapMatches = function(checklist){
+  return window.snapMatchCategories.some(({key,a,b})=>
+    checklist[key]&&(a==='n'||a==='t'||b==='n'||b==='t'));
+};
+
+window.populateSnapMatchOptions = function(modal){
+  const container=modal.querySelector('[data-snap-match-options]');
+  if(!container) return;
+  container.innerHTML=window.snapMatchCategories.map(({key,label},index)=>
+    `${index===0?'<strong>Lengder</strong>':index===5?'<strong>Globale komponenter</strong>':
+      index===8?'<strong>Lokale komponenter</strong>':index===11?'<strong>Globale mot lokale komponenter</strong>':''}`+
+    `<label><input type="checkbox" data-snap-checklist="${key}"> ${label}</label>`).join('');
+};
+
+// Reference geometry is author data, never the student's current force manager.
+window.getAutomaticRelationRatio = function(task,relation,referenceForces){
+  const fail = error=>({value:null,error});
+  const point = value=>Array.isArray(value)&&value.length===2&&value.every(Number.isFinite);
+  const forces = referenceForces || [
+    ...(task?.expectedForces || []).map(spec=>({...spec.drawn,name:spec.name})),
+    ...(task?.initialForces || [])
+  ];
+  function sum(terms){
+    if(!Array.isArray(terms)||!terms.length) return fail('Begge sider må ha minst én kraft.');
+    let total=0;
+    for(const term of terms){
+      const force=forces.find(force=>force.name===term.name);
+      if(!force||!point(force.arrowBase)||!point(force.arrowTip)){
+        return fail(`Mangler fasitgeometri for ${term.name || '?'}. Oppgi et forhold.`);
+      }
+      const vector=force.arrowTip.map((value,index)=>value-force.arrowBase[index]);
+      const component=term.component || 'magnitude';
+      if(component==='magnitude'){
+        total+=Math.hypot(...vector);
+        continue;
+      }
+      const plane=task?.scene?.plane;
+      const axis=component==='horizontal' ? [1,0] : component==='vertical' ? [0,-1]
+        : component==='normal' ? plane?.n_vec : component==='tangent' ? plane?.t_vec : null;
+      if(!point(axis)||Math.hypot(...axis)===0){
+        return fail(`Ugyldig akse for komponenten ${component}. Oppgi et forhold.`);
+      }
+      total+=Math.abs(vector[0]*axis[0]+vector[1]*axis[1])/Math.hypot(...axis);
+    }
+    return {value:total,error:null};
   }
-  return defaults;
+  const lhs=sum(relation?.lhs),rhs=sum(relation?.rhs);
+  if(lhs.error) return lhs;
+  if(rhs.error) return rhs;
+  if(rhs.value===0) return fail('Fasitens høyre side er null. Oppgi et forhold.');
+  const value=lhs.value/rhs.value;
+  return Number.isFinite(value)&&value>0 ? {value,error:null}
+    : fail('Automatisk forhold må være større enn 0. Oppgi et forhold.');
+};
+
+window.getEffectiveRelationRatio = function(task,relation,referenceForces){
+  if(relation?.ratio!==undefined){
+    return Number.isFinite(relation.ratio)&&relation.ratio>0
+      ? {value:relation.ratio,error:null}
+      : {value:null,error:'Forhold må være et endelig tall større enn 0.'};
+  }
+  return window.getAutomaticRelationRatio(task,relation,referenceForces);
+};
+
+window.refreshRelationRatioInput = function(input,task,relation,referenceForces){
+  const automatic=window.getAutomaticRelationRatio(task,relation,referenceForces);
+  input.placeholder=automatic.error ? 'Oppgi forhold' : String(Number(automatic.value.toPrecision(6)));
+  input.title=automatic.error || 'Tomt felt bruker automatisk forhold fra fasiten.';
+};
+
+window.readRelationRatioInput = function(input,task,relation,referenceForces,report=true){
+  const blank=input.value===''&&!input.validity.badInput;
+  const candidate={...relation};
+  if(blank) delete candidate.ratio;
+  else candidate.ratio=Number(input.value);
+  const result=window.getEffectiveRelationRatio(task,candidate,referenceForces);
+  const error=input.validity.badInput ? 'Oppgi et gyldig forhold større enn 0.' : result.error;
+  input.setCustomValidity(error || '');
+  if(error){
+    if(report) input.reportValidity();
+    return false;
+  }
+  if(blank) delete relation.ratio;
+  else relation.ratio=candidate.ratio;
+  return true;
+};
+
+window.getRelationSnapMatches = function(relations,task,referenceForces){
+  const relevant=window.getSnapChecklistDefaults();
+  const components={magnitude:'length',horizontal:'x',vertical:'y',normal:'n',tangent:'t'};
+  for(const relation of relations||[]){
+    if(relation?.lhs?.length!==1||relation?.rhs?.length!==1) continue;
+    const ratio=window.getEffectiveRelationRatio(task,relation,referenceForces);
+    if(ratio.error||Math.abs(ratio.value-1)>1e-10) continue;
+    const a=components[relation.lhs[0].component||'magnitude'];
+    const b=components[relation.rhs[0].component||'magnitude'];
+    const category=window.snapMatchCategory(a,b);
+    if(category) relevant[category.key]=true;
+  }
+  return relevant;
 };
 
 /**
@@ -545,6 +708,42 @@ window.AppVersioning = (function(){
     });
   }
 
+  function supportedTaskSchema(reference){
+    const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : reference ? [reference] : []}]);
+    const task = schema.children.tasks?.item;
+    const optional = collectSchema([
+      {role:'force',componentOf:'',studentGiven:{}},
+      {studentGiven:{name:false}},
+      {studentGiven:{role:false}},
+      {}
+    ]);
+    for(const collection of ['expectedForces','initialForces']){
+      const force = task?.children[collection]?.item;
+      if(!force) continue;
+      optional.objectKeys.forEach(key=>{
+        force.objectKeys.add(key);
+        force.children[key] = optional.children[key];
+      });
+      force.requiredKeys = force.requiredKeys.filter(key=>!optional.objectKeys.has(key));
+      if(collection==='expectedForces'){
+        const answer=collectSchema([{drawn:{anchor:[0,0],arrowBase:[0,0],arrowTip:[0,0]}},{}]);
+        force.objectKeys.add('drawn');
+        force.children.drawn ||= answer.children.drawn;
+        force.requiredKeys=force.requiredKeys.filter(key=>key!=='drawn');
+      }
+    }
+    const relation = task?.children.relations?.item;
+    if(relation){
+      const tolerances = collectSchema([{ratio:1,tol_rel:0.05,tol_abs:2},{}]);
+      tolerances.objectKeys.forEach(key=>{
+        relation.objectKeys.add(key);
+        relation.children[key] = tolerances.children[key];
+      });
+      relation.requiredKeys = relation.requiredKeys.filter(key=>!tolerances.objectKeys.has(key));
+    }
+    return schema;
+  }
+
   function filter(value,schema){
     if(Array.isArray(value)) return schema.item ? value.map(item => filter(item,schema.item)) : value;
     if(!value || typeof value !== 'object') return value;
@@ -562,7 +761,7 @@ window.AppVersioning = (function(){
   }
 
   function confirmMismatch({mode,source,oldTime,data,reference}){
-    const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : reference ? [reference] : []}]);
+    const schema = supportedTaskSchema(reference);
     const missing = [], unknown = [];
     const wrappedData = {tasks:data};
     if(data && schema.objectKeys.size) diff(wrappedData,schema,'$',missing,unknown);
@@ -658,7 +857,7 @@ window.AppVersioning = (function(){
           if(task && typeof task === 'object') currentTaskEntries.push({key,task});
         }catch(error){console.warn(`Kunne ikke lese lagret oppgave ${key}:`,error);}
       }
-      const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : []}]);
+      const schema = supportedTaskSchema(reference);
       const taskSchema = schema.children.tasks?.item;
       const byId = new Map();
       currentTaskEntries.forEach(entry => {

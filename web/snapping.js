@@ -2,10 +2,9 @@
 (function(){
   const SNAP_THRESHOLD = 20; // px radius for point snapping
   // Build an array of snap points from sceneLookup
-  function buildSnapPoints(sceneLookup){
+  function buildSnapPoints(sceneLookup,forces=[],excludeForce=null){
     const pts = [];
-    if(!sceneLookup) return pts;
-    Object.keys(sceneLookup).forEach(key => {
+    Object.keys(sceneLookup || {}).forEach(key => {
       const entry = sceneLookup[key];
       // Honor snapping flag: default true unless explicitly false
       if(entry && entry.snapping === false) return;
@@ -16,6 +15,12 @@
         Object.values(entry.segments).forEach(seg => { if(seg && seg.length===2){ pts.push(seg[0], seg[1]); } });
       }
     });
+    for(const force of forces){
+      if(force===excludeForce) continue;
+      for(const point of [force.arrowBase,force.arrowTip]){
+        if(Array.isArray(point) && point.length===2 && point.every(Number.isFinite)) pts.push(point);
+      }
+    }
     return pts;
   }
 
@@ -108,7 +113,7 @@
 
   // Composite snap: considers block/scene points and XY grid.
   function snap(pos, options){
-    const { points=[], gridStep=20, origin=[0,0], axesDir=null, relativeGridOnly=false } = options || {};
+    const { points=[], forces=[], excludeForce=null, gridStep=20, origin=[0,0], axesDir=null, relativeGridOnly=false } = options || {};
     //snap_old(pos, options); // for debugging comparison
     //return;
     // Check snapping enabled globally
@@ -134,8 +139,12 @@
 
     // Scene point candidate (nearest, regardless of SNAP_THRESHOLD; threshold applied later)
     let pointCandidate = null;
-    if(points && points.length){
-      const np = nearestPoint(pos, points);
+    const checklist = window.currentSnapChecklist || window.getTaskSnapChecklist?.(window.currentTask);
+    const forcePoints = window.editorMode || checklist?.snapForceEndpoints!==false
+      ? buildSnapPoints(null,forces,excludeForce) : [];
+    const candidates = [...points,...forcePoints];
+    if(candidates.length){
+      const np = nearestPoint(pos, candidates);
       if(np.point){ pointCandidate = { pos:[np.point[0], np.point[1]], source:'point', d2:np.d2 }; }
     }
 
@@ -203,19 +212,18 @@
   function componentFrames(task,force,other){
     const g=window.geometry,frames=[];
     for(const anchor of [force.anchor,other.anchor]){
-      for(const axis of window.forceSnapDirections(task,anchor)){
-        if(frames.some(frame=>Math.abs(g.cross(frame[0],axis))<1e-8 ||
-          Math.abs(g.dot(frame[0],axis))<1e-8)) continue;
-        frames.push([axis,[-axis[1],axis[0]]]);
+      for(const frame of window.forceSnapFrames(task,anchor)){
+        if(frames.some(other=>Math.abs(g.cross(other[0],frame[0]))<1e-8)) continue;
+        frames.push(frame);
       }
     }
     return frames;
   }
 
-  function forceMeasures(vector,frame){
+  function forceMeasures(vector,frame,types=['t','n']){
     return [
-      ...frame.map((axis,index)=>({size:Math.abs(window.geometry.dot(vector,axis)),axis,index})),
-      {size:Math.hypot(...vector),axis:null}
+      ...frame.map((axis,index)=>({size:Math.abs(window.geometry.dot(vector,axis)),axis,index,type:types[index]})),
+      {size:Math.hypot(...vector),axis:null,type:'length'}
     ];
   }
 
@@ -269,18 +277,7 @@
     const grid=snap(pos,{origin,gridStep,relativeGridOnly:true});
     if(!window.enableSnap) return grid;
     const g=window.geometry;
-    const checklist=window.editorMode
-      ? {
-        snapForceEndpoints:true,
-        snapSameAxisComponents:true,
-        snapCrossAxisComponents:false,
-        snapLocalComponents:true,
-        snapForceLengths:true,
-        snapComponentToLength:true
-      }
-      : (task===window.currentTask&&window.currentSnapChecklist
-        ? window.currentSnapChecklist
-        : window.getTaskSnapChecklist(task));
+    const checklist=window.getActiveSnapChecklist(task);
     const candidates=[{...grid,rank:3}];
     const add=(point,source,rank,direction=null,component=null)=>{
       if(g.finitePoint(point)) candidates.push({pos:point,source,rank,direction,component});
@@ -338,26 +335,11 @@
         }
       }
     };
-    const globalMeasures=vector=>[
-      {size:Math.abs(vector[0]),axis:[1,0],kind:'global',index:0},
-      {size:Math.abs(vector[1]),axis:[0,1],kind:'global',index:1},
-      {size:Math.hypot(...vector),axis:null,kind:'length'}
-    ];
-    const matchEnabled=(own,reference,local)=>{
-      if(own.axis&&reference.axis){
-        if(own.kind!==reference.kind) return false;
-        if(local) return checklist.snapLocalComponents;
-        return own.index===reference.index
-          ? checklist.snapSameAxisComponents
-          : checklist.snapCrossAxisComponents;
-      }
-      if(!own.axis&&!reference.axis) return checklist.snapForceLengths;
-      return checklist.snapComponentToLength;
-    };
-    const addMatches=(ownMeasures,referenceMeasures,local)=>{
+    const globalMeasures=vector=>forceMeasures(vector,[[1,0],[0,1]],['x','y']);
+    const addMatches=(ownMeasures,referenceMeasures)=>{
       for(const own of ownMeasures){
         for(const reference of referenceMeasures){
-          if(!matchEnabled(own,reference,local)) continue;
+          if(!checklist[window.snapMatchCategory(own.type,reference.type).key]) continue;
           if(own.axis) addComponentTarget(own.axis,reference.size);
           else addLengthTarget(reference.size);
         }
@@ -370,17 +352,13 @@
         if(other===force) continue;
         const referenceVector=forceVector(other);
         if(!referenceVector) continue;
-        addMatches(activeGlobal,globalMeasures(referenceVector),false);
+        addMatches(activeGlobal,globalMeasures(referenceVector));
+        if(!window.hasLocalSnapMatches(checklist)) continue;
         for(const {frame,measures} of localComparisons(task,force,[other])){
-          const localMeasures=measures.map((measure,index)=>({
-            ...measure,kind:measure.axis?'local':'length',index
-          }));
-          const activeLocal=forceMeasures(activeVector,frame).map((measure,index)=>({
-            ...measure,kind:measure.axis?'local':'length',index
-          }));
-          addMatches(activeLocal,localMeasures,true);
-          addMatches(activeGlobal,localMeasures,false);
-          addMatches(activeLocal,globalMeasures(referenceVector),false);
+          const activeLocal=forceMeasures(activeVector,frame);
+          addMatches(activeLocal,measures);
+          addMatches(activeGlobal,measures);
+          addMatches(activeLocal,globalMeasures(referenceVector));
         }
       }
     }
@@ -412,87 +390,119 @@
   function buildMatchedComponentGuidelines(force,forces,gridStep=window.GRID_STEP||20,task=null){
     const g=window.geometry,lines=[];
     if(!g.finitePoint(force.arrowBase)||!g.finitePoint(force.arrowTip)) return lines;
-    for(const axis of [0,1]){
-      const size=Math.abs(force.arrowTip[axis]-force.arrowBase[axis]);
-      if(!Number.isFinite(size)) continue;
-      const matches=forces.filter(other=>other!==force &&
-        g.finitePoint(other.arrowBase)&&g.finitePoint(other.arrowTip)&&
-        Math.abs(Math.abs(other.arrowTip[axis]-other.arrowBase[axis])-size)<=1e-8);
-      if(!matches.length) continue;
-      const componentAxis=1-axis;
-      const style={color:window.forceArrowColor(force,true),dashed:true,dash:[4,3],lineWidth:1};
-      const halfLength=gridStep/4;
-      const transverse=Math.abs(force.arrowTip[componentAxis]-force.arrowBase[componentAxis]);
-      const axialMatch=size>1e-8 && transverse<=halfLength;
-      if(axialMatch){
-        const a=force.arrowTip.slice(),b=force.arrowTip.slice();
-        const markerHalfLength=gridStep/2;
-        a[componentAxis]-=markerHalfLength;b[componentAxis]+=markerHalfLength;
-        lines.push({a,b,...style,dash:[8,6],lineWidth:2});
-        continue;
+    if(!task){
+      for(const axis of [0,1]){
+        const size=Math.abs(force.arrowTip[axis]-force.arrowBase[axis]);
+        if(!Number.isFinite(size)) continue;
+        const matches=forces.filter(other=>other!==force &&
+          g.finitePoint(other.arrowBase)&&g.finitePoint(other.arrowTip)&&
+          Math.abs(Math.abs(other.arrowTip[axis]-other.arrowBase[axis])-size)<=1e-8);
+        if(!matches.length) continue;
+        const componentAxis=1-axis;
+        const style={color:window.forceArrowColor(force,true),dashed:true,dash:[4,3],lineWidth:1};
+        const halfLength=gridStep/4;
+        const transverse=Math.abs(force.arrowTip[componentAxis]-force.arrowBase[componentAxis]);
+        const axialMatch=size>1e-8 && transverse<=halfLength;
+        if(axialMatch){
+          const a=force.arrowTip.slice(),b=force.arrowTip.slice();
+          const markerHalfLength=gridStep/2;
+          a[componentAxis]-=markerHalfLength;b[componentAxis]+=markerHalfLength;
+          lines.push({a,b,...style,dash:[8,6],lineWidth:2});
+          continue;
+        }
+        if(!window.enableSnap) continue;
+        const fromBase=force.arrowBase.slice(),fromTip=force.arrowTip.slice();
+        fromBase[componentAxis]=force.arrowTip[componentAxis];
+        fromTip[componentAxis]=force.arrowBase[componentAxis];
+        lines.push({a:force.arrowBase.slice(),b:fromBase,...style},
+          {a:force.arrowTip.slice(),b:fromTip,...style});
       }
-      if(!window.enableSnap) continue;
-      const fromBase=force.arrowBase.slice(),fromTip=force.arrowTip.slice();
-      fromBase[componentAxis]=force.arrowTip[componentAxis];
-      fromTip[componentAxis]=force.arrowBase[componentAxis];
-      lines.push({a:force.arrowBase.slice(),b:fromBase,...style},
-        {a:force.arrowTip.slice(),b:fromTip,...style});
+      return lines;
     }
-    if(!task) return lines;
-    const project=(owner,frame,matchedAxes,full=false)=>{
+    const projections=[],lengthMatches=new Set();
+    const checklist=window.getActiveSnapChecklist(task);
+    const record=(owner,frame,index)=>{
+      let entry=projections.find(entry=>entry.owner===owner &&
+        entry.frame.every((axis,i)=>g.distance(axis,frame[i])<=1e-8));
+      if(!entry){
+        entry={owner,frame,matchedAxes:new Set()};
+        projections.push(entry);
+      }
+      entry.matchedAxes.add(index);
+    };
+    const compare=(owner,frame,types,other,otherFrame,otherTypes)=>{
+      const ownMeasures=forceMeasures(forceVector(owner),frame,types);
+      const referenceMeasures=forceMeasures(forceVector(other),otherFrame,otherTypes);
+      for(const own of ownMeasures){
+        for(const reference of referenceMeasures){
+          if(!checklist[window.snapMatchCategory(own.type,reference.type).key]) continue;
+          if(own.size<=1e-8 || Math.abs(own.size-reference.size)>1e-8) continue;
+          if(own.axis) record(owner,frame,own.index);
+          else lengthMatches.add(owner);
+          if(reference.axis) record(other,otherFrame,reference.index);
+          else lengthMatches.add(other);
+        }
+      }
+    };
+    const project=(owner,frame,matchedAxes)=>{
       const vector=forceVector(owner);
       if(!vector) return;
       const style={color:window.forceArrowColor(owner,owner===force),dashed:true,dash:[4,3],lineWidth:1};
-      for(const index of matchedAxes){
+      for(const index of [0,1]){
         const axis=frame[index],crossAxis=frame[1-index];
         const size=Math.abs(g.dot(vector,axis));
         const transverse=g.dot(vector,crossAxis);
-        if(size>1e-8 && Math.abs(transverse)<=gridStep/4){
+        if(matchedAxes.has(index) && size>1e-8 && Math.abs(transverse)<=gridStep/4){
           lines.push({
             a:owner.arrowTip.map((v,i)=>v-gridStep/2*crossAxis[i]),
             b:owner.arrowTip.map((v,i)=>v+gridStep/2*crossAxis[i]),
             ...style,dash:[8,6],lineWidth:2
           });
-          // A full decomposition still includes the non-degenerate component.
-          if(!full) continue;
         }
         if(!window.enableSnap) continue;
-        const component=full ? g.dot(vector,axis) : transverse;
-        const direction=full ? axis : crossAxis;
+        const component=g.dot(vector,axis);
+        const lineWidth=matchedAxes.has(index) ? 2 : 1;
         lines.push({
-          a:owner.arrowBase.slice(),b:owner.arrowBase.map((v,i)=>v+component*direction[i]),...style
+          a:owner.arrowBase.slice(),b:owner.arrowBase.map((v,i)=>v+component*axis[i]),...style,lineWidth
         },{
-          a:owner.arrowTip.slice(),b:owner.arrowTip.map((v,i)=>v-component*direction[i]),...style
+          a:owner.arrowTip.slice(),b:owner.arrowTip.map((v,i)=>v-component*axis[i]),...style,lineWidth
         });
       }
     };
-    const globalFrame=[[1,0],[0,1]],vector=forceVector(force);
+    const globalFrame=[[1,0],[0,1]];
     for(const other of new Set(forces)){
       if(other===force) continue;
       const reference=forceVector(other);
       if(!reference) continue;
-      const axes=[0,1].filter(axis=>Math.abs(Math.abs(vector[axis])-Math.abs(reference[axis]))<=1e-8);
-      project(other,globalFrame,axes);
+      compare(force,globalFrame,['x','y'],other,globalFrame,['x','y']);
     }
-    for(const {other,frame,measures} of localComparisons(task,force,forces)){
-      const active=forceMeasures(vector,frame);
-      const activeAxes=new Set(),referenceAxes=new Set();
-      for(const own of active){
-        for(const reference of measures){
-          if(own.size<=1e-8 || Math.abs(own.size-reference.size)>1e-8) continue;
-          if(own.axis) activeAxes.add(own.index);
-          if(reference.axis) referenceAxes.add(reference.index);
-        }
+    if(window.hasLocalSnapMatches(checklist)){
+      for(const {other,frame} of localComparisons(task,force,forces)){
+        compare(force,frame,['t','n'],other,frame,['t','n']);
+        compare(force,globalFrame,['x','y'],other,frame,['t','n']);
+        compare(force,frame,['t','n'],other,globalFrame,['x','y']);
       }
-      if(activeAxes.size) project(force,frame,[0,1],true);
-      if(referenceAxes.size) project(other,frame,[0,1],true);
+    }
+    for(const {owner,frame,matchedAxes} of projections) project(owner,frame,matchedAxes);
+    for(const owner of lengthMatches){
+      const vector=forceVector(owner),length=Math.hypot(...vector);
+      const normal=[-vector[1]/length,vector[0]/length];
+      lines.push({
+        a:owner.arrowTip.map((v,i)=>v-gridStep/2*normal[i]),
+        b:owner.arrowTip.map((v,i)=>v+gridStep/2*normal[i]),
+        color:window.forceArrowColor(owner,owner===force),dashed:true,dash:[8,6],lineWidth:2
+      });
     }
     const unique=[];
     for(const line of lines){
       if(g.distance(line.a,line.b)<=1e-8) continue;
-      if(unique.some(other=>other.color===line.color && other.lineWidth===line.lineWidth &&
+      const existing=unique.find(other=>other.color===line.color &&
         ((g.distance(other.a,line.a)<=1e-8 && g.distance(other.b,line.b)<=1e-8) ||
-         (g.distance(other.a,line.b)<=1e-8 && g.distance(other.b,line.a)<=1e-8)))) continue;
+         (g.distance(other.a,line.b)<=1e-8 && g.distance(other.b,line.a)<=1e-8)));
+      if(existing){
+        existing.lineWidth=Math.max(existing.lineWidth,line.lineWidth);
+        continue;
+      }
       unique.push(line);
     }
     return unique;
@@ -520,5 +530,14 @@
     return lines;
   }
 
-  window.snapping = { buildSnapPoints, snapPoint, buildGuidelines, buildMatchedComponentGuidelines, snap, snapForce };
+  function buildForceGuidelines(origin,mousePos,task,anchor){
+    const lines=buildGuidelines(origin,mousePos,null);
+    if(!origin || !mousePos) return lines;
+    for(const direction of window.forceSnapDirections(task,anchor)){
+      lines.push(...buildGuidelines(origin,mousePos,{t_vec:direction}).slice(2));
+    }
+    return lines;
+  }
+
+  window.snapping = { buildSnapPoints, snapPoint, buildGuidelines, buildForceGuidelines, buildMatchedComponentGuidelines, snap, snapForce };
 })();

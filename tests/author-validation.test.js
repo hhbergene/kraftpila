@@ -7,13 +7,34 @@ const source=fs.readFileSync(path.join(__dirname,'..','web','author_validation.j
 
 function setup(){
   const confirmations=[];
+  const alerts=[];
   const window={buildAllScenePoints:()=>({ellipse0:{points:{center:[0,0]},segments:{edge:[[0,0],[10,0]]}}})};
-  vm.runInNewContext(source,{window,confirm:message=>{confirmations.push(message);return false;}});
+  const context=vm.createContext({window,alert:message=>alerts.push(message),
+    confirm:message=>{confirmations.push(message);return false;}});
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8'),context);
+  vm.runInContext(source,context);
   const force=name=>({name,anchor:{type:'point',ref:'ellipse0',point:'center'}});
   const task={id:'one',title:'Test',help_lines:['Beskrivelse'],expectedForces:[force('N'),force('G')],
     relations:[{lhs:[{name:'N'}],rhs:[{name:'G',component:'vertical'}],ratio:1,tol_rel:0.15}]};
-  return {window,task,confirmations};
+  return {window,task,confirmations,alerts};
 }
+
+test('unavailable automatic ratios block single-task and task-set export without an override confirmation',()=>{
+  const {window,task,confirmations,alerts}=setup();
+  delete task.relations[0].ratio;
+  assert.equal(window.confirmAuthorExport([task]),false);
+  assert.match(alerts[0],/Eksport stoppet.*Oppgi/s);
+  assert.equal(confirmations.length,0);
+  task.expectedForces[0].drawn={arrowBase:[0,0],arrowTip:[0,20]};
+  task.expectedForces[1].drawn={arrowBase:[0,0],arrowTip:[0,10]};
+  assert.equal(window.collectRelationRatioErrors(task).length,0);
+  assert.equal(window.confirmAuthorExport([task]),false,'incomplete anchors remain ordinary author warnings');
+  task.relations[0].ratio=2;
+  assert.equal(window.collectRelationRatioErrors(task).length,0);
+  assert.equal(window.confirmAuthorExport([task,{...task,id:'broken',
+    relations:[{lhs:[],rhs:[]}]}]),false);
+  assert.equal(alerts.length,2);
+});
 
 test('valid task passes author checks and export without confirmation',()=>{
   const {window,task,confirmations}=setup();
@@ -51,6 +72,20 @@ test('absent relations are a reminder only for multiple forces without resultant
   delete task.sumF;
   task.expectedForces.pop();
   assert.equal(window.collectAuthorWarnings(task).length,0);
+});
+
+test('absolute relation tolerance is optional, accepts zero and rejects invalid values',()=>{
+  const {window,task}=setup();
+  delete task.relations[0].tol_rel;
+  assert.equal(window.collectAuthorWarnings(task).length,0);
+  for(const value of [0,2,100]){
+    task.relations[0].tol_abs=value;
+    assert.equal(window.collectAuthorWarnings(task).length,0);
+  }
+  for(const value of [-1,Infinity,NaN,'2']){
+    task.relations[0].tol_abs=value;
+    assert.ok(window.collectAuthorWarnings(task).some(text=>text.includes('ugyldig absolutt toleranse')));
+  }
 });
 
 test('metadata, duplicate names and drawn force geometry produce actionable warnings',()=>{

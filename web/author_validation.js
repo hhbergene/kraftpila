@@ -3,6 +3,13 @@
   const components = new Set(['magnitude','normal','tangent','vertical','horizontal']);
   const nameKey = value => typeof value === 'string' ? value.trim().toLowerCase() : '';
 
+  window.collectRelationRatioErrors = function(task,drawnForces){
+    return (task.relations || []).flatMap((relation,index)=>{
+      const result=window.getEffectiveRelationRatio(task,relation,drawnForces);
+      return result.error ? [`Relasjon ${index+1}: ${result.error}`] : [];
+    });
+  };
+
   window.collectAuthorWarnings = function(task,drawnForces){
     const warnings = [];
     if(!task) return ['Advarsel: Ingen oppgave er valgt.'];
@@ -24,6 +31,18 @@
       if(!key) warn(`Kraft ${label} mangler navn.`);
       else if(names.has(key)) warn(`Flere krefter har samme navn: ${label}.`);
       if(key) names.add(key);
+      if(force?.role!==undefined && !['force','component','resultant'].includes(force.role)){
+        warn(`Kraft ${label} har ugyldig krafttype.`);
+      }
+      if(force?.componentOf){
+        if(force.role!=='component') warn(`Kraft ${label} har hovedkraft uten å være en komponent.`);
+        const parent = specs.find(other=>other!==force &&
+          (window.forceNotation ? window.forceNotation.key(other.name)===window.forceNotation.key(force.componentOf) : nameKey(other.name)===nameKey(force.componentOf)));
+        if(!parent) warn(`Komponent ${label} viser til en manglende hovedkraft: ${force.componentOf}.`);
+      }
+      if(force?.studentGiven && ['name','role'].some(field=>force.studentGiven[field]!==undefined && typeof force.studentGiven[field]!=='boolean')){
+        warn(`Kraft ${label} har ugyldige felt for forhåndsgitte opplysninger.`);
+      }
       const anchor = index < expected.length ? force?.anchor : force?.anchorSpec;
       if(anchor?.type === 'custom'){
         warn(`Kraft ${label} mangler anchor (type custom).`);
@@ -80,14 +99,30 @@
       if(relation?.ratio !== undefined && (!Number.isFinite(relation.ratio) || relation.ratio <= 0)){
         warn(`${label} har ugyldig forholdstall (må være større enn 0).`);
       }
+      if(relation?.ratio===undefined){
+        const result=window.getAutomaticRelationRatio(task,relation,drawnForces);
+        if(result.error) warn(`${label}: ${result.error}`);
+      }
       if(relation?.tol_rel !== undefined && (!Number.isFinite(relation.tol_rel) || relation.tol_rel < 0 || relation.tol_rel > 1)){
         warn(`${label} har ugyldig toleranse (må være mellom 0 og 1).`);
+      }
+      if(relation?.tol_abs !== undefined && (!Number.isFinite(relation.tol_abs) || relation.tol_abs < 0)){
+        warn(`${label} har ugyldig absolutt toleranse (må være et ikke-negativt antall px).`);
       }
     });
     return [...new Set(warnings)];
   };
 
   window.confirmAuthorExport = function(tasks){
+    const errors=tasks.flatMap(task=>{
+      const drawn=task.id===window.currentTask?.id ? window.fm?.forces : undefined;
+      return window.collectRelationRatioErrors(task,drawn)
+        .map(error=>`${task.title || task.id || 'Oppgave'}: ${error}`);
+    });
+    if(errors.length){
+      alert(`Eksport stoppet. Oppgi et gyldig forhold eller rett fasiten:\n\n${errors.join('\n')}`);
+      return false;
+    }
     const messages = tasks.flatMap(task=>{
       const drawn = task.id === window.currentTask?.id ? window.fm?.forces : undefined;
       return window.collectAuthorWarnings(task,drawn).map(message=>`${task.title || task.id || 'Oppgave'}: ${message}`);

@@ -20,6 +20,7 @@ const context={
   positionScore:()=>1,
   evalSumF:()=>({score:1,errors:[]}),
   computeNeatness:()=>1,
+  isIgnoredComponent:()=>false,
   unit:vector=>{
     const length=Math.hypot(vector[0],vector[1]);
     return length>1e-9?[vector[0]/length,vector[1]/length]:[0,0];
@@ -39,6 +40,7 @@ const context={
   }
 };
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8'),context);
 vm.runInContext(source.slice(relationsStart,relationsEnd),context);
 vm.runInContext(source.slice(start,end),context);
 
@@ -68,9 +70,9 @@ test('debug relations use force-component notation instead of separate component
     expectedForces:[],
     scene:{plane:{t_vec:[1,0],n_vec:[0,-1]}},
     relations:[
-      {lhs:[{name:'S_1',component:'vertical'}],rhs:[{name:'G'}]},
-      {lhs:[{name:'S_1',component:'horizontal'}],rhs:[{name:'G',component:'tangent'}]},
-      {lhs:[{name:'S_1',component:'normal'}],rhs:[{name:'G',component:'magnitude'}]}
+      {lhs:[{name:'S_1',component:'vertical'}],rhs:[{name:'G'}],ratio:1},
+      {lhs:[{name:'S_1',component:'horizontal'}],rhs:[{name:'G',component:'tangent'}],ratio:1},
+      {lhs:[{name:'S_1',component:'normal'}],rhs:[{name:'G',component:'magnitude'}],ratio:1}
     ]
   };
   const relationResults=context.evalRelations(task,[

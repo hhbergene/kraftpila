@@ -3,6 +3,9 @@
  * Handles scene panel rendering, editor mode UI, panel height resizing, and help button updates
  */
 
+let expandedSceneType = null;
+let lastSceneSelectionKey = '';
+
 // Editor mode state management
 function updateEditorMode(){
   const isEditor = !!window.editorMode;
@@ -57,14 +60,20 @@ function updatePanelHeights(){
   
   if(window.currentTask && window.currentTask.scene){
     const scene = window.currentTask.scene;
-    sceneElementCount = (scene.rects?.length || 0) + 
-                        (scene.ellipses?.length || 0) +
-                        (scene.circles?.length || 0) +
-                        (scene.segments?.length || 0) +
-                        (scene.arrows?.length || 0) +
-                        (scene.points?.length || 0) +
-                        (scene.angles?.length || 0) +
-                        (scene.texts?.length || 0);
+    const counts={
+      plane:scene.plane ? 1 : 0,
+      rect:scene.rects?.length || 0,
+      ellipse:scene.ellipses?.length || 0,
+      segment:scene.segments?.length || 0,
+      arrow:scene.arrows?.length || 0,
+      point:scene.points?.length || 0,
+      angle:scene.angles?.length || 0,
+      text:(scene.texts || []).filter(text=>!text._isShortLines).length
+    };
+    sceneElementCount=Object.values(counts).filter(count=>count>0).length;
+    if(expandedSceneType && counts[expandedSceneType]){
+      sceneElementCount+=counts[expandedSceneType]-1;
+    }
   }
   
   // Estimate height needed: base height + height per item (estimate ~25px per item)
@@ -116,6 +125,16 @@ function updatePanelHeights(){
 /**
  * Populate the scene panel with all scene elements
  */
+window.refreshSceneTextCoordinates = function(){
+  window.updateTextPositions(window.currentTask);
+  document.querySelectorAll('#scene-items .scene-coordinate-input[data-type="text"]').forEach(input=>{
+    const text = window.currentTask?.scene?.texts?.[Number(input.dataset.idx)];
+    if(!text) return;
+    input.value = text.pos?.[Number(input.dataset.axis)] ?? '';
+    input.readOnly = !!text.linked;
+  });
+};
+
 function updateScenePanel(){
   const scenePanel = document.getElementById('scene-items');
   if(!scenePanel || !window.currentTask || !window.currentTask.scene) return;
@@ -123,6 +142,13 @@ function updateScenePanel(){
   
   window.sceneModel?.update(window.currentTask);
   const scene = window.currentTask.scene;
+  window.updateTextPositions(window.currentTask);
+  const selected = window.selectedSceneElement;
+  const selectionKey = selected ? `${selected.type}:${selected.index}` : '';
+  if(selectionKey !== lastSceneSelectionKey){
+    expandedSceneType = selected?.type || null;
+    lastSceneSelectionKey = selectionKey;
+  }
   if(window.sceneEditor) window.sceneEditor.checkTask();
   
   // Helper to expand short hex colors to full format
@@ -135,8 +161,32 @@ function updateScenePanel(){
     return color || '#222222';
   }
   
-  // Helper to add scene element item with expandable editor
-  function addItem(label, type, index, obj) {
+  function coordinatePreview(point){
+    if(!Array.isArray(point) || point.length < 2 || !point.slice(0,2).every(Number.isFinite)) return '';
+    return `(${point[0]}-${point[1]})`;
+  }
+
+  function getPreview(type,obj){
+    if(type === 'text') return String(obj.txt || '');
+    if(type === 'plane'){
+      const dirPoint=obj.dirPoint || [
+        obj.through[0]+(obj.n_vec?.[0] || 0)*3*(window.GRID_STEP || 20),
+        obj.through[1]+(obj.n_vec?.[1] ?? -1)*3*(window.GRID_STEP || 20)
+      ];
+      return `${coordinatePreview(obj.through)}-${coordinatePreview(dirPoint)}`;
+    }
+    if(type === 'ellipse') return coordinatePreview(obj.center);
+    if(type === 'rect') return coordinatePreview(obj.bottomCenter);
+    if(type === 'segment' || type === 'arrow'){
+      return `${coordinatePreview(obj.a)}-${coordinatePreview(obj.b)}`;
+    }
+    if(type === 'point') return coordinatePreview(obj.pos);
+    if(type === 'angle') return coordinatePreview(obj.vertex?.pos);
+    return '';
+  }
+
+  // Helper to add a scene element with an expandable editor and a compact preview.
+  function addItem(items,label,type,index,obj) {
     const item = document.createElement('div');
     item.className = 'scene-item';
     item.dataset.type = type;
@@ -146,7 +196,6 @@ function updateScenePanel(){
     let typeCount = 0;
     if(type === 'rect') typeCount = (scene.rects || []).length;
     else if(type === 'ellipse') typeCount = (scene.ellipses || []).length;
-    else if(type === 'circle') typeCount = (scene.circles || []).length;
     else if(type === 'segment') typeCount = (scene.segments || []).length;
     else if(type === 'arrow') typeCount = (scene.arrows || []).length;
     else if(type === 'angle') typeCount = (scene.angles || []).length;
@@ -169,13 +218,24 @@ function updateScenePanel(){
         <button class="scene-item-control-btn" title="Snap" data-control="snap" style="display:none;">🧲</button>
       </div>
     `;
+    function normalizeNormal(vector){
+      const length=Math.hypot(...vector);
+      return vector.map(value=>value/length);
+    }
     
+    const preview=document.createElement('span');
+    preview.className='scene-item-preview';
+    preview.textContent=getPreview(type,obj);
+    if(type === 'text') preview.classList.add('scene-item-text-preview');
+    else preview.title=preview.textContent;
+
     // Editor section (hidden by default, shown when selected)
     const editor = document.createElement('div');
     editor.className = 'scene-item-editor';
     editor.innerHTML = getEditorHTML(type, obj, index);
     
     item.appendChild(header);
+    header.appendChild(preview);
     item.appendChild(editor);
     
     // Click handler for selection and expanding editor
@@ -187,7 +247,12 @@ function updateScenePanel(){
       item.classList.add('selected');
       window.selectedSceneElement = { type, index: index !== undefined ? index : 0, obj };
       window.setActivePanel('scene');
-      
+      lastSceneSelectionKey=`${type}:${index !== undefined ? index : 0}`;
+      if(expandedSceneType !== type){
+        expandedSceneType=type;
+        updateScenePanel();
+        return;
+      }
       // Show arrange buttons when selected
       header.querySelectorAll('.scene-item-arrange-btn').forEach(btn => {
         btn.style.display = 'inline-block';
@@ -233,102 +298,226 @@ function updateScenePanel(){
       window.sceneEditor?.buildProperties(editor, type, obj, index);
     }
     
-    scenePanel.appendChild(item);
+    items.appendChild(item);
     return item;
+  }
+
+  function addGroup(label,type,entries){
+    if(!entries.length) return;
+    const group=document.createElement('section');
+    group.className='scene-type-group';
+    group.dataset.type=type;
+    const header=document.createElement('div');
+    header.className='scene-type-header';
+    header.setAttribute('role','button');
+    header.setAttribute('tabindex','0');
+    header.setAttribute('aria-expanded',String(expandedSceneType===type));
+    const disclosure=document.createElement('span');
+    disclosure.className='scene-type-disclosure';
+    disclosure.textContent=expandedSceneType===type ? '▾' : '▸';
+    const title=document.createElement('span');
+    title.className='scene-type-label';
+    title.textContent=`${label} (${entries.length})`;
+    header.append(disclosure,title);
+    const items=document.createElement('div');
+    items.className='scene-type-items';
+    items.hidden=expandedSceneType!==type;
+    const toggle=()=>{
+      if(entries.length===1){
+        const entry=entries[0];
+        window.selectedSceneElement={type,index:entry.index ?? 0,obj:entry.obj};
+        window.setActivePanel('scene');
+        expandedSceneType=type;
+        lastSceneSelectionKey=`${type}:${entry.index ?? 0}`;
+        updateScenePanel();
+        return;
+      }
+      const opening=expandedSceneType!==type;
+      if(opening){
+        const entry=entries[0];
+        window.selectedSceneElement={type,index:entry.index ?? 0,obj:entry.obj};
+        window.setActivePanel('scene');
+        lastSceneSelectionKey=`${type}:${entry.index ?? 0}`;
+      }else{
+        window.selectedSceneElement=null;
+        lastSceneSelectionKey='';
+      }
+      expandedSceneType=opening ? type : null;
+      updateScenePanel();
+    };
+    header.addEventListener('click',toggle);
+    header.addEventListener('keydown',event=>{
+      if(event.key==='Enter' || event.key===' '){
+        event.preventDefault();
+        toggle();
+      }
+    });
+    group.append(header,items);
+    scenePanel.appendChild(group);
+    entries.forEach(entry=>addItem(items,label,type,entry.index,entry.obj));
   }
   
   // Helper to get icon for each type
   function getItemIcon(type) {
     const icons = {
       'plane': '─', 'rect': '▭', 'ellipse': '⬭',
-      'circle': '●', 'segment': '─', 'arrow': '→', 'text': 'T', 'angle': '∠', 'point': '•'
+      'segment': '─', 'arrow': '→', 'text': 'T', 'angle': '∠', 'point': '•'
     };
     return icons[type] || '◆';
   }
+
+  function sceneElementNormal(scene,type,index){
+    const element=type==='plane' ? scene?.plane
+      : type==='rect' ? scene?.rects?.[index]
+        : type==='ellipse' ? scene?.ellipses?.[index] : null;
+    if(!element) return null;
+    let normal=element.n_vec;
+    if((!Array.isArray(normal) || normal.length!==2 ||
+        !normal.every(Number.isFinite) || Math.hypot(...normal)<=1e-8) &&
+       Array.isArray(element.t_vec) && element.t_vec.length===2 &&
+       element.t_vec.every(Number.isFinite) && Math.hypot(...element.t_vec)>1e-8){
+      normal=[element.t_vec[1],-element.t_vec[0]];
+    }
+    if(type==='plane' && (!normal || Math.hypot(...normal)<=1e-8) &&
+       Number.isFinite(element.angleDeg)){
+      const angle=element.angleDeg*Math.PI/180;
+      normal=[-Math.sin(angle),-Math.cos(angle)];
+    }
+    if((!Array.isArray(normal) || normal.length!==2 ||
+        !normal.every(Number.isFinite) || Math.hypot(...normal)<=1e-8) &&
+       (type==='rect' || type==='ellipse')){
+      normal=[0,-1];
+    }
+    if(!Array.isArray(normal) || normal.length!==2 ||
+       !normal.every(Number.isFinite) || Math.hypot(...normal)<=1e-8) return null;
+    const length=Math.hypot(...normal);
+    return normal.map(value=>value/length);
+  }
+  window.sceneElementNormal=sceneElementNormal;
   
   // Helper to get editor HTML for each type
   function getEditorHTML(type, obj, index) {
     if(type === 'angle' || type === 'point') return '';
-    function coordinatesHTML(vector, position, label, pointLabel = label) {
+    function coordinatesHTML(vector, position, label, pointLabel = label, readOnly = false) {
       return `
         <div class="scene-editor-row">
           <label class="scene-coordinate-point">${pointLabel}</label>
           <label class="scene-coordinate-axis">x:</label>
-          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="0" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[0] ?? 0}" step="any" aria-label="${label} x" />
+          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="0" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[0] ?? 0}" step="any" aria-label="${label} x" ${readOnly ? 'readonly' : ''} />
           <label class="scene-coordinate-axis">y:</label>
-          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="1" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[1] ?? 0}" step="any" aria-label="${label} y" />
+          <input type="number" class="scene-editor-input scene-coordinate-input" data-field="coordinates" data-vector="${vector}" data-axis="1" data-type="${type}" data-idx="${index ?? ''}" value="${position?.[1] ?? 0}" step="any" aria-label="${label} y" ${readOnly ? 'readonly' : ''} />
         </div>
       `;
     }
-    function fillHTML(){
-      return `<div class="scene-editor-row"><label>Fyll:</label>
-        <input type="checkbox" class="scene-editor-input" data-field="fillEnabled" data-type="${type}" data-idx="${index}" ${obj.fill_color ? 'checked' : ''} />
-        <input type="color" class="scene-editor-input" data-field="fill_color" data-type="${type}" data-idx="${index}" value="${expandHexColor(obj.fill_color || '#4090ff')}" ${obj.fill_color ? '' : 'disabled'} /></div>`;
+    function colorHTML(field, value, label) {
+      return `<div class="scene-editor-row"><label>${label}</label>
+        <input type="color" class="scene-editor-input scene-color-input" data-field="${field}" data-type="${type}" data-idx="${index}" value="${expandHexColor(value)}" aria-label="${label}" /></div>`;
+    }
+    function lineWidthHTML(value) {
+      return `<div class="scene-editor-row"><label>Linje px:</label>
+        <input type="number" class="scene-editor-input scene-line-width" data-field="lineWidth" data-type="${type}" data-idx="${index}" value="${value ?? 2}" min="0.5" max="10" step="0.5" aria-label="Linjetykkelse i piksler" /></div>`;
+    }
+    function lineWidthAndStyleHTML(value, body) {
+      return `<div class="scene-editor-row"><label>Linje px:</label>
+        <input type="number" class="scene-editor-input scene-line-width" data-field="lineWidth" data-type="${type}" data-idx="${index}" value="${value ?? 2}" min="0.5" max="10" step="0.5" aria-label="Linjetykkelse i piksler" />
+        <label class="scene-inline-label">Stil:</label>
+        <select class="scene-editor-input scene-line-style" data-field="body" data-type="${type}" data-idx="${index}" aria-label="Linjestil" title="Heltrukken / stiplet">
+          <option value="solid" ${(body !== 'dashed' ? 'selected' : '')}>━━━━</option>
+          <option value="dashed" ${(body === 'dashed' ? 'selected' : '')}>- - -</option>
+        </select></div>`;
+    }
+    function arrowHeadSizeHTML(value) {
+      return `<div class="scene-editor-row"><label>Pilhode px:</label>
+        <input type="number" class="scene-editor-input scene-line-width" data-field="arrowHeadLength" data-type="arrow" data-idx="${index}" value="${value ?? 12}" min="4" max="40" step="1" aria-label="Pilhodelengde i piksler" /></div>`;
+    }
+    function lineStyleHTML(value) {
+      return `<div class="scene-editor-row"><label>Linjestil:</label>
+        <select class="scene-editor-input scene-line-style" data-field="body" data-type="${type}" data-idx="${index}" aria-label="Linjestil" title="Heltrukken / stiplet">
+          <option value="solid" ${(value !== 'dashed' ? 'selected' : '')}>━━━━</option>
+          <option value="dashed" ${(value === 'dashed' ? 'selected' : '')}>- - -</option>
+        </select></div>`;
+    }
+    function snapRowHTML(snapping) {
+      return `<div class="scene-editor-row"><label>Snap:</label>
+        <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="${type}" data-idx="${index}" ${snapping ? 'checked' : ''} />
+        ${getDeleteButtonHTML()}</div>`;
     }
     // Helper to get delete button HTML for scene elements
     function getDeleteButtonHTML(){
       if(index === undefined) return ''; // No delete for singleton items such as the plane
       return `
-        <div class="scene-editor-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; justify-content: flex-end;">
-          <button class="scene-delete-element-btn" data-type="${type}" data-idx="${index}" title="Slett ${type}" style="width:24px; height:24px; padding:0; border:1px solid #d32f2f; border-radius:3px; background:#fff; color:#d32f2f; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">🗑️</button>
-        </div>
+        <button class="scene-delete-element-btn" data-type="${type}" data-idx="${index}" title="Slett ${type}" aria-label="Slett ${type}" style="width:24px; height:24px; padding:0; border:1px solid #d32f2f; border-radius:3px; background:#fff; color:#d32f2f; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">🗑️</button>
       `;
     }
     
     if(type === 'text') {
       const textObj = obj;
+      const rotationMode = Number.isFinite(textObj.angle_deg) ? 'angle'
+        : Array.isArray(textObj.n_vec) && textObj.n_vec.length===2 &&
+          textObj.n_vec.every(Number.isFinite) && Math.hypot(...textObj.n_vec)>1e-8
+          ? 'normal' : 'none';
+      const angle = rotationMode==='angle' ? textObj.angle_deg
+        : rotationMode==='normal'
+          ? Math.atan2(textObj.n_vec[0],-textObj.n_vec[1])*180/Math.PI : 0;
+      const normal = rotationMode==='normal' ? normalizeNormal(textObj.n_vec)
+        : rotationMode==='angle'
+          ? [Math.sin(textObj.angle_deg*Math.PI/180),-Math.cos(textObj.angle_deg*Math.PI/180)]
+          : [0,-1];
+      const angleDerived = rotationMode!=='angle';
+      const normalDerived = rotationMode!=='normal';
+      const textScene=window.currentTask?.scene || {};
+      const normalOptions = [
+        '<option value="">Velg sceneelement …</option>',
+        ...(sceneElementNormal(textScene,'plane',0)
+          ? ['<option value="plane">Plan</option>'] : []),
+        ...(textScene.rects||[]).flatMap((rect,i)=>sceneElementNormal(textScene,'rect',i)
+          ? [`<option value="rect:${i}">Rektangel ${i+1}</option>`] : []),
+        ...(textScene.ellipses||[]).flatMap((ellipse,i)=>sceneElementNormal(textScene,'ellipse',i)
+          ? [`<option value="ellipse:${i}">Ellipse ${i+1}</option>`] : [])
+      ].join('');
       return `
-        ${coordinatesHTML('pos', textObj.pos, 'Tekst', '')}
+        ${coordinatesHTML('pos', textObj.pos, 'Tekst', '', !!textObj.linked)}
         <div class="scene-editor-row">
           <label>Txt:</label>
           <input type="text" class="scene-editor-input" data-field="txt" data-type="text" data-idx="${index}" value="${textObj.txt || ''}" />
         </div>
         <div class="scene-editor-row">
           <label>Size:</label>
-          <input type="number" class="scene-editor-input" data-field="size" data-type="text" data-idx="${index}" value="${textObj.size || 14}" style="width:40px;" />
+          <input type="number" class="scene-editor-input scene-number-input" data-field="size" data-type="text" data-idx="${index}" value="${textObj.size || 14}" />
           <label style="min-width:auto; margin-left:4px;">Farge:</label>
-          <input type="color" class="scene-editor-input" data-field="color" data-type="text" data-idx="${index}" value="${expandHexColor(textObj.color || '#222222')}" style="width:40px; padding:2px;" />
+          <input type="color" class="scene-editor-input scene-color-input" data-field="color" data-type="text" data-idx="${index}" value="${expandHexColor(textObj.color || '#222222')}" />
         </div>
         <div class="scene-editor-row">
-          <label>Align:</label>
+          <label>Koblet:</label>
+          <input type="checkbox" class="scene-editor-input scene-linked-checkbox" data-field="linked" data-type="text" data-idx="${index}" ${(textObj.linked ? 'checked' : '')} ${(index === 0 ? 'disabled' : '')} title="${index === 0 ? 'Første tekst kan ikke være koblet' : ''}" />
+          <label class="scene-inline-label">Align:</label>
           <select class="scene-editor-input" data-field="align" data-type="text" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
             <option value="left" ${(textObj.align === 'left' ? 'selected' : '')}>left</option>
             <option value="center" ${(textObj.align === 'center' ? 'selected' : '')}>center</option>
             <option value="right" ${(textObj.align === 'right' ? 'selected' : '')}>right</option>
           </select>
         </div>
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="text" data-idx="${index}" ${(textObj.snapping ? 'checked' : '')} />
+        <div class="scene-editor-row scene-text-rotation-row">
+          <label>Rotasjon °:</label>
+          <input type="number" class="scene-editor-input scene-text-angle${angleDerived ? ' scene-rotation-derived' : ''}" data-field="rotationAngle" data-type="text" data-idx="${index}" value="${angle}" step="any" aria-label="Tekstrotasjon i grader" />
+          <label class="scene-inline-label">n x/y:</label>
+          <input type="number" class="scene-editor-input scene-text-normal${normalDerived ? ' scene-rotation-derived' : ''}" data-field="rotationNormal" data-axis="0" data-type="text" data-idx="${index}" value="${normal[0]}" step="any" aria-label="Tekstnormal x" />
+          <input type="number" class="scene-editor-input scene-text-normal${normalDerived ? ' scene-rotation-derived' : ''}" data-field="rotationNormal" data-axis="1" data-type="text" data-idx="${index}" value="${normal[1]}" step="any" aria-label="Tekstnormal y" />
         </div>
         <div class="scene-editor-row">
-          <label>Koblet:</label>
-          <input type="checkbox" class="scene-editor-input scene-linked-checkbox" data-field="linked" data-type="text" data-idx="${index}" ${(textObj.linked ? 'checked' : '')} ${(index === 0 ? 'disabled' : '')} title="${index === 0 ? 'Første tekst kan ikke være koblet' : ''}" />
+          <label for="text-normal-source-${index}">Kopier normal fra:</label>
+          <select id="text-normal-source-${index}" class="scene-editor-input scene-text-normal-source" data-field="copyNormal" data-type="text" data-idx="${index}" title="Kopierer normalen én gang; teksten kobles ikke til sceneelementet">${normalOptions}</select>
         </div>
-        ${getDeleteButtonHTML()}
+        ${snapRowHTML(textObj.snapping)}
       `;
     } else if(type === 'rect') {
       const rectObj = obj;
       return `
         ${coordinatesHTML('bottomCenter', rectObj.bottomCenter, 'Rektangel', 'O')}
-        <div class="scene-editor-row">
-          <label>Farge:</label>
-          <input type="color" class="scene-editor-input" data-field="color" data-type="rect" data-idx="${index}" value="${expandHexColor(rectObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
-          <label style="min-width:auto; margin-left:4px;">Linje:</label>
-          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="rect" data-idx="${index}" value="${rectObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
-        </div>
-        <div class="scene-editor-row">
-          <label>Stil:</label>
-          <select class="scene-editor-input" data-field="body" data-type="rect" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
-            <option value="solid" ${(rectObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
-            <option value="dashed" ${(rectObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
-          </select>
-        </div>
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="rect" data-idx="${index}" ${(rectObj.snapping ? 'checked' : '')} />
-        </div>
-        ${getDeleteButtonHTML()}
+        ${colorHTML('color', rectObj.color || '#4090ff', 'Farge:')}
+        ${lineWidthHTML(rectObj.lineWidth)}
+        ${lineStyleHTML(rectObj.body)}
+        ${snapRowHTML(rectObj.snapping)}
       `;
     } else if(type === 'ellipse') {
       const ellObj = obj;
@@ -339,89 +528,43 @@ function updateScenePanel(){
       const axisB = [center[0] + normal[0] * ellObj.height / 2, center[1] + normal[1] * ellObj.height / 2];
       return `
         ${coordinatesHTML('center', center, 'Ellipse', 'O')}
+        <div class="scene-editor-row">
+          <label>Lås akser:</label>
+          <input type="checkbox" class="scene-editor-input" data-field="lockAxes" data-type="ellipse" data-idx="${index}" ${ellObj.lockAxes ? 'checked' : ''} aria-label="Lås ellipseaksene like lange" />
+        </div>
         ${coordinatesHTML('axisA', axisA, 'A')}
         ${coordinatesHTML('axisB', axisB, 'B')}
         <div class="scene-editor-row" title="Parametervinkler: 0° langs lokal bredderetning; positivt mot klokka. 0–360° er hel ellipse. Like verdier er tom bue.">
-          <label style="min-width:0;">Start °:</label><input type="number" class="scene-editor-input" data-field="startAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.startAngleDeg ?? 0}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
-          <label style="min-width:0;">Slutt °:</label><input type="number" class="scene-editor-input" data-field="endAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.endAngleDeg ?? 360}" step="any" style="width:52px;min-width:0;flex:1 1 52px;" />
+          <label class="scene-angle-label">Start °:</label><input type="number" class="scene-editor-input scene-coordinate-input" data-field="startAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.startAngleDeg ?? ''}" step="any" aria-label="Startvinkel, blank betyr 0°" />
+          <label class="scene-angle-label">Slutt °:</label><input type="number" class="scene-editor-input scene-coordinate-input" data-field="endAngleDeg" data-type="ellipse" data-idx="${index}" value="${ellObj.endAngleDeg ?? ''}" step="any" aria-label="Sluttvinkel, blank betyr 360°" />
         </div>
-        ${fillHTML()}
-        <div class="scene-editor-row">
-          <label>Farge:</label>
-          <input type="color" class="scene-editor-input" data-field="color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.color || '#4090ff')}" style="width:40px; padding:2px;" />
-          <label style="min-width:auto; margin-left:4px;">Linje:</label>
-          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="ellipse" data-idx="${index}" value="${ellObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
+        <div class="scene-editor-row scene-ellipse-colors">
+          <label>Farge:</label><input type="color" class="scene-editor-input scene-color-input" data-field="color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.color || '#4090ff')}" aria-label="Strekfarge" />
+          <label class="scene-inline-label">Fyll:</label>
+          <input type="checkbox" class="scene-editor-input" data-field="fillEnabled" data-type="ellipse" data-idx="${index}" ${ellObj.fill_color ? 'checked' : ''} aria-label="Fyll på" />
+          <input type="color" class="scene-editor-input scene-color-input" data-field="fill_color" data-type="ellipse" data-idx="${index}" value="${expandHexColor(ellObj.fill_color || '#4090ff')}" ${ellObj.fill_color ? '' : 'disabled'} aria-label="Fyllfarge" />
         </div>
-        <div class="scene-editor-row">
-          <label>Stil:</label>
-          <select class="scene-editor-input" data-field="body" data-type="ellipse" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
-            <option value="solid" ${(ellObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
-            <option value="dashed" ${(ellObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
-          </select>
-        </div>
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="ellipse" data-idx="${index}" ${(ellObj.snapping ? 'checked' : '')} />
-        </div>
-        ${getDeleteButtonHTML()}
-      `;
-    } else if(type === 'circle') {
-      const circObj = obj;
-      return `
-        ${fillHTML()}
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="circle" data-idx="${index}" ${(circObj.snapping ? 'checked' : '')} />
-        </div>
-        ${getDeleteButtonHTML()}
+        ${lineWidthAndStyleHTML(ellObj.lineWidth,ellObj.body)}
+        ${snapRowHTML(ellObj.snapping)}
       `;
     } else if(type === 'segment') {
       const segObj = obj;
       return `
         ${coordinatesHTML('a', segObj.a, 'Segment', 'A')}
         ${coordinatesHTML('b', segObj.b, 'Segment', 'B')}
-        <div class="scene-editor-row">
-          <label>Farge:</label>
-          <input type="color" class="scene-editor-input" data-field="color" data-type="segment" data-idx="${index}" value="${expandHexColor(segObj.color || '#222222')}" style="width:40px; padding:2px;" />
-          <label style="min-width:auto; margin-left:4px;">Linje:</label>
-          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="segment" data-idx="${index}" value="${segObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
-        </div>
-        <div class="scene-editor-row">
-          <label>Stil:</label>
-          <select class="scene-editor-input" data-field="body" data-type="segment" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
-            <option value="solid" ${(segObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
-            <option value="dashed" ${(segObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
-          </select>
-        </div>
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="segment" data-idx="${index}" ${(segObj.snapping ? 'checked' : '')} />
-        </div>
-        ${getDeleteButtonHTML()}
+        ${colorHTML('color', segObj.color || '#222222', 'Farge:')}
+        ${lineWidthAndStyleHTML(segObj.lineWidth,segObj.body)}
+        ${snapRowHTML(segObj.snapping)}
       `;
     } else if(type === 'arrow') {
       const arrObj = obj;
       return `
         ${coordinatesHTML('a', arrObj.a, 'Pil', 'A')}
         ${coordinatesHTML('b', arrObj.b, 'Pil', 'B')}
-        <div class="scene-editor-row">
-          <label>Farge:</label>
-          <input type="color" class="scene-editor-input" data-field="color" data-type="arrow" data-idx="${index}" value="${expandHexColor(arrObj.color || '#00f')}" style="width:40px; padding:2px;" />
-          <label style="min-width:auto; margin-left:4px;">Linje:</label>
-          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="arrow" data-idx="${index}" value="${arrObj.lineWidth || 2}" style="width:40px;" min="0.5" max="10" step="0.5" />
-        </div>
-        <div class="scene-editor-row">
-          <label>Stil:</label>
-          <select class="scene-editor-input" data-field="body" data-type="arrow" data-idx="${index}" style="flex:1; padding:2px 4px; font-size:11px;">
-            <option value="solid" ${(arrObj.body !== 'dashed' ? 'selected' : '')}>Heltrukken</option>
-            <option value="dashed" ${(arrObj.body === 'dashed' ? 'selected' : '')}>Stiplet</option>
-          </select>
-        </div>
-        <div class="scene-editor-row">
-          <label>Snap:</label>
-          <input type="checkbox" class="scene-editor-input" data-field="snapping" data-type="arrow" data-idx="${index}" ${(arrObj.snapping ? 'checked' : '')} />
-        </div>
-        ${getDeleteButtonHTML()}
+        ${colorHTML('color', arrObj.color || '#00f', 'Farge:')}
+        ${lineWidthAndStyleHTML(arrObj.lineWidth,arrObj.body)}
+        ${arrowHeadSizeHTML(arrObj.arrowHeadLength)}
+        ${snapRowHTML(arrObj.snapping)}
       `;
     } else if(type === 'plane') {
       const planeObj = obj;
@@ -435,11 +578,10 @@ function updateScenePanel(){
         <div class="scene-editor-row">
           <label>Synlig:</label>
           <input type="checkbox" class="scene-editor-input" data-field="draw" data-type="plane" data-idx="${index}" ${planeObj.draw ? 'checked' : ''} />
-          <label style="min-width:auto; margin-left:8px;">Farge:</label>
+          <label class="scene-inline-label">Farge:</label>
           <input type="color" class="scene-editor-input" data-field="color" data-type="plane" data-idx="${index}" value="${expandHexColor(planeObj.color || '#777777')}" style="width:40px; padding:2px;" />
-          <label style="min-width:auto; margin-left:4px;">Linje:</label>
-          <input type="number" class="scene-editor-input" data-field="lineWidth" data-type="plane" data-idx="${index}" value="${planeObj.lineWidth || 4}" style="width:40px;" min="0.5" max="10" step="0.5" />
         </div>
+        ${lineWidthAndStyleHTML(planeObj.lineWidth ?? 4,planeObj.body)}
       `;
     }
     return '';
@@ -448,6 +590,72 @@ function updateScenePanel(){
   // Helper to wire up editor inputs
   function setupEditorInputs(editor, type, index, obj) {
     const inputs = editor.querySelectorAll('.scene-editor-input');
+    function refreshTextRotationInputs(text,skipInput=null){
+      const angleInput=editor.querySelector('.scene-text-angle');
+      const normalInputs=editor.querySelectorAll('.scene-text-normal');
+      if(!angleInput || normalInputs.length<2) return;
+      const mode=Number.isFinite(text.angle_deg) ? 'angle'
+        : Array.isArray(text.n_vec) && text.n_vec.length===2 &&
+          text.n_vec.every(Number.isFinite) && Math.hypot(...text.n_vec)>1e-8
+          ? 'normal' : 'none';
+      const normal=mode==='normal' ? normalizeNormal(text.n_vec)
+        : mode==='angle'
+          ? [Math.sin(text.angle_deg*Math.PI/180),-Math.cos(text.angle_deg*Math.PI/180)]
+          : [0,-1];
+      const angle=mode==='angle' ? text.angle_deg
+        : mode==='normal' ? Math.atan2(normal[0],-normal[1])*180/Math.PI : 0;
+      if(angleInput!==skipInput) angleInput.value=String(angle);
+      normalInputs.forEach(input=>{
+        const axis=Number(input.dataset.axis);
+        if(input!==skipInput) input.value=String(normal[axis]);
+        input.classList?.toggle('scene-rotation-derived',mode!=='normal');
+      });
+      angleInput.classList?.toggle('scene-rotation-derived',mode!=='angle');
+    }
+    function normalizeNormal(vector){
+      const length=Math.hypot(...vector);
+      return vector.map(value=>value/length);
+    }
+    function refreshCoordinateInputs(){
+      const scene = window.currentTask?.scene;
+      const target = type === 'plane' ? scene?.plane : scene?.[type + 's']?.[index];
+      if(!target) return;
+      const positions = {};
+      if(type === 'plane'){
+        positions.through = target.through;
+        positions.dirPoint = target.dirPoint || [
+          target.through[0] + (target.n_vec?.[0] || 0) * 3 * (window.GRID_STEP || 20),
+          target.through[1] + (target.n_vec?.[1] ?? -1) * 3 * (window.GRID_STEP || 20)
+        ];
+      } else if(type === 'ellipse'){
+        const center = target.center || [0, 0];
+        const tangent = target.t_vec || [1, 0], normal = target.n_vec || [0, -1];
+        positions.center = center;
+        positions.axisA = [center[0] + tangent[0] * target.width / 2, center[1] + tangent[1] * target.width / 2];
+        positions.axisB = [center[0] + normal[0] * target.height / 2, center[1] + normal[1] * target.height / 2];
+      } else {
+        positions.bottomCenter = target.bottomCenter;
+        positions.a = target.a;
+        positions.b = target.b;
+        positions.pos = target.pos;
+      }
+      editor.querySelectorAll('.scene-coordinate-input').forEach(field => {
+        const position = positions[field.dataset.vector];
+        const axis = Number(field.dataset.axis);
+        if(position && Number.isFinite(position[axis])) field.value = position[axis];
+      });
+    }
+    function refreshSceneState(){
+      refreshCoordinateInputs();
+      const target=type === 'plane' ? window.currentTask?.scene?.plane :
+        window.currentTask?.scene?.[type + 's']?.[index];
+      const preview=editor.closest?.('.scene-item')?.querySelector('.scene-item-preview');
+      if(target && preview){
+        preview.textContent=getPreview(type,target);
+        if(type !== 'text') preview.title=preview.textContent;
+      }
+      window.updateAppState?.({preserveScenePanel:true});
+    }
     inputs.forEach(input => {
       // Real-time input for text fields (txt, size, color, align)
       input.addEventListener('input', (e) => {
@@ -458,12 +666,44 @@ function updateScenePanel(){
         const currentScene = window.currentTask?.scene;
         
         if(fieldType === 'text' && currentScene?.texts?.[idx]) {
+          if(field==='rotationAngle'){
+            if(input.value.trim()==='') return;
+            const angle=Number(input.value);
+            if(!Number.isFinite(angle)) return;
+            currentScene.texts[idx].angle_deg=angle;
+            delete currentScene.texts[idx].n_vec;
+            window.markEdited?.('task');
+            refreshTextRotationInputs(currentScene.texts[idx],input);
+            return;
+          }
+          if(field==='rotationNormal'){
+            const components=Array.from(editor.querySelectorAll('.scene-text-normal'))
+              .map(control=>control===input ? input.value : control.value);
+            if(components.some(value=>String(value).trim()==='')) return;
+            const vector=components.map(Number);
+            const length=window.geometry.length(vector);
+            if(!vector.every(Number.isFinite) || length<=1e-8) return;
+            currentScene.texts[idx].n_vec=vector.map(value=>value/length);
+            delete currentScene.texts[idx].angle_deg;
+            window.markEdited?.('task');
+            refreshTextRotationInputs(currentScene.texts[idx],input);
+            return;
+          }
+          if(field==='copyNormal') return;
+          if(field === 'coordinates') return;
           if(input.type === 'number') {
             currentScene.texts[idx][field] = parseInt(input.value) || 14;
           } else if(input.type !== 'checkbox') {
             currentScene.texts[idx][field] = input.value;
           }
+          if(field === 'txt'){
+            const preview=editor.closest?.('.scene-item')?.querySelector('.scene-item-preview');
+            if(preview){
+              preview.textContent=input.value;
+            }
+          }
           window.markEdited && window.markEdited('task');
+          window.refreshSceneTextCoordinates();
         }
       });
       
@@ -474,7 +714,79 @@ function updateScenePanel(){
         const idx = parseInt(input.dataset.idx);
         // Use window.currentTask.scene directly instead of closure to avoid stale references
         const currentScene = window.currentTask?.scene;
+        if(fieldType==='text' && currentScene?.texts?.[idx] &&
+           (field==='rotationAngle' || field==='rotationNormal')){
+          const text=currentScene.texts[idx];
+          if(field==='rotationAngle' && input.value.trim()===''){
+            delete text.angle_deg;
+            delete text.n_vec;
+            input.setCustomValidity('');
+            refreshTextRotationInputs(text);
+            window.markEdited?.('task');
+            refreshSceneState();
+            return;
+          }
+          if(field==='rotationNormal' && input.value.trim()===''){
+            delete text.angle_deg;
+            delete text.n_vec;
+            input.setCustomValidity('');
+            refreshTextRotationInputs(text);
+            window.markEdited?.('task');
+            refreshSceneState();
+            return;
+          }
+          if(field==='rotationAngle'){
+            const angle=Number(input.value);
+            if(!Number.isFinite(angle)){
+              input.setCustomValidity('Oppgi en endelig vinkel i grader.');
+              input.reportValidity();
+              return;
+            }
+            input.setCustomValidity('');
+            text.angle_deg=angle;
+            delete text.n_vec;
+          } else {
+            const components=Array.from(editor.querySelectorAll('.scene-text-normal'))
+              .map(control=>control.value.trim()==='' ? NaN : Number(control.value));
+            if(!components.every(Number.isFinite) || window.geometry.length(components)<=1e-8){
+              input.setCustomValidity('Oppgi to endelige normalverdier som ikke begge er null.');
+              input.reportValidity();
+              return;
+            }
+            input.setCustomValidity('');
+            const length=window.geometry.length(components);
+            text.n_vec=components.map(value=>value/length);
+            delete text.angle_deg;
+          }
+          window.markEdited?.('task');
+          refreshTextRotationInputs(text,input);
+          refreshSceneState();
+          return;
+        }
+        if(fieldType==='text' && currentScene?.texts?.[idx] && field==='copyNormal'){
+          const [kind,indexText]=input.value.split(':');
+          const index=Number(indexText);
+          const scene=currentScene;
+          const vector=window.sceneElementNormal(scene,kind,index);
+          if(!Array.isArray(vector) || vector.length!==2 ||
+             !vector.every(Number.isFinite) || window.geometry.length(vector)<=1e-8){
+            input.setCustomValidity('Elementet har ingen gyldig normal å kopiere.');
+            input.reportValidity();
+            input.value='';
+            return;
+          }
+          input.setCustomValidity('');
+          const length=window.geometry.length(vector);
+          currentScene.texts[idx].n_vec=vector.map(value=>value/length);
+          delete currentScene.texts[idx].angle_deg;
+          input.value='';
+          window.markEdited?.('task');
+          refreshTextRotationInputs(currentScene.texts[idx]);
+          refreshSceneState();
+          return;
+        }
         if(field === 'coordinates'){
+          if(input.readOnly) return;
           const vector = input.dataset.vector;
           const axis = Number(input.dataset.axis);
           const value = Number(input.value);
@@ -516,17 +828,17 @@ function updateScenePanel(){
                 return;
               }
               input.setCustomValidity('');
+              window.sceneModel.setEllipseAxisLength(
+                target,vector === 'axisA' ? 'width' : 'height',length*2);
               if(vector === 'axisA'){
-                target.width = length * 2;
                 target.t_vec = [direction[0] / length, direction[1] / length];
                 target.n_vec = window.geometry.normalFromTangent(target.t_vec);
               } else {
-                target.height = length * 2;
                 target.n_vec = [direction[0] / length, direction[1] / length];
                 target.t_vec = window.geometry.tangentFromNormal(target.n_vec);
               }
               window.markEdited?.('task');
-              window.updateAppState?.();
+              refreshSceneState();
               return;
             }
             const position = target[vector];
@@ -549,10 +861,10 @@ function updateScenePanel(){
             }
           }
           window.markEdited?.('task');
-          window.updateAppState?.();
+          refreshSceneState();
           return;
         }
-        if((fieldType === 'ellipse' || fieldType === 'circle') &&
+        if(fieldType === 'ellipse' &&
            (field === 'fillEnabled' || field === 'fill_color' || field === 'startAngleDeg' || field === 'endAngleDeg')){
           const target = currentScene?.[fieldType + 's']?.[idx];
           if(!target) return;
@@ -564,6 +876,13 @@ function updateScenePanel(){
           } else if(field === 'fill_color'){
             target.fill_color = input.value;
           } else {
+            if(fieldType === 'ellipse' && input.value.trim()===''){
+              delete target[field];
+              input.setCustomValidity('');
+              window.markEdited?.('task');
+              window.updateAppState?.({preserveScenePanel:true});
+              return;
+            }
             const value = Number(input.value);
             if(input.value.trim() === '' || !Number.isFinite(value)){
               input.setCustomValidity('Oppgi en endelig vinkel i grader.');
@@ -580,7 +899,7 @@ function updateScenePanel(){
         
         if(fieldType === 'text' && currentScene?.texts?.[idx]) {
           if(input.type === 'checkbox') {
-            // Simply toggle the linked flag - do not modify pos (avoid accidental changes)
+            window.updateTextPositions(window.currentTask);
             currentScene.texts[idx][field] = input.checked;
           } else if(input.type === 'color') {
             currentScene.texts[idx][field] = input.value;
@@ -590,6 +909,7 @@ function updateScenePanel(){
             currentScene.texts[idx][field] = input.value;
           }
           window.markEdited && window.markEdited('task');
+          window.refreshSceneTextCoordinates();
         } else if(fieldType === 'rect' && currentScene?.rects?.[idx]) {
           if(input.type === 'checkbox') {
             currentScene.rects[idx][field] = input.checked;
@@ -602,6 +922,14 @@ function updateScenePanel(){
           }
           window.markEdited && window.markEdited('task');
         } else if(fieldType === 'ellipse' && currentScene?.ellipses?.[idx]) {
+          if(field === 'lockAxes'){
+            const ellipse = currentScene.ellipses[idx];
+            ellipse.lockAxes = input.checked;
+            if(input.checked) window.sceneModel.setEllipseAxisLength(ellipse,'width',ellipse.width);
+            window.markEdited?.('task');
+            refreshSceneState();
+            return;
+          }
           if(input.type === 'checkbox') {
             currentScene.ellipses[idx][field] = input.checked;
           } else if(input.type === 'color') {
@@ -610,11 +938,6 @@ function updateScenePanel(){
             currentScene.ellipses[idx][field] = parseFloat(input.value) || 2;
           } else if(input.tagName === 'SELECT') {
             currentScene.ellipses[idx][field] = input.value;
-          }
-          window.markEdited && window.markEdited('task');
-        } else if(fieldType === 'circle' && currentScene?.circles?.[idx]) {
-          if(input.type === 'checkbox') {
-            currentScene.circles[idx][field] = input.checked;
           }
           window.markEdited && window.markEdited('task');
         } else if(fieldType === 'segment' && currentScene?.segments?.[idx]) {
@@ -646,12 +969,14 @@ function updateScenePanel(){
             currentScene.plane[field] = input.value;
           } else if(input.type === 'number') {
             currentScene.plane[field] = parseFloat(input.value) || 4;
+          } else if(input.tagName === 'SELECT') {
+            currentScene.plane[field] = input.value;
           }
           window.markEdited && window.markEdited('task');
         }
       });
     });
-    
+
     // Delete button handler for scene elements
     const deleteButtons = editor.querySelectorAll('.scene-delete-element-btn');
     deleteButtons.forEach(btn => {
@@ -664,12 +989,10 @@ function updateScenePanel(){
         window.sceneModel?.remapReferences(window.currentTask, btnType, btnIdx, 'delete');
         
         if(btnType === 'text' && currentScene?.texts?.[btnIdx]) {
-          // Tekster uten pos henger etter forrige tekst. Når første tekst slettes, 
-          // fryses neste teksts nåværende posisjon så den ikke mister plasseringen.
+          // Behold neste teksts beregnede posisjon når kjedens første tekst slettes.
+          window.updateTextPositions(window.currentTask);
           const next = currentScene.texts[btnIdx + 1];
-          if(btnIdx === 0 && next && !next.pos){
-            const rp = next._renderedPos;
-            next.pos = Array.isArray(rp) && rp.length >= 2 ? [rp[0], rp[1]] : [...(currentScene.texts[0].pos || [20, 20])];
+          if(btnIdx === 0 && next?.linked){
             next.linked = false;
           }
           currentScene.texts.splice(btnIdx, 1);
@@ -677,8 +1000,6 @@ function updateScenePanel(){
           currentScene.rects.splice(btnIdx, 1);
         } else if(btnType === 'ellipse' && currentScene?.ellipses?.[btnIdx]) {
           currentScene.ellipses.splice(btnIdx, 1);
-        } else if(btnType === 'circle' && currentScene?.circles?.[btnIdx]) {
-          currentScene.circles.splice(btnIdx, 1);
         } else if(btnType === 'segment' && currentScene?.segments?.[btnIdx]) {
           currentScene.segments.splice(btnIdx, 1);
         } else if(btnType === 'arrow' && currentScene?.arrows?.[btnIdx]) {
@@ -781,57 +1102,14 @@ function updateScenePanel(){
   }
   
   // Plane (one per task)
-  if(scene.plane) {
-    addItem('Plan', 'plane', undefined, scene.plane);
-  }
-  
-  // Rects
-  if(Array.isArray(scene.rects)) {
-    scene.rects.forEach((rect, idx) => {
-      addItem('rect', 'rect', idx, rect);
-    });
-  }
-  
-  // Ellipses
-  if(Array.isArray(scene.ellipses)) {
-    scene.ellipses.forEach((ellipse, idx) => {
-      addItem('ellipse', 'ellipse', idx, ellipse);
-    });
-  }
-  
-  // Circles
-  if(Array.isArray(scene.circles)) {
-    scene.circles.forEach((circle, idx) => {
-      addItem('circle', 'circle', idx, circle);
-    });
-  }
-  
-  // Segments
-  if(Array.isArray(scene.segments)) {
-    scene.segments.forEach((segment, idx) => {
-      addItem('segment', 'segment', idx, segment);
-    });
-  }
-  
-  // Arrows
-  if(Array.isArray(scene.arrows)) {
-    scene.arrows.forEach((arrow, idx) => {
-      addItem('arrow', 'arrow', idx, arrow);
-    });
-  }
-  
-  // Texts
-  if(Array.isArray(scene.texts)) {
-    scene.texts.forEach((text, idx) => {
-      if(!text._isShortLines) {
-        addItem('txt', 'text', idx, text);
-      }
-    });
-  }
-  
-  // Step 5: Restore selected element after DOM rebuild
-  (scene.points || []).forEach((point, idx) => addItem('Punkt', 'point', idx, point));
-  (scene.angles || []).forEach((angle, idx) => addItem('Vinkel', 'angle', idx, angle));
+  addGroup('Plan','plane',scene.plane ? [{index:undefined,obj:scene.plane}] : []);
+  addGroup('Rektangel','rect',(scene.rects || []).map((obj,index)=>({index,obj})));
+  addGroup('Ellipse','ellipse',(scene.ellipses || []).map((obj,index)=>({index,obj})));
+  addGroup('Segment','segment',(scene.segments || []).map((obj,index)=>({index,obj})));
+  addGroup('Pil','arrow',(scene.arrows || []).map((obj,index)=>({index,obj})));
+  addGroup('txt','text',(scene.texts || []).map((obj,index)=>({index,obj})).filter(entry=>!entry.obj._isShortLines));
+  addGroup('Punkt','point',(scene.points || []).map((obj,index)=>({index,obj})));
+  addGroup('Vinkel','angle',(scene.angles || []).map((obj,index)=>({index,obj})));
   if(window.selectedSceneElement && scenePanel){
     const items = scenePanel.querySelectorAll('.scene-item');
     for(const item of items){
@@ -850,6 +1128,7 @@ function updateScenePanel(){
       }
     }
   }
+  window.updateEditorPanelHeights?.();
 }
 
 /**
@@ -960,7 +1239,7 @@ function setupHelpPanelPositioning(){
   };
 
   header.addEventListener('pointerdown', event=>{
-    if(event.button !== 0 || event.target.closest('button') || panel.classList.contains('hidden')) return;
+    if(event.button !== 0 || event.target.closest('button, input, textarea, select, [contenteditable]') || panel.classList.contains('hidden')) return;
     const bounds = panel.getBoundingClientRect();
     drag = {
       pointerId: event.pointerId,
@@ -1197,5 +1476,5 @@ function drawHelpLinesCanvas(){
 }
 
 setupHelpPanelPositioning();
-setupFloatingPanelPositioning('relations-modal',520,'relations-close','relations-cancel');
+setupFloatingPanelPositioning('relations-modal',520,'relations-close','relations-save');
 setupFloatingPanelPositioning('snap-checklist-modal',440,'snap-checklist-close','snap-checklist-cancel');

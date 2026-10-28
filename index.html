@@ -126,11 +126,8 @@
         <label><input type="checkbox" data-snap-checklist="showForceCoordinates"> Vis kraft-koordinater</label>
         <strong>Sammenligning mellom krefter</strong>
         <label><input type="checkbox" data-snap-checklist="snapForceEndpoints"> Snap til endepunkter på andre kraftpiler</label>
-        <label><input type="checkbox" data-snap-checklist="snapSameAxisComponents"> Match samme x-/y-komponent (x–x, y–y)</label>
-        <label><input type="checkbox" data-snap-checklist="snapCrossAxisComponents"> Match kryssende x-/y-komponenter (x–y)</label>
-        <label><input type="checkbox" data-snap-checklist="snapLocalComponents"> Match komponenter langs scenegeometri</label>
-        <label><input type="checkbox" data-snap-checklist="snapForceLengths"> Match total kraftlengde</label>
-        <label><input type="checkbox" data-snap-checklist="snapComponentToLength"> Match komponent mot total kraftlengde</label>
+        <p>Lengde er total kraftlengde. x/y er globale komponenter; n/t er normal/tangent til scenegeometrien. Match gjelder begge veier, uavhengig av fortegn. Standard: lengde–lengde, lengde–x, lengde–y, x–x og y–y. Alle kan velges bort.</p>
+        <div data-snap-match-options></div>
         <div class="snap-checklist-actions">
           <button id="snap-checklist-save">Bruk for denne oppgaven</button>
           <button id="snap-checklist-cancel">Avbryt</button>
@@ -178,6 +175,7 @@
   <!-- Midlertidig: uten ES module for å kunne åpne via file:// -->
   <script src="web/version.js"></script>
   <script src="web/shared.js"></script>
+  <script src="web/force_notation.js"></script>
   <script src="web/text_render.js"></script>
   <script src="web/geometry.js"></script>
   <script src="web/scene_render.js"></script>

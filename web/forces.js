@@ -10,6 +10,7 @@
   const MIN_LEN = 15; // lowered threshold so short first force still counts
 
   function normalizeName(s){
+    if(window.forceNotation) return window.forceNotation.key(s);
     if(!s) return '';
     s = s.trim().toLowerCase();
     const remove = new Set([' ','_','^','{','}']);
@@ -22,6 +23,8 @@
     const isExpected=force.isExpected===undefined ? force.moveable!==false : force.isExpected;
     let color=force.checkHighlight ? HIGHLIGHT_FORCE_COLOR : (active ? ACTIVE_FORCE_COLOR : FORCE_COLOR);
     if(!isExpected) color='#2d7d2d';
+    if(force.role==='resultant') color='#000000';
+    if(force.checkHighlight) color=HIGHLIGHT_FORCE_COLOR;
     if(['body','arrowTip'].includes(force.dragging) || ['body','arrowTip'].includes(force.hovering)){
       color=HIGHLIGHT_FORCE_COLOR;
     }
@@ -44,6 +47,8 @@
       this.force_dir = [1,0];
       this.force_len = 0;
       this.name = '';
+      this.role = 'force';
+      this.manualRole = 'force';
       this.editable = true;
       this.moveable = true;
       this.checkHighlight = false; // set true during evaluation highlighting
@@ -136,7 +141,7 @@
         return false;
       }
       
-      if(!this.editable && !this.moveable) return false;
+      if(!this.editable && !this.moveable && !(isTaskMode && isInitial && this.dragging==='body')) return false;
       // Drawing: update arrowTip following mouse
       if(this.drawing && this.arrowBase){
         this.arrowTip = [pos[0], pos[1]];
@@ -236,6 +241,8 @@
         // Use green color for initial forces (in all modes)
         const isInitial = !isExpected;
         if(isInitial) baseColor = '#2d7d2d';
+        if(this.role==='resultant') baseColor = '#000000';
+        if(evalHighlighted) baseColor = HIGHLIGHT_FORCE_COLOR;
         ctx.strokeStyle = baseColor;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(this.anchor[0], this.anchor[1]); ctx.lineTo(this.arrowBase[0], this.arrowBase[1]); ctx.stroke();
@@ -245,7 +252,10 @@
 
         ctx.lineWidth = 4;
         ctx.strokeStyle = arrowColor;
+        ctx.save();
+        if(this.role==='component') ctx.setLineDash([9,6]);
         ctx.beginPath(); ctx.moveTo(this.arrowBase[0], this.arrowBase[1]); ctx.lineTo(body_end[0], body_end[1]); ctx.stroke();
+        ctx.restore();
 
         // arrow head
         ctx.fillStyle = arrowColor;

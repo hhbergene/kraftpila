@@ -362,9 +362,8 @@
       const candidate=nearest(pos,candidates(state.task,state.pointsOnly));
       window.setLastCanvasCoordinates?.(candidate?.pos || pos);
       finishAnchor(state,null,null,false,()=>{
-        const point=candidate ? null : model().createPoint(state.task,pos.slice());
-        const spec=candidate ? candidate.anchor : {type:'point',ref:point.id,point:'center'};
-        state.apply(spec,candidate?.pos || point.pos,!!point);
+        const spec=candidate ? candidate.anchor : {type:'custom',pos:pos.slice()};
+        state.apply(spec,candidate?.pos || pos,false);
       });
       return;
     }

@@ -212,6 +212,7 @@ test('task export preserves omitted and explicitly supplied tolerances',()=>{
   for(const overrides of [{},{tol_rel:0,tol_abs:3}]){
     const s=setup(overrides);
     s.relationsSave.click();
+    s.window.currentTask.snapChecklist.removedOption=true;
     s.window.fm.forces=[];
     s.window.confirmAuthorExport=()=>true;
     s.window.sceneModel={update(){}};
@@ -232,7 +233,7 @@ test('task export preserves omitted and explicitly supplied tolerances',()=>{
     vm.runInNewContext(exported,{TASKS:tasks});
     const exportedRelation=tasks[0].relations[0];
     assert.deepEqual(JSON.parse(JSON.stringify(tasks[0].snapChecklist)),
-      JSON.parse(JSON.stringify(s.window.currentTask.snapChecklist)));
+      JSON.parse(JSON.stringify(s.window.getTaskSnapChecklist(s.window.currentTask))));
     assert.deepEqual(JSON.parse(JSON.stringify(exportedRelation)),{
       lhs:[{name:'A'}],rhs:[{name:'B'}],ratio:1,...overrides
     });

@@ -71,34 +71,15 @@ for(const id of ['LL','LX','LY','LN','LT','XX','YY','XY','NN','TT','NT','XN','XT
   });
 }
 
-test('legacy flags expand without mutating tasks, and fine-grained fields win',()=>{
+test('default taskset stores only current checklist fields',()=>{
   const window=runtime();
-  const task={scene:{plane:{angleDeg:30}},snapChecklist:{
-    snapSameAxisComponents:false,snapCrossAxisComponents:true,snapLocalComponents:true,
-    snapForceLengths:false,snapComponentToLength:true,snapMatchLN:false,
-    guidelinesEnabled:false
-  }};
-  const before=JSON.stringify(task);
-  const result=window.getTaskSnapChecklist(task);
-  assert.equal(JSON.stringify(task),before);
-  assert.equal(result.snapMatchXX,false);
-  assert.equal(result.snapMatchYY,false);
-  assert.equal(result.snapMatchXY,true);
-  assert.equal(result.snapMatchNN,true);
-  assert.equal(result.snapMatchXN,true);
-  assert.equal(result.snapMatchLL,false);
-  assert.equal(result.snapMatchLX,true);
-  assert.equal(result.snapMatchLN,false);
-  assert.equal(result.snapMatchLT,true);
-  assert.equal(result.guidelinesEnabled,false);
-  assert.equal(Object.hasOwn(result,'snapLocalComponents'),false);
-  const partial=window.getTaskSnapChecklist({snapChecklist:{snapForceLengths:true}});
-  assert.equal(partial.snapMatchLL,true);
-  assert.equal(partial.snapMatchLX,false,'legacy partial task keeps its original defaults');
-  const override=window.normalizeSnapChecklist(task,{snapSameAxisComponents:true},result);
-  assert.equal(override.snapMatchXX,true);
-  assert.equal(override.snapMatchNN,true);
-  assert.equal(override.snapMatchLN,false);
+  const allowed=new Set(Object.keys(window.getSnapChecklistDefaults()));
+  const taskset=JSON.parse(fs.readFileSync(path.join(root,'taskset_Default.json'),'utf8'));
+  for(const task of taskset.tasks){
+    for(const key of Object.keys(task.snapChecklist || {})){
+      assert.ok(allowed.has(key),`${task.id}: unsupported checklist field ${key}`);
+    }
+  }
 });
 
 test('relevance uses only single-term equalities, with missing components meaning length',()=>{

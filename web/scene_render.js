@@ -882,6 +882,29 @@
     if(action==='down') return old===index ? `${prefix}${index+1}${m[2]}` : old===index+1 ? `${prefix}${index}${m[2]}` : ref;
     return ref;
   }
+  function rebaseForcePosition(spec,field,pos){
+    const expected=field==='anchor';
+    const live=window.fm?.forces?.find(force=>force.name===spec.name &&
+      (force.isExpected!==false)===expected);
+    if(validPos(live?.anchor)){
+      const delta=[pos[0]-live.anchor[0],pos[1]-live.anchor[1]];
+      live.anchor=cp(pos);
+      for(const key of ['arrowBase','arrowTip']){
+        if(validPos(live[key])) live[key]=[live[key][0]+delta[0],live[key][1]+delta[1]];
+      }
+      live.updateDirectionAndLength?.();
+    }
+    const geometry=expected ? spec.drawn : spec;
+    if(!geometry || typeof geometry!=='object') return;
+    const oldAnchor=validPos(geometry.anchor) ? geometry.anchor : geometry.arrowBase;
+    const delta=validPos(oldAnchor) ? [pos[0]-oldAnchor[0],pos[1]-oldAnchor[1]] : null;
+    geometry.anchor=cp(pos);
+    if(delta){
+      for(const key of ['arrowBase','arrowTip']){
+        if(validPos(geometry[key])) geometry[key]=[geometry[key][0]+delta[0],geometry[key][1]+delta[1]];
+      }
+    }
+  }
   function remapReferences(task,type,index,action,targetType,targetIndex){
     const scene=task?.scene;if(!scene)return;
     const prefix={rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point'}[type]||type;
@@ -920,9 +943,21 @@
       const mapped=pointDeleted?null:remapReference(anchor.ref,type,index,
         action==='convert' ? `convert:${targetType}` : action,targetIndex);
       if(mapped===null){
-        const resolved=resolveAnchor(task,anchor);
-        const pos=validPos(anchor.pos)?anchor.pos:resolved.pos;
-        spec[field]=validPos(pos)?{type:'custom',pos:cp(pos),detachedReason:'Kildegeometrien ble slettet; ankeret er nå fritt.'}:{...anchor,deleted:true};
+        const storedPos=field==='anchorSpec' ? spec.anchor :
+          (field==='anchor' ? spec.drawn?.anchor : null);
+        const expected=field==='anchor';
+        const livePosition=window.fm?.forces?.find(force=>force.name===spec.name &&
+          (force.isExpected!==false)===expected)?.anchor;
+        const positionHint=validPos(livePosition) ? livePosition : storedPos;
+        const resolved=resolveAnchor(task,{...anchor,...(validPos(positionHint)?{pos:positionHint}:{})});
+        const pos=validPos(resolved.pos) ? resolved.pos :
+          validPos(anchor.pos) ? anchor.pos : storedPos;
+        if(validPos(pos)){
+          rebaseForcePosition(spec,field,pos);
+          spec[field]={type:'custom',pos:cp(pos)};
+        }
+        else delete spec[field];
+        delete spec.anchorFrom;
       }else if(mapped!==anchor.ref) anchor.ref=mapped;
     };
     const remapLegacyForceSpec=spec=>{
@@ -932,10 +967,38 @@
         action==='convert' ? `convert:${targetType}` : action,targetIndex);
       if(mapped===null){
         const resolved=resolveAnchor(task,{type:'point',ref:spec.anchorFrom,point:spec.point||'center'});
-        if(validPos(resolved.pos)) spec.anchorSpec={type:'custom',pos:cp(resolved.pos),detachedReason:'Kildegeometrien ble slettet; ankeret er nå fritt.'};
+        const pos=validPos(resolved.pos) ? resolved.pos : spec.anchor;
+        if(validPos(pos)){
+          rebaseForcePosition(spec,'anchorSpec',pos);
+          spec.anchorSpec={type:'custom',pos:cp(pos)};
+        }
         delete spec.anchorFrom;
       }else if(mapped!==spec.anchorFrom) spec.anchorFrom=mapped;
     };
+    const sceneTypeAliases={
+      rects:'rect',rectangle:'rect',segments:'segment',arrows:'arrow',
+      circles:'circle',ellipses:'ellipse',points:'point',texts:'text'
+    };
+    (scene.groups||[]).forEach(group=>{
+      if(!Array.isArray(group?.members)) return;
+      for(let memberIndex=group.members.length-1;memberIndex>=0;memberIndex--){
+        const member=group.members[memberIndex];
+        if(!member || typeof member!=='object') continue;
+        const memberType=sceneTypeAliases[member?.type] || member?.type;
+        if(memberType!==prefix || memberType==='plane' || !Number.isInteger(member.index)) continue;
+        const mapped=remapReference(`${memberType}${member.index}`,type,index,
+          action==='convert' ? `convert:${targetType}` : action,targetIndex);
+        if(mapped===null){
+          group.members.splice(memberIndex,1);
+          continue;
+        }
+        const reference=/^([A-Za-z]+)(\d+)$/.exec(mapped);
+        if(reference){
+          member.type=sceneTypeAliases[reference[1]] || reference[1];
+          member.index=Number(reference[2]);
+        }
+      }
+    });
     ['expectedForces','initialForces','forces'].forEach(name=>{
       if(!Array.isArray(task[name]))return;
       task[name].forEach(spec=>{

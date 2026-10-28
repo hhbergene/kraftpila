@@ -78,6 +78,33 @@ test('linked text positions resolve before rendering even after a hidden title',
   ]);
 });
 
+test('student scene rendering ignores and preserves editor-only groups',()=>{
+  const runtime=sceneRuntime();
+  const scene={
+    plane:{through:[0,100],angleDeg:0},
+    rects:[{bottomCenter:[100,100],width:80,height:60}],
+    ellipses:[],segments:[],arrows:[],points:[],angles:[],
+    texts:[{txt:'Visible scene label',pos:[120,80]}]
+  };
+  const plainTask={scene:JSON.parse(JSON.stringify(scene))};
+  const groupedTask={scene:{...JSON.parse(JSON.stringify(scene)),groups:[
+    {description:'editor grouping only',members:[{type:'text',index:0},{type:'rect',index:0}]}
+  ]}};
+  const originalGroups=JSON.stringify(groupedTask.scene.groups);
+  const render=task=>{
+    const operations=[];
+    runtime.drawFormattedText=(ctx,text,x,y)=>operations.push(['text',text,x,y]);
+    const ctx=new Proxy({},{
+      get:(target,key)=>key in target ? target[key] : (...args)=>operations.push([key,...args]),
+      set(target,key,value){target[key]=value;return true;}
+    });
+    runtime.drawScene(ctx,task,false);
+    return operations;
+  };
+  assert.deepEqual(render(groupedTask),render(plainTask));
+  assert.equal(JSON.stringify(groupedTask.scene.groups),originalGroups);
+});
+
 test('task title scene text is hidden in both modes without deleting scene data',()=>{
   const runtime=sceneRuntime();
   const drawn=[];

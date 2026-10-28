@@ -49,6 +49,7 @@
         <button id="btn-add-segment" title="Legg til segment">─</button>
         <button id="btn-add-arrow" title="Legg til pil">→</button>
         <button id="btn-add-text" title="Legg til tekst">T</button>
+        <button id="btn-add-group" title="Opprett gruppe" aria-label="Opprett gruppe">{ }</button>
       </div>
     </div>
 
@@ -76,7 +77,7 @@
         <button id="clipboard-close" title="Lukk og tøm utklippstavla" aria-label="Lukk og tøm utklippstavla">✕</button>
       </div>
       <div class="relations-body clipboard-body">
-        <p>Kopier valgt sceneelement eller kraft. Hver kopiering legges til listen.
+        <p>Kopier valgt sceneelement, innholdet i åpen gruppe eller kraft. Hver kopiering legges til listen.
           Elementer kopieres uten krefter; koblinger erstattes med frie koordinater.</p>
         <div class="clipboard-actions">
           <button id="clipboard-copy">Kopier valgt (Ctrl+C)</button>
@@ -85,7 +86,8 @@
         <strong id="clipboard-count"></strong>
         <p id="clipboard-empty">Utklippstavla er tom. Velg et element i scenen eller en ferdig kraft med navn.</p>
         <ol id="clipboard-list"></ol>
-        <p>Listen beholdes ved oppgavebytte og innliming. Lukking eller ny lasting av siden tømmer listen.
+        <p>Ctrl+C i en åpen gruppe legger gruppeelementene i listen uten duplikater. Ctrl+V lager vanlige kopier i oppgaven; bruk + i gruppen for å legge til et allerede valgt element.
+          Listen beholdes ved oppgavebytte og innliming. Lukking eller ny lasting av siden tømmer listen.
           Et kopiert plan erstatter planet automatisk. Sammenfallende kopier flyttes et halvt rutenettsteg opp og til høyre.
           Kraftnavn nummereres ved navnekollisjon. Dette er en intern utklippstavle, ikke systemets.
           På Mac kan du bruke Cmd i stedet for Ctrl.</p>

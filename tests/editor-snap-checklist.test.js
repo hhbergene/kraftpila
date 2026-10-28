@@ -64,3 +64,35 @@ test('editor labels scene-handle coordinates separately and applies the task che
   assert.match(html,/Vis koordinater på sceneelementer/);
   assert.match(editorSource,/window\.currentTask = task;\s*}\s*applyTaskSnapChecklist\(window\.currentTask\);/);
 });
+
+test('taskset export includes only current checklist fields without changing stored tasks',()=>{
+  const task={id:'export-task',scene:{},snapChecklist:{snapMatchXY:true,removedOption:true}};
+  const s=setup(task);
+  s.window.tasks=[task];
+  s.window.confirmAuthorExport=()=>true;
+  s.window.AppVersioning={time:()=> 'test'};
+  let exportTasks;
+  let exported;
+  Object.assign(s.context,{
+    tasksetExportBtn:{addEventListener:(event,handler)=>{exportTasks=handler;}},
+    getSelectedTaskIds:()=>[task.id],relationsModal:null,autoSave:()=>{},
+    localStorage:{getItem:()=>null},
+    tasksetNameInput:{value:'Default'},tasksetResultDiv:{style:{}},tasksetReportDiv:{},
+    Blob:class {constructor(parts){exported=parts.join('');}},
+    URL:{createObjectURL:()=>'',revokeObjectURL:()=>{}},
+    document:{
+      createElement:()=>({click:()=>{}}),
+      body:{appendChild:()=>{},removeChild:()=>{}}
+    }
+  });
+  const start=editorSource.indexOf('  if (tasksetExportBtn) {');
+  const end=editorSource.indexOf('  // ===== IMPORTER:',start);
+  assert.ok(start>=0 && end>start);
+  vm.runInContext(editorSource.slice(start,end),s.context);
+  exportTasks();
+  const checklist=JSON.parse(exported).tasks[0].snapChecklist;
+  assert.equal(checklist.snapMatchXY,true);
+  assert.equal(Object.hasOwn(checklist,'removedOption'),false);
+  assert.deepEqual(Object.keys(checklist).sort(),Object.keys(s.window.getSnapChecklistDefaults()).sort());
+  assert.equal(task.snapChecklist.removedOption,true);
+});

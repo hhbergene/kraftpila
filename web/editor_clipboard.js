@@ -7,7 +7,9 @@
     segment:'Segment', arrow:'Pil', text:'Tekst', angle:'Vinkel', plane:'Plan',
     expectedForce:'Fasitkraft', initialForce:'Låst kraft'};
   const entries = [];
+  const sourceIds = new WeakMap(), taskIds = new WeakMap();
   let pointSequence = 0;
+  let sourceSequence = 0, taskSequence = 0;
   class ClipboardError extends Error {}
   const position = p=>Array.isArray(p) && p.length===2 && p.every(Number.isFinite);
   const clone = value=>JSON.parse(JSON.stringify(value, (key,item)=>key.startsWith('_') ? undefined : item));
@@ -61,6 +63,17 @@
     const entry = {type,data};
     validate(entry);
     return entry;
+  }
+
+  function identity(map,object,next){
+    if(!map.has(object)) map.set(object,next());
+    return map.get(object);
+  }
+
+  function sourceId(task,type,source){
+    const taskId=identity(taskIds,task,()=>++taskSequence);
+    const elementId=identity(sourceIds,source,()=>++sourceSequence);
+    return `${taskId}:${type}:${elementId}`;
   }
 
   function snapshotForce(force){
@@ -273,6 +286,15 @@
   function copy(){
     run(()=>{
       const entry = selectedEntry();
+      if(window.activePanel==='scene'){
+        const selected=window.selectedSceneElement;
+        const task=window.currentTask;
+        const source=selected?.type==='plane' ? task?.scene?.plane
+          : task?.scene?.[collections[selected?.type]]?.[selected?.index];
+        if(source && typeof source==='object'){
+          entry._sourceId=sourceId(task,selected.type,source);
+        }
+      }
       if(entry.type==='plane'){
         const index = entries.findIndex(e=>e.type==='plane');
         if(index>=0) entries.splice(index,1);
@@ -280,6 +302,46 @@
       entries.push(entry);
       render();
       notify(`${labels[entry.type]} lagt til.`);
+    });
+  }
+
+  function copyGroup(members){
+    run(()=>{
+      const task=window.currentTask;
+      if(!task?.scene) throw new ClipboardError('Åpne en oppgave først.');
+      if(!Array.isArray(members) || !members.length){
+        throw new ClipboardError('Gruppen har ingen sceneelementer å kopiere.');
+      }
+      const seen=new Set(entries.map(entry=>entry._sourceId).filter(Boolean));
+      const additions=[];
+      let replacedPlane=-1;
+      members.forEach(member=>{
+        const type=member?.type;
+        if(!(Object.hasOwn(collections,type) || type==='plane')){
+          throw new ClipboardError('Gruppen inneholder en ugyldig sceneelementreferanse.');
+        }
+        const source=type==='plane' ? task.scene.plane : task.scene[collections[type]]?.[member.index];
+        if(!source || typeof source!=='object'){
+          throw new ClipboardError('Gruppen inneholder en sceneelementreferanse som ikke finnes.');
+        }
+        const key=sourceId(task,type,source);
+        if(seen.has(key)) return;
+        if(type==='plane'){
+          replacedPlane=entries.findIndex(entry=>entry.type==='plane');
+        }
+        const entry=snapshotElement(task,type,member.index);
+        entry._sourceId=key;
+        additions.push(entry);
+        seen.add(key);
+      });
+      if(!additions.length){
+        notify('Sceneelementene i gruppen ligger allerede i utklippstavla.');
+        return;
+      }
+      if(replacedPlane>=0) entries.splice(replacedPlane,1);
+      entries.push(...additions);
+      render();
+      notify(`${additions.length} sceneelement(er) fra gruppen lagt til.`);
     });
   }
 
@@ -341,7 +403,7 @@
     pasteButton.disabled = !entries.length || !window.currentTask;
   }
 
-  window.editorClipboard = {copy,paste,show,close,refresh,
+  window.editorClipboard = {copy,copyGroup,paste,show,close,refresh,
     get entries(){ return clone(entries); }};
   document.getElementById('btn-clipboard').addEventListener('click',show);
   document.getElementById('clipboard-close').addEventListener('click',close);
@@ -356,7 +418,10 @@
     if(event.target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
     if(document.querySelector('.modal:not(.hidden), #settings-panel:not(.hidden), #force-details-modal:not(.hidden), #relations-modal:not(.hidden), #snap-checklist-modal:not(.hidden)')) return;
     event.preventDefault();
-    if(key==='c') copy(); else paste();
+    if(key==='c'){
+      const group=window.currentTask?.scene?.groups?.[window.activeSceneGroupIndex];
+      if(group) copyGroup(group.members); else copy();
+    }else paste();
   });
   setupFloatingPanelPositioning('clipboard-panel',440);
   render();

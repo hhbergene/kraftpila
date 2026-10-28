@@ -713,17 +713,32 @@ window.TASKS = [];
     task.initialForces.forEach(spec => {
       // Build geometry from anchorFrom rect point + direction & length
       if(spec.anchorFrom){
-        const lookup = window.sceneLookup[spec.anchorFrom];
-        if(!lookup) return;
-        const P = lookup.points[spec.point];
+        const lookup = window.sceneLookup?.[spec.anchorFrom];
+        const sourcePos = lookup?.points?.[spec.point];
+        const savedPos = Array.isArray(spec.anchor) && spec.anchor.length >= 2 &&
+          spec.anchor.every(Number.isFinite) ? spec.anchor :
+          Array.isArray(spec.anchorSpec?.pos) && spec.anchorSpec.pos.length >= 2 &&
+            spec.anchorSpec.pos.every(Number.isFinite) ? spec.anchorSpec.pos : null;
+        const P = sourcePos || savedPos;
         if(!P) return;
+        if(!sourcePos){
+          spec.anchorSpec = {type:'custom',pos:P.slice()};
+          delete spec.anchorFrom;
+          if(Array.isArray(spec.anchor) && spec.anchor.length >= 2 && spec.anchor.every(Number.isFinite)){
+            spec.anchor = P.slice();
+          }
+        }
         const dir = spec.dir || [1,0];
         const L = spec.len || (GRID_STEP*3);
-        const arrowTip = [P[0]+dir[0]*L, P[1]+dir[1]*L];
+        const arrowBase = !sourcePos && Array.isArray(spec.arrowBase) && spec.arrowBase.length >= 2 &&
+          spec.arrowBase.every(Number.isFinite) ? spec.arrowBase : P;
+        const arrowTip = !sourcePos && Array.isArray(spec.arrowTip) && spec.arrowTip.length >= 2 &&
+          spec.arrowTip.every(Number.isFinite)
+          ? spec.arrowTip : [arrowBase[0]+dir[0]*L, arrowBase[1]+dir[1]*L];
         const f = new Force();
         f.anchor = P.slice();
-        f.arrowBase = P.slice();
-        f.arrowTip = arrowTip;
+        f.arrowBase = arrowBase.slice();
+        f.arrowTip = arrowTip.slice();
         f.name = spec.name || '';
         window.forceNotation?.restore(f,spec,true);
         f.moveable = false;
@@ -2666,7 +2681,6 @@ window.TASKS = [];
         id: taskId,
         title: title,
         category: 'Egendefinert',
-        origin: [DRAW_CENTER[0], DRAW_CENTER[1]],
         help_lines: [],
         scene: {
           plane: { angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false },

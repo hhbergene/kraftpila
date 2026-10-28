@@ -63,9 +63,7 @@ test('legacy origin-shaped points can be detached and deleted like ordinary poin
   task.scene.points.splice(0,1);
 
   assert.equal(task.scene.points.length,0);
-  assert.deepEqual(JSON.parse(JSON.stringify(force.anchor)),{
-    type:'custom',pos:[30,50],detachedReason:'Kildegeometrien ble slettet; ankeret er nå fritt.'
-  });
+  assert.deepEqual(JSON.parse(JSON.stringify(force.anchor)),{type:'custom',pos:[30,50]});
 });
 
 test('legacy circles migrate to locked ellipses and remap force, angle, and intersection references',()=>{
@@ -111,6 +109,34 @@ test('default taskset no longer stores legacy origin fields or points',()=>{
     assert.equal(Object.hasOwn(task.scene,'origin'),false,`${task.id} has a legacy scene origin`);
     assert.equal(task.scene.points?.some(point=>point.id==='origin' || point.isOrigin),false,
       `${task.id} has a legacy origin point`);
+  }
+});
+
+test('creating a new task in editor and player does not add an origin',()=>{
+  for(const file of ['editor.js','main.js']){
+    const source=fs.readFileSync(path.join(root,'web',file),'utf8');
+    const start=source.indexOf('  if(btnNewTask){');
+    const end=source.indexOf("  const btnDeleteTask =",start);
+    assert.ok(start>=0 && end>start);
+    let createTask;
+    let saved=false;
+    const window={tasks:[],TASKS:[]};
+    const context=vm.createContext({
+      window,DRAW_CENTER:[500,340],
+      btnNewTask:{addEventListener:(event,handler)=>{createTask=handler;}},
+      prompt:()=> 'New task',alert:()=>{},
+      generateUniqueTaskId:()=> 'new-task',
+      resolveRelationsEditorBeforeTaskChange:()=>true,
+      markEdited:()=>{},saveTask:()=>{saved=true;},
+      loadTask:index=>{window.currentTask=(file==='editor.js'?window.tasks:window.TASKS)[index];}
+    });
+    vm.runInContext(source.slice(start,end),context);
+    createTask();
+    assert.ok(window.currentTask);
+    assert.equal(Object.hasOwn(window.currentTask,'origin'),false,file);
+    assert.equal(Object.hasOwn(window.currentTask.scene,'origin'),false,file);
+    assert.deepEqual(Array.from(window.currentTask.scene.plane.through),[500,340]);
+    if(file==='main.js') assert.equal(saved,true);
   }
 });
 

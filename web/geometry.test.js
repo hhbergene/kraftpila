@@ -10,7 +10,7 @@ function loadModel(){
   vm.runInContext(fs.readFileSync(`${__dirname}/geometry.js`,'utf8'),context);
   vm.runInContext(fs.readFileSync(`${__dirname}/scene_render.js`,'utf8'),context);
   vm.runInContext(fs.readFileSync(`${__dirname}/scene_model.js`,'utf8'),context);
-  return {window,geometry:window.geometry,model:window.sceneModel};
+  return {window,context,geometry:window.geometry,model:window.sceneModel};
 }
 
 function taskWith(scene){
@@ -151,6 +151,86 @@ test('intersection points preserve branch and last valid position through loss a
   assert.equal(model.pointStatus(task,point).valid,true);
   assert.deepEqual(Array.from(point.pos),[0,0]);
   assert.equal(model.candidates(task).some(c=>c.anchor?.ref===point.id),true);
+});
+
+test('new scene point IDs are unique among points without reserving dangling force references',()=>{
+  const {model}=loadModel();
+  const task=taskWith({points:[]});
+  task.expectedForces=[{name:'G',anchor:{type:'point',ref:'point-1',point:'center'}}];
+  task.initialForces=[{name:'N',anchorFrom:'point-2',point:'center'}];
+  const first=model.createPoint(task,[10,20]);
+  const second=model.createPoint(task,[30,40]);
+  assert.equal(first.id,'point-1');
+  assert.equal(second.id,'point-2');
+  assert.deepEqual(Array.from(task.scene.points,point=>point.id),['point-1','point-2']);
+});
+
+test('deleting a point detaches force references at the last source position',()=>{
+  const {window,model}=loadModel();
+  const point={id:'point-source',type:'free',pos:[30,40]};
+  const expected={name:'G',anchor:{type:'point',ref:'point-source',point:'center'},
+    drawn:{anchor:[20,30],arrowBase:[25,30],arrowTip:[25,90]}};
+  const initial={name:'N',anchor:[20,30],arrowBase:[25,30],arrowTip:[25,90],
+    anchorSpec:{type:'point',ref:'point-source',point:'center'}};
+  const task=taskWith({points:[point]});
+  task.expectedForces=[expected];
+  task.initialForces=[initial];
+  const expectedForce={name:'G',isExpected:true,anchor:[20,30],arrowBase:[25,30],arrowTip:[25,90],
+    updateDirectionAndLength(){}};
+  const initialForce={name:'N',isExpected:false,anchor:[20,30],arrowBase:[25,30],arrowTip:[25,90],
+    updateDirectionAndLength(){}};
+  window.fm={forces:[expectedForce,initialForce]};
+  model.update(task);
+  model.remapReferences(task,'point',0,'delete');
+  task.scene.points.splice(0,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(expected.anchor)),{type:'custom',pos:[30,40]});
+  assert.deepEqual(JSON.parse(JSON.stringify(expected.drawn)),
+    {anchor:[30,40],arrowBase:[35,40],arrowTip:[35,100]});
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),{type:'custom',pos:[30,40]});
+  assert.deepEqual(Array.from(initial.anchor),[30,40]);
+  assert.deepEqual(Array.from(initial.arrowBase),[35,40]);
+  assert.deepEqual(Array.from(initial.arrowTip),[35,100]);
+  assert.deepEqual(Array.from(expectedForce.anchor),[30,40]);
+  assert.deepEqual(Array.from(expectedForce.arrowBase),[35,40]);
+  assert.deepEqual(Array.from(expectedForce.arrowTip),[35,100]);
+  assert.deepEqual(Array.from(initialForce.anchor),[30,40]);
+  assert.deepEqual(Array.from(initialForce.arrowBase),[35,40]);
+  assert.deepEqual(Array.from(initialForce.arrowTip),[35,100]);
+});
+
+test('deleting a legacy anchorFrom source keeps initial force geometry and clears the reference',()=>{
+  const {model}=loadModel();
+  const task=taskWith({points:[{id:'point-source',type:'free',pos:[30,40]}]});
+  const initial={name:'N',anchorFrom:'point-source',point:'center',anchor:[20,30],
+    arrowBase:[25,30],arrowTip:[25,90]};
+  task.initialForces=[initial];
+  model.update(task);
+  model.remapReferences(task,'point',0,'delete');
+  assert.equal(initial.anchorFrom,undefined);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),{type:'custom',pos:[30,40]});
+  assert.deepEqual(Array.from(initial.anchor),[30,40]);
+  assert.deepEqual(Array.from(initial.arrowBase),[35,40]);
+  assert.deepEqual(Array.from(initial.arrowTip),[35,100]);
+});
+
+test('a newly reused point ID cannot reattach a force already detached at its old position',()=>{
+  const {window,context,model}=loadModel();
+  vm.runInContext(fs.readFileSync(`${__dirname}/shared.js`,'utf8'),context);
+  const force={name:'G',isExpected:true,anchor:[10,20],arrowBase:[15,20],arrowTip:[15,80],
+    updateDirectionAndLength(){}};
+  const spec={name:'G',anchor:{type:'point',ref:'point-1',point:'center'}};
+  const task=taskWith({points:[]});
+  task.expectedForces=[spec];
+  window.getForceSpec=()=>({spec,prop:'anchor'});
+  window.fm={forces:[force]};
+  assert.equal(window.syncSceneForceAnchors(task,window.fm,true),true);
+  assert.deepEqual(JSON.parse(JSON.stringify(spec.anchor)),{type:'custom',pos:[10,20]});
+  const point=model.createPoint(task,[90,100]);
+  assert.equal(point.id,'point-1');
+  model.update(task);
+  assert.equal(window.syncSceneForceAnchors(task,window.fm,true),false);
+  assert.deepEqual(JSON.parse(JSON.stringify(spec.anchor)),{type:'custom',pos:[10,20]});
+  assert.deepEqual(Array.from(force.anchor),[10,20]);
 });
 
 test('angle geometry resolves point anchors and reports degenerate rays',()=>{

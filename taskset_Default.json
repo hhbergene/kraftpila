@@ -211,7 +211,11 @@
               320
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -375,7 +379,11 @@
               100
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -545,7 +553,11 @@
               260
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -747,7 +759,11 @@
               400
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -783,7 +799,11 @@
               260
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -958,7 +978,11 @@
               400
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -993,7 +1017,11 @@
               260
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "R",
@@ -1027,7 +1055,11 @@
               340
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -1116,19 +1148,14 @@
       "id": "task_1793180732065_yjcow4p6n",
       "title": "Kloss-Trinse-Lodd",
       "category": "Fysikk 1",
-      "origin": [
-        500,
-        340
-      ],
       "help_lines": [
         "En kloss dras langs et horisontalt bord med en snor koblet til et lodd via en trinse.",
         "Klossen har konstant fart mot høyre.",
         "",
         "Vi har tegnet inn:",
         "G_B - Tyngdekraften på loddet.",
-        "S_B - Snordraget på loddet.",
-        "",
         "N_A - Normalkraften på klossen fra bordet.",
+        "(Det mangler en kraft på loddet, denne skal ikke tegnes!)",
         "",
         "Tegn inn de andre kreftene som virker på klossen."
       ],
@@ -1289,13 +1316,29 @@
               40
             ],
             "size": 14,
-            "align": "center",
+            "align": "left",
             "color": "#222",
             "snapping": false,
             "_renderedPos": [
               260,
               40
             ]
+          },
+          {
+            "txt": "(Ikke tegn krefter på kloss B)",
+            "pos": [
+              260,
+              59
+            ],
+            "size": 14,
+            "align": "left",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              260,
+              59
+            ],
+            "linked": true
           },
           {
             "txt": "B",
@@ -1372,6 +1415,11 @@
               360,
               400
             ]
+          },
+          "nameBase": "S",
+          "studentGiven": {
+            "name": false,
+            "role": true
           }
         },
         {
@@ -1400,6 +1448,14 @@
               200,
               260
             ]
+          },
+          "aliases": [
+            "f"
+          ],
+          "nameBase": "R",
+          "studentGiven": {
+            "name": false,
+            "role": true
           }
         },
         {
@@ -1428,6 +1484,11 @@
               520,
               200
             ]
+          },
+          "nameBase": "S",
+          "studentGiven": {
+            "name": false,
+            "role": true
           }
         }
       ],
@@ -1484,36 +1545,6 @@
             100
           ],
           "moveable": false
-        },
-        {
-          "name": "S_B",
-          "role": "force",
-          "anchor": [
-            620,
-            340
-          ],
-          "dir": [
-            0,
-            -1
-          ],
-          "studentGiven": {
-            "name": true,
-            "role": false
-          },
-          "anchorSpec": {
-            "type": "point",
-            "ref": "segment1",
-            "point": "end"
-          },
-          "arrowBase": [
-            640,
-            340
-          ],
-          "arrowTip": [
-            640,
-            240
-          ],
-          "moveable": false
         }
       ],
       "sumF": {},
@@ -1535,6 +1566,418 @@
       ],
       "taskSubTitle": "Trinse",
       "subTitle": "Trinse",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
+      "id": "task_1791480987572_yjio90r9e.",
+      "title": "Krefter på vogn",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "Et tog består av lokomotiv A og en vogn B.",
+        "",
+        "Tegn snordragene S som virker på A og på B."
+      ],
+      "scene": {
+        "plane": {
+          "angleDeg": 0,
+          "through": [
+            500,
+            360
+          ],
+          "draw": true,
+          "snapping": false,
+          "n_vec": [
+            0,
+            -1
+          ],
+          "t_vec": [
+            1,
+            0
+          ]
+        },
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              380,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          },
+          {
+            "width": 200,
+            "height": 160,
+            "bottomCenter": [
+              680,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ]
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn snordragene S_A og S_B",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ]
+          },
+          {
+            "txt": "\\mu = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ]
+          },
+          {
+            "txt": "m_B= 2 · m_A",
+            "pos": [
+              375,
+              124
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              124
+            ]
+          },
+          {
+            "txt": "A",
+            "pos": [
+              320,
+              260
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              320,
+              260
+            ]
+          },
+          {
+            "txt": "B",
+            "pos": [
+              600,
+              220
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              600,
+              220
+            ]
+          }
+        ],
+        "points": [],
+        "segments": [
+          {
+            "a": [
+              460,
+              320
+            ],
+            "b": [
+              580,
+              320
+            ],
+            "snapping": false
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "S_A",
+          "role": "force",
+          "anchor": {
+            "type": "point",
+            "ref": "segment0",
+            "point": "start"
+          },
+          "dir": [
+            1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              460,
+              320
+            ],
+            "arrowBase": [
+              460,
+              300
+            ],
+            "arrowTip": [
+              500,
+              300
+            ]
+          },
+          "studentGiven": {
+            "name": true,
+            "role": true
+          }
+        },
+        {
+          "name": "S_B",
+          "role": "force",
+          "anchor": {
+            "type": "point",
+            "ref": "segment0",
+            "point": "end"
+          },
+          "dir": [
+            -1,
+            0
+          ],
+          "drawn": {
+            "anchor": [
+              580,
+              320
+            ],
+            "arrowBase": [
+              580,
+              340
+            ],
+            "arrowTip": [
+              540,
+              340
+            ]
+          },
+          "studentGiven": {
+            "name": true,
+            "role": true
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G_B",
+          "anchor": [
+            680,
+            280
+          ],
+          "arrowBase": [
+            640,
+            280
+          ],
+          "arrowTip": [
+            640,
+            440
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "center"
+          },
+          "role": "force"
+        },
+        {
+          "name": "N_B",
+          "anchor": [
+            680,
+            360
+          ],
+          "arrowBase": [
+            700,
+            360
+          ],
+          "arrowTip": [
+            700,
+            200
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect1",
+            "segment": "bottom",
+            "u": 0.5
+          },
+          "role": "force"
+        },
+        {
+          "name": "N_A",
+          "anchor": [
+            380,
+            360
+          ],
+          "dir": [
+            0,
+            -1
+          ],
+          "aliases": [
+            "N"
+          ],
+          "nameBase": "N",
+          "role": "force",
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect0",
+            "segment": "bottom",
+            "u": 0.5
+          },
+          "arrowBase": [
+            420,
+            360
+          ],
+          "arrowTip": [
+            420,
+            280
+          ],
+          "moveable": false
+        },
+        {
+          "name": "G_A",
+          "anchor": [
+            380,
+            300
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "aliases": [
+            "G"
+          ],
+          "role": "force",
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect0",
+            "point": "center"
+          },
+          "arrowBase": [
+            360,
+            300
+          ],
+          "arrowTip": [
+            360,
+            380
+          ],
+          "moveable": false
+        },
+        {
+          "name": "F_B",
+          "role": "force",
+          "anchor": [
+            780,
+            280
+          ],
+          "dir": [
+            1,
+            0
+          ],
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect1",
+            "point": "right_middle"
+          },
+          "arrowBase": [
+            780,
+            280
+          ],
+          "arrowTip": [
+            900,
+            280
+          ],
+          "moveable": false
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "F_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_A",
+              "component": "magnitude"
+            }
+          ]
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_A",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_B",
+              "component": "magnitude"
+            }
+          ]
+        }
+      ],
+      "taskTitle": "Kloss på kloss i ro horisontalt",
+      "taskSubTitle": "",
       "snapChecklist": {
         "snapEnabled": true,
         "guidelinesEnabled": true,
@@ -1736,7 +2179,11 @@
             "N"
           ],
           "nameBase": "N",
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "G_A",
@@ -1766,7 +2213,11 @@
               380
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N_B*",
@@ -1795,7 +2246,11 @@
               280
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -2283,7 +2738,11 @@
               240
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "R",
@@ -2311,7 +2770,11 @@
               340
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -3067,12 +3530,12 @@
             ],
             "angleDeg": 0,
             "n_vec": [
-              0.000007774172613278579,
+              7.774172613278579e-06,
               -0.9999999999697813
             ],
             "t_vec": [
               0.9999999999697813,
-              0.000007774172613278579
+              7.774172613278579e-06
             ],
             "snapping": true,
             "color": "#000000"
@@ -3145,7 +3608,11 @@
               160.00093290071362
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "S_2",
@@ -3174,7 +3641,11 @@
               300.00000000362627
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -3418,7 +3889,11 @@
               180
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "S_2",
@@ -3446,7 +3921,11 @@
               179.99999999999997
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -3706,7 +4185,11 @@
               420
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -3742,7 +4225,11 @@
               270
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -3991,7 +4478,11 @@
               280
             ]
           },
-          "role": "resultant"
+          "role": "resultant",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -4225,7 +4716,11 @@
               420
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -4261,7 +4756,11 @@
               269.6656314599949
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "R",
@@ -4295,7 +4794,11 @@
               282.0366891015028
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -4513,7 +5016,11 @@
               500
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -4549,7 +5056,11 @@
               400
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "R",
@@ -4583,7 +5094,11 @@
               460
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -4819,7 +5334,11 @@
               480
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "N",
@@ -4855,7 +5374,11 @@
               280
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [],
@@ -5085,7 +5608,11 @@
               168
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "S_2",
@@ -5113,7 +5640,11 @@
               300
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -5436,7 +5967,11 @@
               157
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         },
         {
           "name": "S_2",
@@ -5464,7 +5999,11 @@
               211
             ]
           },
-          "role": "force"
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": true
+          }
         }
       ],
       "initialForces": [
@@ -5543,8 +6082,8 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-28T10:33:00.720Z",
-    "count": 20,
-    "appVersion": "2026-10-25 17:45"
+    "exported": "2026-10-28T14:04:30.734Z",
+    "count": 21,
+    "appVersion": "2026-10-28 11:34"
   }
 }

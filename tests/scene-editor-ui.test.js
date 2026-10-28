@@ -136,18 +136,16 @@ test('hover previews a candidate without edits or point creation; Esc restores s
   assert.equal(s.edits.length,0);
 });
 
-test('free force anchor click creates exactly one hidden point and batches task and force edits',()=>{
+test('free force anchor click keeps a custom position without creating a scene point',()=>{
   const s=setup();
   s.open();
   s.nodes['app-canvas'].fire('mousemove',{pos:[33.25,44.75]});
   assert.equal(s.task.scene.points.length,0);
   s.nodes['app-canvas'].fire('mousedown',{pos:[33.25,44.75]});
-  assert.equal(s.task.scene.points.length,1);
-  const point=s.task.scene.points[0];
-  assert.equal(point.visible,false);
-  assert.deepEqual(Array.from(point.pos),[33.25,44.75]);
-  assert.equal(s.spec.anchor.ref,point.id);
-  assert.deepEqual(s.edits,[['task','forces']]);
+  assert.equal(s.task.scene.points.length,0);
+  assert.deepEqual(Array.from(s.spec.anchor.pos),[33.25,44.75]);
+  assert.equal(s.spec.anchor.type,'custom');
+  assert.deepEqual(s.edits,[['forces']]);
   assert.deepEqual(Array.from(s.force.arrowBase),[38.25,44.75]);
   assert.deepEqual(Array.from(s.force.arrowTip),[38.25,104.75]);
   assert.equal(s.nodes['app-canvas'].fire('mouseup',{pos:[33.25,44.75]}).stopped,true);
@@ -278,14 +276,15 @@ test('angle vertex picker only offers points and commits point anchor',()=>{
   assert.equal(s.task.scene.points.length,0);
 });
 
-test('picker flushes prior autosave before commit and saves combined point and force once afterward',()=>{
+test('free anchor picker flushes prior autosave without adding a scene point',()=>{
   const s=setup(), records=[];
   s.window.autoSave=()=>records.push([s.task.scene.points.length,s.edits.length]);
   s.open();
   s.nodes['app-canvas'].fire('mousemove',{pos:[30,40]});
   assert.deepEqual(records,[]);
   s.nodes['app-canvas'].fire('mousedown',{pos:[30,40]});
-  assert.deepEqual(records,[[0,0],[1,1]]);
+  assert.deepEqual(records,[[0,0],[0,1]]);
+  assert.equal(s.task.scene.points.length,0);
 });
 
 test('invalid-point hover tooltip wraps and stays in the scrolled visible canvas viewport',()=>{

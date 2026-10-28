@@ -130,6 +130,47 @@ test('accumulates deep independent scene copies, with no implicit forces or task
   assert.equal(s.clipboard.entries.length,2);
 });
 
+test('Ctrl+C in an open group adds unique member copies once; Ctrl+V keeps normal paste behavior',()=>{
+  const s=setup();
+  const text={txt:'Grouped text',pos:[20,30]};
+  const arrow={a:[100,100],b:[160,100]};
+  s.window.currentTask.scene.texts=[text];
+  s.window.currentTask.scene.arrows=[arrow];
+  s.window.currentTask.scene.groups=[{description:'',members:[
+    {type:'text',index:0},{type:'arrow',index:0},{type:'text',index:0}
+  ]}];
+
+  s.select('text');
+  s.clipboard.copy();
+  s.window.activeSceneGroupIndex=0;
+  const copyEvent=s.document.fire('keydown',{ctrlKey:true,key:'c'});
+  assert.equal(copyEvent.defaultPrevented,true);
+  assert.deepEqual(Array.from(s.clipboard.entries,entry=>entry.type),['text','arrow']);
+  assert.match(s.nodes['clipboard-status'].textContent,/1 sceneelement/);
+
+  s.document.fire('keydown',{ctrlKey:true,key:'c'});
+  assert.equal(s.clipboard.entries.length,2,
+    're-copying the same group does not duplicate its existing clipboard entries');
+
+  s.document.fire('keydown',{ctrlKey:true,key:'v'});
+  assert.equal(s.window.currentTask.scene.texts.length,2);
+  assert.equal(s.window.currentTask.scene.arrows.length,2);
+  assert.deepEqual(s.window.currentTask.scene.groups[0].members,
+    [{type:'text',index:0},{type:'arrow',index:0},{type:'text',index:0}],
+    'ordinary paste creates scene copies without implicitly changing group membership');
+});
+
+test('group clipboard copy preserves the single-plane clipboard rule across tasks',()=>{
+  const s=setup();
+  const first={through:[10,20],angleDeg:0};
+  s.window.currentTask.scene.plane=first;
+  s.select('plane');s.clipboard.copy();
+  s.task({plane:{through:[100,200],angleDeg:0}});
+  s.clipboard.copyGroup([{type:'plane'}]);
+  assert.equal(s.clipboard.entries.length,1);
+  assert.deepEqual(plain(s.clipboard.entries[0].data.through),[100,200]);
+});
+
 test('copied components retain role, parent and supplied fields through paste and undo/redo',()=>{
   const s=setup();
   const force=s.addForce('G_x');
@@ -171,6 +212,38 @@ test('pasting a parent and component together remaps the component to the rename
   assert.equal(copiedComponent.componentOf,'G_1');
   const index=s.window.fm.forces.indexOf(copiedParent);
   assert.equal(s.window.fm.forces[index+1],copiedComponent);
+});
+
+test('naming before or after drawing uses exact anchor matches and otherwise keeps a free position',()=>{
+  const s=setup(),task=s.window.currentTask;
+  const nearby={type:'point',ref:'point-1',point:'center'};
+  s.window.findSceneAnchorAtPosition=()=>null;
+  s.window.findBestAnchor=()=>nearby;
+
+  const namedAfterDraw=s.addForce('G');
+  s.window.syncForceSpec(namedAfterDraw);
+  const customAfter=plain(s.window.getForceSpec(namedAfterDraw).spec.anchor);
+
+  const namedBeforeDraw=s.addForce('N');
+  s.window.syncForceSpec(namedBeforeDraw,{reanchor:true});
+  const customBefore=plain(s.window.getForceSpec(namedBeforeDraw).spec.anchor);
+
+  assert.deepEqual(customAfter,{type:'custom',pos:[100,100]});
+  assert.deepEqual(customBefore,customAfter);
+  assert.equal(task.expectedForces.length,2);
+  assert.equal(s.window.pendingForceAnchorPickerIndices,undefined,
+    'a missing exact match does not open the anchor picker automatically');
+});
+
+test('exact anchor matches are retained for forces named before drawing',()=>{
+  const s=setup();
+  const force=s.addForce('G');
+  const anchor={type:'segment',ref:'rect0',segment:'bottom'};
+  s.window.findSceneAnchorAtPosition=()=>({anchor,pos:[100,100]});
+  s.window.findBestAnchor=()=>{throw new Error('approximate matching must not run');};
+  s.window.syncForceSpec(force,{reanchor:true});
+  assert.deepEqual(plain(s.window.getForceSpec(force).spec.anchor),anchor);
+  assert.deepEqual(Array.from(s.window.pendingForceAnchorPickerIndices),[0]);
 });
 
 test('all ordinary scene types preserve properties and only exactly coincident geometry shifts',()=>{
@@ -491,6 +564,7 @@ test('UI is editor-only and toolbar button is immediately before add rectangle',
   const html=fs.readFileSync(path.join(root,'editor.html'),'utf8');
   const player=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.match(html,/id="btn-clipboard"[^]*?<\/button>\s*<button id="btn-add-rect"/);
+  assert.match(html,/id="btn-add-group"[^>]*>\{ \}<\/button>/);
   assert.equal(player.includes('editor_clipboard.js'),false);
   assert.equal(player.includes('clipboard-panel'),false);
   const window={editorMode:false};

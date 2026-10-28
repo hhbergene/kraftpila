@@ -432,8 +432,7 @@ window.findSceneAnchorAtPosition = function(force, task){
     }
     if(!Array.isArray(pos) || pos.length < 2 || !pos.every(Number.isFinite)) return;
     const distance = Math.hypot(position[0] - pos[0], position[1] - pos[1]);
-    const integerCoordinates = position.every(Number.isInteger) && pos.every(Number.isInteger);
-    if(distance >= (integerCoordinates ? 1e-8 : 1)) return;
+    if(distance !== 0) return;
     let pointsInward = false;
     if(anchor.type === 'segment' && /^rect(\d+)$/.test(anchor.ref)){
       const rect = task.scene.rects?.[Number(anchor.ref.match(/^rect(\d+)$/)[1])];
@@ -459,7 +458,6 @@ window.findSceneAnchorAtPosition = function(force, task){
 window.syncSceneForceAnchors = function(task, manager, editorMode){
   if(!task?.scene || !manager || !window.sceneModel) return false;
   let changed = false;
-  const pickerIndices = [];
   const moveForce = (force, pos) => {
     const dx = pos[0] - force.anchor[0], dy = pos[1] - force.anchor[1];
     if(Math.hypot(dx, dy) < 1e-8) return false;
@@ -469,7 +467,13 @@ window.syncSceneForceAnchors = function(task, manager, editorMode){
     if(force.arrowBase && force.arrowTip) force.updateDirectionAndLength();
     return true;
   };
-  manager.forces.forEach((force, index) => {
+  const storeInitialForcePosition = (spec, force) => {
+    spec.anchor = force.anchor.slice();
+    if(force.arrowBase) spec.arrowBase = force.arrowBase.slice();
+    if(force.arrowTip) spec.arrowTip = force.arrowTip.slice();
+    delete spec.anchorFrom;
+  };
+  manager.forces.forEach(force => {
     if(force.drawing || force.dragging || !force.anchor || !force.name) return;
     let spec, prop, anchor;
     if(editorMode){
@@ -485,29 +489,23 @@ window.syncSceneForceAnchors = function(task, manager, editorMode){
       anchor = spec.anchorSpec || (spec.anchorFrom ? {type: 'point', ref: spec.anchorFrom, point: spec.point} : null);
     }
     if(editorMode && anchor?.type === 'custom' && anchor.detachedReason && Array.isArray(anchor.pos)){
-      const match = window.findSceneAnchorAtPosition(force, task);
-      if(match){
-        spec[prop] = match.anchor;
-        moveForce(force, match.pos);
-      } else {
-        spec[prop] = {type:'custom', pos:force.anchor.slice()};
-      }
-      pickerIndices.push(index);
+      spec[prop] = {type:'custom', pos:force.anchor.slice()};
       changed = true;
       return;
     }
     if(anchor?.type !== 'point' && !(editorMode && anchor?.type === 'segment')) return;
     const resolved = window.sceneModel.resolveAnchor(task, {...anchor, pos:force.anchor});
     if(!resolved.valid || !resolved.pos){
-      if(!editorMode) return;
-      const match = window.findSceneAnchorAtPosition(force, task);
-      if(match){
-        spec[prop] = match.anchor;
-        moveForce(force, match.pos);
-      } else {
-        spec[prop] = {type:'custom', pos:force.anchor.slice()};
+      if(anchor.type==='point' && resolved.point && resolved.pos){
+        if(moveForce(force,resolved.pos)) changed = true;
+        if(editorMode && force.isExpected === false){
+          storeInitialForcePosition(spec,force);
+        }
+        return;
       }
-      pickerIndices.push(index);
+      spec[prop] = {type:'custom',pos:force.anchor.slice()};
+      delete spec.anchorFrom;
+      if(force.isExpected === false) storeInitialForcePosition(spec,force);
       changed = true;
       return;
     }
@@ -527,19 +525,9 @@ window.syncSceneForceAnchors = function(task, manager, editorMode){
     }
     if(moveForce(force, resolved.pos)) changed = true;
     if(editorMode && force.isExpected === false){
-      spec.anchor = force.anchor.slice();
-      if(force.arrowBase) spec.arrowBase = force.arrowBase.slice();
-      if(force.arrowTip) spec.arrowTip = force.arrowTip.slice();
+      storeInitialForcePosition(spec,force);
     }
   });
-  if(pickerIndices.length){
-    window.pendingForceAnchorPickerIndices ||= [];
-    pickerIndices.forEach(index => {
-      if(!window.pendingForceAnchorPickerIndices.includes(index)){
-        window.pendingForceAnchorPickerIndices.push(index);
-      }
-    });
-  }
   return changed;
 };
 
@@ -711,6 +699,42 @@ window.AppVersioning = (function(){
   function supportedTaskSchema(reference){
     const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : reference ? [reference] : []}]);
     const task = schema.children.tasks?.item;
+    const scene=task?.children.scene;
+    if(scene){
+      const groupExtension=collectSchema([
+        {description:'',members:[{type:'plane'}]},
+        {description:'',members:[{type:'text',index:0}]},
+        {}
+      ]);
+      const mergeSchema=(target,extension)=>{
+        extension.objectKeys.forEach(key=>{
+          target.objectKeys.add(key);
+          if(extension.children[key]){
+            target.children[key]=target.children[key]
+              ? mergeSchema(target.children[key],extension.children[key])
+              : extension.children[key];
+          }
+        });
+        if(extension.item){
+          target.item=target.item
+            ? mergeSchema(target.item,extension.item)
+            : extension.item;
+        }
+        return target;
+      };
+      const groups=scene.children.groups || {
+        objectKeys:new Set(),requiredKeys:[],children:{},item:null
+      };
+      const groupItem=groups.item || {
+        objectKeys:new Set(),requiredKeys:[],children:{},item:null
+      };
+      groupItem.requiredKeys=groupItem.requiredKeys.filter(
+        key=>!groupExtension.objectKeys.has(key)
+      );
+      groups.item=mergeSchema(groupItem,groupExtension);
+      scene.objectKeys.add('groups');
+      scene.children.groups=groups;
+    }
     const optional = collectSchema([
       {role:'force',componentOf:'',studentGiven:{}},
       {studentGiven:{name:false}},

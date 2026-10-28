@@ -205,6 +205,20 @@ test('version filtering preserves optional force roles and supplied fields witho
   assert.equal(result.data.tasks[0].initialForces[0].studentGiven.role,false);
 });
 
+test('version filtering preserves scene groups without requiring them in the reference tasks',async()=>{
+  const {window,document,elements}=setup();
+  const group={description:'Ballen',members:[
+    {type:'ellipse',index:0},{type:'plane'}
+  ]};
+  const reference=[{id:'task',scene:{ellipses:[]}}];
+  const data={tasks:[{id:'task',scene:{ellipses:[],groups:[group]}}]};
+  const pending=window.AppVersioning.checkImport(data,'player','groups.json',reference);
+  assert.doesNotMatch(document.body.modal.children[0].innerHTML,/scene\.groups/);
+  elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
+  const result=await pending;
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.tasks[0].scene.groups)),[group]);
+});
+
 test('version filtering preserves optional relation tolerances without requiring overrides',async()=>{
   for(const referenceOverrides of [{},{tol_rel:0.15}]){
     const {window,document,elements}=setup();

@@ -50,7 +50,7 @@ test('player applies checklist defaults for legacy tasks and overlays per-task o
   assert.equal(activeClasses.has('btn-active'),true);
 
   s.values.set('tk_snapChecklistOverride_legacy-task',JSON.stringify({
-    snapEnabled:false,guidelinesEnabled:false,showForceCoordinates:true,snapCrossAxisComponents:true
+    snapEnabled:false,guidelinesEnabled:false,showForceCoordinates:true,snapMatchXY:true
   }));
   s.context.applySnapChecklist(task);
   assert.equal(s.window.enableSnap,false);
@@ -82,7 +82,7 @@ test('player saves override separately from task definition and updates settings
     showForceCoordinates:true
   });
 
-  test('player reload preserves fine-grained overrides and legacy overrides keep unrelated task choices',()=>{
+  test('player reload preserves fine-grained overrides and partial overrides keep unrelated task choices',()=>{
     const task={id:'overrides',snapChecklist:{snapMatchLN:true,snapMatchXY:false}};
     const s=setup(task);
     s.context.applySnapChecklist(task);
@@ -93,7 +93,7 @@ test('player saves override separately from task definition and updates settings
     assert.equal(s.window.currentSnapChecklist.snapMatchLN,false);
     assert.equal(s.window.currentSnapChecklist.snapMatchYT,true);
     assert.equal(task.snapChecklist.snapMatchLN,true);
-    s.values.set('tk_snapChecklistOverride_overrides',JSON.stringify({snapCrossAxisComponents:true}));
+    s.values.set('tk_snapChecklistOverride_overrides',JSON.stringify({snapMatchXY:true}));
     s.context.applySnapChecklist(task);
     assert.equal(s.window.currentSnapChecklist.snapMatchXY,true);
     assert.equal(s.window.currentSnapChecklist.snapMatchLN,true);

@@ -133,19 +133,37 @@ test('automatic matching prefers an inward-facing segment over a coincident poin
   assert.deepEqual(Array.from(best.pos), [0,20]);
 });
 
-test('automatic matching accepts subpixel coordinates under one pixel, but not integer offsets', () => {
+test('automatic matching requires an exact position match', () => {
   const {window, task, force} = setup();
   window.sceneModel.candidates = () => [
     {kind:'point', ref:'point0', pos:[0,0], anchor:{type:'point',ref:'point0',point:'center'}}
   ];
   window.sceneModel.resolveAnchor = () => ({valid:true,pos:[0,0]});
-  force.anchor = [0,0.5];
+  force.anchor = [0,0];
   assert.equal(window.findSceneAnchorAtPosition(force, task).anchor.ref, 'point0');
+  force.anchor = [0,0.5];
+  assert.equal(window.findSceneAnchorAtPosition(force, task), null);
   force.anchor = [0,1];
   assert.equal(window.findSceneAnchorAtPosition(force, task), null);
 });
 
-test('invalid anchor automatically reconnects at its current position and queues picker', () => {
+test('adding a scene point does not attach or move a force without an anchor spec', () => {
+  const {window, task, force, initial} = setup();
+  initial.anchorSpec = undefined;
+  force.anchor = [10,20];
+  force.arrowBase = [15,20];
+  force.arrowTip = [15,80];
+  window.sceneModel.candidates = () => [
+    {kind:'point',ref:'point-new',pos:[40,50],anchor:{type:'point',ref:'point-new',point:'center'}}
+  ];
+  assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true), false);
+  assert.deepEqual(Array.from(force.anchor), [10,20]);
+  assert.deepEqual(Array.from(force.arrowBase), [15,20]);
+  assert.deepEqual(Array.from(force.arrowTip), [15,80]);
+  assert.equal(initial.anchorSpec, undefined);
+});
+
+test('missing anchor source detaches at the current position without reconnecting when its ID is reused', () => {
   const {window, task, force, initial} = setup();
   window.sceneModel.resolveAnchor = (scene, anchor) => anchor.ref === 'point-near'
     ? {valid:true, pos:[10,20]}
@@ -154,22 +172,55 @@ test('invalid anchor automatically reconnects at its current position and queues
     {kind:'point',ref:'point-near',pos:[10,20],anchor:{type:'point',ref:'point-near',point:'center'}}
   ];
   assert.equal(window.syncSceneForceAnchors(task, {forces: [force]}, true), true);
-  assert.equal(initial.anchorSpec.type, 'point');
-  assert.equal(initial.anchorSpec.ref, 'point-near');
-  assert.equal(initial.anchorSpec.point, 'center');
-  assert.deepEqual(Array.from(window.pendingForceAnchorPickerIndices), [0]);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),{type:'custom',pos:[10,20]});
+  assert.equal(window.pendingForceAnchorPickerIndices,undefined);
+  assert.deepEqual(Array.from(force.anchor),[10,20]);
+  window.sceneModel.candidates = () => [
+    {kind:'point',ref:'point-test',pos:[90,100],anchor:{type:'point',ref:'point-test',point:'center'}}
+  ];
+  window.sceneModel.resolveAnchor = () => ({valid:true,pos:[90,100]});
+  assert.equal(window.syncSceneForceAnchors(task,{forces:[force]},true),false);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),{type:'custom',pos:[10,20]});
+  assert.deepEqual(Array.from(force.anchor),[10,20]);
 });
 
-test('deleted-anchor detachment is processed once and opens the picker when no replacement exists', () => {
+test('temporarily invalid existing intersection point keeps its force reference', () => {
+  const {window, task, force, initial} = setup();
+  const point={id:'point-test',pos:[40,50],type:'intersection'};
+  window.sceneModel.resolveAnchor = () => ({
+    valid:false,pos:[40,50],point,reason:'Skjæringen finnes ikke akkurat nå'
+  });
+  assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true),true);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),
+    {type:'point',ref:'point-test',point:'center'});
+  assert.deepEqual(Array.from(force.anchor),[40,50]);
+  assert.deepEqual(Array.from(force.arrowBase),[45,50]);
+  assert.deepEqual(Array.from(force.arrowTip),[45,110]);
+  assert.deepEqual(Array.from(initial.anchor),[40,50]);
+});
+
+test('deleted-anchor detachment stays at its saved position and does not reopen the picker', () => {
   const {window, task, force, initial} = setup();
   initial.anchorSpec = {type:'custom', pos:[10,20], detachedReason:'Kildegeometrien ble slettet.'};
   assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true), true);
   assert.equal(initial.anchorSpec.type, 'custom');
   assert.deepEqual(Array.from(initial.anchorSpec.pos), [10,20]);
   assert.equal(initial.anchorSpec.detachedReason, undefined);
-  assert.deepEqual(Array.from(window.pendingForceAnchorPickerIndices), [0]);
+  assert.equal(window.pendingForceAnchorPickerIndices,undefined);
   delete window.pendingForceAnchorPickerIndices;
   assert.equal(window.syncSceneForceAnchors(task, {forces:[force]}, true), false);
+});
+
+test('legacy initial force anchorFrom is cleared when its source is missing', () => {
+  const {window,task,force,initial}=setup();
+  initial.anchorSpec=undefined;
+  initial.anchorFrom='deleted-point';
+  initial.anchor='source-coordinate';
+  window.sceneModel.resolveAnchor=()=>({valid:false,pos:[10,20],reason:'Punktankeret finnes ikke.'});
+  assert.equal(window.syncSceneForceAnchors(task,{forces:[force]},false),true);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.anchorSpec)),{type:'custom',pos:[10,20]});
+  assert.equal(initial.anchorFrom,undefined);
+  assert.deepEqual(Array.from(initial.anchor),[10,20]);
 });
 
 test('canvas coordinates account for scrolling and CSS scaling', () => {

@@ -5,6 +5,7 @@
 
 let expandedSceneType = null;
 let lastSceneSelectionKey = '';
+let lastSceneGroupTask = null;
 
 // Editor mode state management
 function updateEditorMode(){
@@ -70,9 +71,14 @@ function updatePanelHeights(){
       angle:scene.angles?.length || 0,
       text:(scene.texts || []).filter(text=>!text._isShortLines).length
     };
-    sceneElementCount=Object.values(counts).filter(count=>count>0).length;
+    sceneElementCount=Object.values(counts).filter(count=>count>0).length+
+      (scene.groups?.length || 0);
     if(expandedSceneType && counts[expandedSceneType]){
       sceneElementCount+=counts[expandedSceneType]-1;
+    }
+    const expandedGroup=scene.groups?.[window.activeSceneGroupIndex];
+    if(expandedGroup){
+      sceneElementCount+=1+(Array.isArray(expandedGroup.members) ? expandedGroup.members.length : 0);
     }
   }
   
@@ -142,12 +148,17 @@ function updateScenePanel(){
   
   window.sceneModel?.update(window.currentTask);
   const scene = window.currentTask.scene;
+  if(lastSceneGroupTask !== window.currentTask){
+    lastSceneGroupTask = window.currentTask;
+    window.activeSceneGroupIndex = null;
+  }
   window.updateTextPositions(window.currentTask);
   const selected = window.selectedSceneElement;
   const selectionKey = selected ? `${selected.type}:${selected.index}` : '';
   if(selectionKey !== lastSceneSelectionKey){
     expandedSceneType = selected?.type || null;
     lastSceneSelectionKey = selectionKey;
+    window.activeSceneGroupIndex = null;
   }
   if(window.sceneEditor) window.sceneEditor.checkTask();
   
@@ -183,6 +194,203 @@ function updateScenePanel(){
     if(type === 'point') return coordinatePreview(obj.pos);
     if(type === 'angle') return coordinatePreview(obj.vertex?.pos);
     return '';
+  }
+
+  const sceneCollections = {
+    rect:'rects', ellipse:'ellipses', segment:'segments', arrow:'arrows',
+    text:'texts', point:'points', angle:'angles'
+  };
+  const sceneElementLabels = {
+    plane:'plane', rect:'rect', ellipse:'ellipse', segment:'segment',
+    arrow:'arrow', text:'txt', point:'point', angle:'angle'
+  };
+  function getSceneElement(type,index){
+    if(type==='plane') return scene.plane || null;
+    if(!Object.hasOwn(sceneCollections,type)) return null;
+    const collection=sceneCollections[type];
+    if(!collection || !Number.isInteger(index) || index<0) return null;
+    return scene[collection]?.[index] || null;
+  }
+  function memberReference(member){
+    const type=member?.type;
+    if(type==='plane') return 'plane';
+    if(!Object.hasOwn(sceneElementLabels,type)) return 'Ukjent element';
+    const label=sceneElementLabels[type];
+    return label && Number.isInteger(member.index) ? `${label}[${member.index}]` : 'Ukjent element';
+  }
+  function selectedSceneMember(){
+    const selected=window.selectedSceneElement;
+    if(window.activePanel!=='scene') return null;
+    if(!selected || !(Object.hasOwn(sceneCollections,selected.type) || selected.type==='plane')) return null;
+    if(selected.type==='text' && scene.texts?.[selected.index]?._isShortLines) return null;
+    if(!getSceneElement(selected.type,selected.index)) return null;
+    return selected.type==='plane' ? {type:'plane'} : {type:selected.type,index:selected.index};
+  }
+  function groupPreview(group){
+    const description=String(group.description || '').trim();
+    if(description) return description;
+    const references=(Array.isArray(group.members) ? group.members : []).map(memberReference);
+    return references.length ? references.join(', ') : 'Tom gruppe';
+  }
+  function refreshGroupPreview(preview,group){
+    preview.textContent=groupPreview(group);
+    preview.title=preview.textContent;
+  }
+
+  function addSceneGroups(){
+    if(!Array.isArray(scene.groups)) return;
+    scene.groups.forEach((groupData,groupIndex)=>{
+      if(!groupData || typeof groupData!=='object') return;
+      if(!Array.isArray(groupData.members)) groupData.members=[];
+      const section=document.createElement('section');
+      section.className='scene-group';
+      section.dataset.index=groupIndex;
+
+      const header=document.createElement('div');
+      header.className='scene-group-header';
+      const toggle=document.createElement('button');
+      toggle.type='button';
+      toggle.className='scene-group-toggle';
+      const title=document.createElement('span');
+      title.className='scene-group-title';
+      title.textContent=`Gruppe ${groupIndex+1}`;
+      const preview=document.createElement('span');
+      preview.className='scene-group-preview';
+      refreshGroupPreview(preview,groupData);
+      toggle.append(title,preview);
+      const controls=document.createElement('div');
+      controls.className='scene-group-controls';
+
+      const addButton=document.createElement('button');
+      addButton.type='button';
+      addButton.className='scene-group-control';
+      addButton.textContent='+';
+      const currentSelection=selectedSceneMember();
+      const alreadyMember=!!currentSelection && groupData.members.some(existing=>
+        existing?.type===currentSelection.type && existing.index===currentSelection.index);
+      addButton.title=alreadyMember ? 'Elementet er allerede i gruppen'
+        : 'Legg valgt sceneelement til gruppen';
+      addButton.setAttribute('aria-label',addButton.title);
+      addButton.disabled=!currentSelection || alreadyMember;
+      addButton.addEventListener('click',event=>{
+        event.stopPropagation();
+        const member=selectedSceneMember();
+        if(!member) return;
+        if(groupData.members.some(existing=>existing?.type===member.type &&
+          existing.index===member.index)){
+          window.activeSceneGroupIndex=groupIndex;
+          updateScenePanel();
+          return;
+        }
+        groupData.members.push(member);
+        window.activeSceneGroupIndex=groupIndex;
+        window.markEdited?.('task');
+        updateScenePanel();
+        window.updateAppState?.();
+      });
+
+      const deleteButton=document.createElement('button');
+      deleteButton.type='button';
+      deleteButton.className='scene-group-control';
+      deleteButton.textContent='🗑️';
+      deleteButton.title='Slett gruppen';
+      deleteButton.setAttribute('aria-label',deleteButton.title);
+      deleteButton.addEventListener('click',event=>{
+        event.stopPropagation();
+        scene.groups.splice(groupIndex,1);
+        if(window.activeSceneGroupIndex===groupIndex) window.activeSceneGroupIndex=null;
+        else if(Number.isInteger(window.activeSceneGroupIndex) &&
+          window.activeSceneGroupIndex>groupIndex) window.activeSceneGroupIndex--;
+        window.markEdited?.('task');
+        updateScenePanel();
+        window.updateAppState?.();
+      });
+      controls.append(addButton,deleteButton);
+      header.append(toggle,controls);
+
+      const items=document.createElement('div');
+      items.className='scene-group-items';
+      const expanded=window.activeSceneGroupIndex===groupIndex;
+      items.hidden=!expanded;
+      toggle.setAttribute('aria-expanded',String(expanded));
+      toggle.addEventListener('click',()=>{
+        window.activeSceneGroupIndex=expanded ? null : groupIndex;
+        updateScenePanel();
+      });
+
+      if(expanded){
+        const description=document.createElement('input');
+        description.type='text';
+        description.className='scene-group-description';
+        description.placeholder='Skriv beskrivelse for gruppen';
+        description.setAttribute('aria-label',`Beskrivelse for gruppe ${groupIndex+1}`);
+        description.value=String(groupData.description || '');
+        description.addEventListener('input',()=>{
+          groupData.description=description.value;
+          refreshGroupPreview(preview,groupData);
+          window.markEdited?.('task');
+        });
+        items.appendChild(description);
+        groupData.members.forEach((member,memberIndex)=>{
+          const type=member?.type;
+          const index=member?.index;
+          const object=getSceneElement(type,index);
+          const row=document.createElement('div');
+          row.className='scene-group-member';
+          row.dataset.type=type || '';
+          if(Number.isInteger(index)) row.dataset.index=index;
+          if(window.selectedSceneElement?.type===type &&
+            (window.selectedSceneElement?.index ?? 0)===(index ?? 0)) row.classList.add('selected');
+          const reference=document.createElement('button');
+          reference.type='button';
+          reference.className='scene-group-member-reference';
+          reference.textContent=memberReference(member);
+          reference.disabled=!object;
+          reference.setAttribute('aria-label',`Velg ${reference.textContent}`);
+          reference.addEventListener('click',()=>{
+            if(!object) return;
+            window.selectedSceneElement={type,index:index ?? 0,obj:object};
+            window.activeSceneGroupIndex=groupIndex;
+            expandedSceneType=null;
+            window.setActivePanel('scene');
+            lastSceneSelectionKey=`${type}:${index ?? 0}`;
+            updateScenePanel();
+            window.updateAppState?.();
+          });
+          reference.addEventListener('dblclick',()=>{
+            if(!object) return;
+            window.selectedSceneElement={type,index:index ?? 0,obj:object};
+            window.activeSceneGroupIndex=null;
+            expandedSceneType=type;
+            lastSceneSelectionKey=`${type}:${index ?? 0}`;
+            updateScenePanel();
+            const item=document.querySelector(
+              `.scene-item[data-type="${type}"][data-index="${index ?? 0}"]`
+            );
+            if(item) window.sceneEditor?.revealSelection?.(item);
+            window.updateAppState?.();
+          });
+          const remove=document.createElement('button');
+          remove.type='button';
+          remove.className='scene-group-remove-member';
+          remove.textContent='×';
+          remove.title=`Fjern ${reference.textContent} fra gruppen`;
+          remove.setAttribute('aria-label',remove.title);
+          remove.addEventListener('click',event=>{
+            event.stopPropagation();
+            groupData.members.splice(memberIndex,1);
+            window.activeSceneGroupIndex=groupIndex;
+            window.markEdited?.('task');
+            updateScenePanel();
+            window.updateAppState?.();
+          });
+          row.append(reference,remove);
+          items.appendChild(row);
+        });
+      }
+      section.append(header,items);
+      scenePanel.appendChild(section);
+    });
   }
 
   // Helper to add a scene element with an expandable editor and a compact preview.
@@ -243,6 +451,7 @@ function updateScenePanel(){
       if(e.target.classList.contains('scene-item-arrange-btn')) return;
       if(e.target.classList.contains('scene-item-control-btn')) return;
       
+      window.activeSceneGroupIndex=null;
       scenePanel.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
       item.classList.add('selected');
       window.selectedSceneElement = { type, index: index !== undefined ? index : 0, obj };
@@ -323,6 +532,7 @@ function updateScenePanel(){
     items.className='scene-type-items';
     items.hidden=expandedSceneType!==type;
     const toggle=()=>{
+      window.activeSceneGroupIndex=null;
       if(entries.length===1){
         const entry=entries[0];
         window.selectedSceneElement={type,index:entry.index ?? 0,obj:entry.obj};
@@ -1110,6 +1320,7 @@ function updateScenePanel(){
   addGroup('txt','text',(scene.texts || []).map((obj,index)=>({index,obj})).filter(entry=>!entry.obj._isShortLines));
   addGroup('Punkt','point',(scene.points || []).map((obj,index)=>({index,obj})));
   addGroup('Vinkel','angle',(scene.angles || []).map((obj,index)=>({index,obj})));
+  addSceneGroups();
   if(window.selectedSceneElement && scenePanel){
     const items = scenePanel.querySelectorAll('.scene-item');
     for(const item of items){
@@ -1131,9 +1342,26 @@ function updateScenePanel(){
   window.updateEditorPanelHeights?.();
 }
 
-/**
- * Update help button with current task info
- */
+window.createSceneGroup=function(){
+  const task=window.currentTask;
+  if(!window.editorMode || !task?.scene) return;
+  const groups=task.scene.groups ||= [];
+  groups.push({description:'',members:[]});
+  window.selectedSceneElement=null;
+  expandedSceneType=null;
+  lastSceneSelectionKey='';
+  window.activeSceneGroupIndex=groups.length-1;
+  window.setActivePanel('scene');
+  window.markEdited?.('task');
+  updateScenePanel();
+  window.updateAppState?.();
+};
+
+document.getElementById('btn-add-group')?.addEventListener('click',window.createSceneGroup);
+
+  /**
+   * Update help button with current task info
+   */
 function updateHelpButton(){
   const helpBtn = document.getElementById('btn-help');
   if(!helpBtn || !window.currentTask) return;

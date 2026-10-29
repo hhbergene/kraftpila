@@ -30,6 +30,14 @@ test('page titles show the generated build time and prefer page-specific version
   }
 });
 
+test('taskset format version is defined by shared.js, not the hook-generated version.js',()=>{
+  const versionSource=fs.readFileSync(path.join(__dirname,'..','web','version.js'),'utf8');
+  assert.doesNotMatch(versionSource,/TASKSET_FORMAT_VERSION/);
+  const window={};
+  vm.runInNewContext(source,{window,document:{},localStorage:{},console});
+  assert.equal(window.TASKSET_FORMAT_VERSION,2);
+});
+
 function setup(){
   const elements=[];
   const storage=new Map();

@@ -63,12 +63,14 @@ test('line intersections are analytic, finite, and report coincident overlap',()
     {a:[0,0],b:[10,0]},
     {a:[5,-5],b:[5,5]},
     {a:[11,-5],b:[11,5]},
-    {a:[2,0],b:[8,0]}
+    {a:[2,0],b:[8,0]},
+    {a:[0,2],b:[10,2]}
   ]});
   const g=model.geometries(task);
   assert.deepEqual(Array.from(model.intersections(task,g[0].source,g[1].source).hits[0].pos),[5,0]);
   assert.equal(model.intersections(task,g[0].source,g[2].source).hits.length,0);
   assert.match(model.intersections(task,g[0].source,g[3].source).reason,/overlapper|sammenfaller/);
+  assert.equal(model.intersections(task,g[0].source,g[4].source).hits.length,0);
 });
 
 test('line/ellipse respects finite segments and filters hits outside ellipse arcs',()=>{
@@ -442,6 +444,96 @@ test('deleted intersection sources leave a normal point at its last position',()
   window.drawScene(hidden.context,task,false);
   assert.equal(hidden.events.length,0);
   assert.deepEqual(Array.from(window.buildAllScenePoints(task)['intersection-1'].points.center),[40,50]);
+});
+
+test('editor intersection styling distinguishes a lost crossing without changing pupil styling or bindings',()=>{
+  const {window,model}=loadModel();
+  const task=taskWith({segments:[
+    {a:[0,0],b:[100,0]},{a:[40,-50],b:[40,50]}
+  ]});
+  const [a,b]=model.geometries(task);
+  const point=model.createIntersectionPoint(task,a,b,model.intersections(task,a.source,b.source).hits[0]);
+  Object.assign(point,{visible:true,color:'#123456',fill_color:'#abcdef',markerStyle:'filled',size:5,lineWidth:3});
+  const binding=JSON.stringify({sources:point.sources,branch:point.branch});
+  const render=editor=>{
+    const canvas=recordingCanvas();
+    window.drawScene(canvas.context,task,editor);
+    return canvas.events;
+  };
+  const pointEvents=events=>events.filter(event=>['fill','stroke'].includes(event.method) &&
+    event.path.some(part=>part.method==='arc' || part.method==='moveTo' && part.args[0]===35));
+  const valid=pointEvents(render(true));
+  assert.ok(valid.some(event=>event.method==='fill'&&event.color==='#abcdef'&&event.path[0].method==='arc'));
+  assert.ok(valid.some(event=>event.method==='stroke'&&event.color==='#123456'));
+  assert.equal(model.pointStatus(task,point).intersectionValid,true);
+  const pupilBefore=render(false);
+  assert.equal(pupilBefore.some(event=>event.color==='#ffeb3b'),false);
+  assert.ok(pupilBefore.some(event=>event.method==='fill'&&event.color==='#abcdef'));
+  task.scene.segments[1].a=[140,-50];
+  task.scene.segments[1].b=[140,50];
+  const lost=render(true);
+  const cross=lost.find(event=>event.method==='stroke'&&event.color==='#d22');
+  assert.ok(cross);
+  assert.deepEqual(cross.path.map(part=>({method:part.method,args:Array.from(part.args)})),[
+    {method:'moveTo',args:[34,-6]},{method:'lineTo',args:[46,6]},
+    {method:'moveTo',args:[34,6]},{method:'lineTo',args:[46,-6]}
+  ]);
+  assert.equal(lost.some(event=>event.method==='fill'||event.method==='fillText'||
+    event.path?.some(part=>part.method==='arc')),false);
+  assert.deepEqual(Array.from(point.pos),[40,0]);
+  assert.equal(model.pointStatus(task,point).valid,true,'last position remains usable by anchors');
+  assert.equal(model.pointStatus(task,point).intersectionValid,false);
+  assert.match(model.pointStatus(task,point).reason,/skjæring/i);
+  assert.equal(JSON.stringify({sources:point.sources,branch:point.branch}),binding);
+  const pupilLost=render(false);
+  assert.equal(pupilLost.some(event=>event.color==='#d22'||event.color==='#ffeb3b'),false);
+  assert.ok(pupilLost.some(event=>event.method==='stroke'&&event.color==='#123456'));
+  task.scene.segments[1].a=[40,-50];
+  task.scene.segments[1].b=[40,50];
+  assert.ok(render(true).some(event=>event.method==='fill'&&event.color==='#abcdef'));
+  assert.equal(model.pointStatus(task,point).intersectionValid,true);
+  assert.equal(model.pointStatus(task,point).reason,null);
+  assert.equal(point.color,'#123456');
+  assert.equal(point.markerStyle,'filled');
+  point.visible=false;
+  assert.equal(render(false).some(event=>event.color==='#123456'),false);
+});
+
+test('free point rendering keeps its configured fill rather than editor intersection colors',()=>{
+  const {window}=loadModel();
+  const task=taskWith({points:[{id:'free',type:'free',pos:[20,30],color:'#123456',fill_color:'#abcdef',markerStyle:'filled'}]});
+  const canvas=recordingCanvas();
+  window.drawScene(canvas.context,task,true);
+  assert.ok(canvas.events.some(event=>event.method==='fill'&&event.color==='#abcdef'));
+  assert.equal(canvas.events.some(event=>event.color==='#ffeb3b'||event.color==='#d22'),false);
+});
+
+test('both point types use yellow default fill and honor shared styles in editor and pupil modes',()=>{
+  const {window,model}=loadModel();
+  const task=taskWith({segments:[{a:[0,0],b:[100,0]},{a:[40,-50],b:[40,50]}]});
+  const [a,b]=model.geometries(task);
+  const intersection=model.createIntersectionPoint(task,a,b,model.intersections(task,a.source,b.source).hits[0]);
+  const free=model.createPoint(task,[60,20]);
+  for(const point of [free,intersection]) point.visible=true;
+  for(const editor of [true,false]){
+    const canvas=recordingCanvas();
+    window.drawScene(canvas.context,task,editor);
+    assert.equal(canvas.events.filter(event=>event.method==='fill'&&event.color==='#ffeb3b').length,2);
+    for(const point of [free,intersection]){
+      point.fill_color='#abcdef';
+      point.color='#123456';
+      point.markerStyle='cross';
+    }
+    const crosses=recordingCanvas();
+    window.drawScene(crosses.context,task,editor);
+    assert.equal(crosses.events.some(event=>event.method==='fill'),false);
+    assert.equal(crosses.events.filter(event=>event.method==='stroke'&&event.color==='#123456').length,2);
+    for(const point of [free,intersection]){
+      delete point.fill_color;
+      delete point.color;
+      delete point.markerStyle;
+    }
+  }
 });
 
 test('all anchor and geometry labels show readable indices without changing bindings',()=>{

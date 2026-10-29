@@ -122,6 +122,11 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 .scene-item-editor { display:none; flex-direction:column; gap:4px; font-size:11px; }
 .scene-item.selected .scene-item-editor { display:flex; }
 .scene-editor-row { display:flex; align-items:center; gap:4px; }
+.scene-intersection-picker { min-width:0; margin-top:8px; padding:6px; }
+.scene-intersection-picker .scene-editor-row { flex-wrap:wrap; margin-top:6px; }
+.scene-intersection-picker .scene-anchor-field,
+.scene-intersection-picker .scene-anchor-list { flex:1 1 100%; width:100%; min-width:0; box-sizing:border-box; }
+.scene-intersection-picker .scene-anchor-option[hidden] { display:none; }
 .scene-editor-row label { min-width:35px; font-weight:500; }
 .scene-editor-row input { flex:1; padding:2px 4px; font-size:11px; border:1px solid #888; border-radius:2px; }
 .scene-item-editor input[type="number"],

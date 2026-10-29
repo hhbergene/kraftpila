@@ -30,6 +30,7 @@ class Element {
     return event;
   }
   setAttribute(name, value){ this[name] = value; }
+  removeAttribute(name){ delete this[name]; }
   focus(){ this.focused=true; }
   closest(){ return null; }
   contains(el){ return this===el || this.children.some(c=>c.contains(el)); }
@@ -64,13 +65,21 @@ function setup(){
       const p={id:`point-${t.scene.points.length}`,type:'free',pos:pos.slice(),visible:false};
       t.scene.points.push(p); return p;
     },
-    geometries:()=>[{key:'a',label:'a',source:{ref:'segment-1',segment:'segment'}},
-      {key:'b',label:'b',source:{ref:'ellipse-1',curve:true}}],
+    geometries:()=>{
+      task.scene.segments ||= [{id:'segment-1',a:[0,50],b:[100,50]}];
+      task.scene.ellipses ||= [{id:'ellipse-1',center:[40,50],width:80,height:60}];
+      return [{key:'a',label:'a',ref:'segment-1',value:task.scene.segments[0],
+      source:{ref:'segment-1',segment:'segment'}},
+      {key:'b',label:'b',ref:'ellipse-1',curve:true,value:task.scene.ellipses[0],source:{ref:'ellipse-1',curve:true}}];
+    },
     intersections:()=>({hits:[{pos:[40,50],params:[0.5,0.2],branch:{id:'one',params:[0.5,0.2]}}]}),
     update(){}, pointStatus:()=>({valid:true})
   };
   const context=vm.createContext({window,document,console,setTimeout});
   const getMousePos=window.getMousePos;
+  for(const file of ['geometry.js','snapping.js']){
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),context);
+  }
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8'),context);
   window.getMousePos=getMousePos;
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','scene_editor.js'),'utf8'),context);
@@ -175,7 +184,7 @@ test('task changes and deleted force consumers cancel before canvas can commit',
   assert.equal(s.window.sceneEditor.isPicking(s.select),false);
 });
 
-test('free point tool does not snap; second activation requires explicit intersection confirmation',()=>{
+test('free point preserves coordinates with snapping off; a unique intersection is automatic',()=>{
   const s=setup();
   s.nodes['btn-add-point'].fire('click');
   assert.equal(s.task.scene.points.length,0);
@@ -183,15 +192,236 @@ test('free point tool does not snap; second activation requires explicit interse
   assert.deepEqual(Array.from(s.task.scene.points[0].pos),[100.5,100.25]);
   s.nodes['btn-add-point'].fire('click');
   assert.equal(s.nodes['btn-add-point'].dataset.mode,'intersection');
-  const panel=s.nodes['scene-panel'].children.find(c=>c.isConnected && c.className==='scene-intersection-picker');
+  const panel=s.nodes['scene-panel'].children.find(c=>c.isConnected && c.className?.includes('scene-intersection-picker'));
   const selects=panel.children.flatMap(row=>row.children).filter(c=>c.tagName==='SELECT');
   selects[0].value='0'; selects[0].fire('change');
-  selects[1].value='1'; selects[1].fire('change');
-  assert.equal(s.task.scene.points.length,1);
-  s.nodes['app-canvas'].fire('mousedown',{pos:[40,50]});
   assert.equal(s.task.scene.points.length,2);
   assert.equal(s.task.scene.points[1].type,'intersection');
   assert.equal(s.task.scene.points[1].branch.id,'one');
+});
+
+function startIntersectionTool(s){
+  s.nodes['btn-add-point'].fire('click');
+  s.nodes['btn-add-point'].fire('click');
+  const panel=s.nodes['scene-panel'].children.at(-1);
+  const rows=panel.children.filter(child=>child.className==='scene-editor-row');
+  const field=i=>rows[i].children.find(child=>child.className==='scene-anchor-field');
+  const list=i=>rows[i].children.find(child=>child.className==='scene-anchor-list');
+  const select=i=>rows[i].children.find(child=>child.tagName==='SELECT');
+  const choose=(i,value)=>list(i).children.find(item=>item.dataset.value===String(value)).fire('click');
+  return {panel,field,list,select,choose};
+}
+
+function intersectionMarkers(s){
+  const markers=[];
+  s.window.drawAnchorMarker=(ctx,pos,state)=>markers.push({pos:Array.from(pos),state});
+  s.window.sceneEditor.drawOverlay({save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},stroke(){}});
+  return markers;
+}
+
+function crossingSetup(){
+  return realAngleSetup([
+    {a:[0,0],b:[100,0]},
+    {a:[25,-30],b:[25,30]},
+    {a:[75,-30],b:[75,30]},
+    {a:[0,10],b:[100,10]},
+    {a:[20,0],b:[80,0]},
+    {a:[110,-30],b:[110,30]}
+  ]);
+}
+
+test('point icons reflect mode and free point preview and commit share snapping settings',()=>{
+  const s=setup();
+  s.window.enableSnap=true;
+  s.window.GRID_STEP=20;
+  s.window.DRAW_CENTER=[0,0];
+  s.nodes['btn-add-point'].fire('click');
+  assert.equal(s.nodes['btn-add-point'].innerHTML,'●');
+  s.nodes['app-canvas'].fire('mousemove',{pos:[31,42]});
+  assert.deepEqual(intersectionMarkers(s),[{pos:[40,40],state:'pickerPreview'}]);
+  assert.deepEqual(Array.from(s.window.snapIndicator.pos),[40,40]);
+  s.nodes['app-canvas'].fire('mousedown',{pos:[31,42]});
+  assert.deepEqual(Array.from(s.task.scene.points[0].pos),[40,40]);
+  assert.equal(s.window.snapIndicator,null);
+  s.nodes['btn-add-point'].fire('click');
+  assert.match(s.nodes['btn-add-point'].innerHTML,/<svg.*<path.*fill="none".*<circle/);
+  assert.match(s.nodes['btn-add-point']['aria-label'],/Skjæringspunkt/);
+  s.document.fire('keydown',{key:'Escape'});
+  assert.equal(s.nodes['btn-add-point']['aria-pressed'],'false');
+});
+
+test('free point snaps to enabled scene points and force endpoints, and stops when snap is off',()=>{
+  for(const kind of ['scene','force','off']){
+    const s=setup();
+    s.window.enableSnap=kind!=='off';
+    s.window.GRID_STEP=20;
+    s.window.DRAW_CENTER=[0,0];
+    s.window.snapPoints=kind==='scene' ? [[33.5,44.5]] : [];
+    s.force.arrowTip=[33.5,44.5];
+    s.nodes['btn-add-point'].fire('click');
+    s.nodes['app-canvas'].fire('mousedown',{pos:[34,45]});
+    assert.deepEqual(Array.from(s.task.scene.points[0].pos),kind==='off' ? [34,45] : [33.5,44.5]);
+  }
+});
+
+test('intersection first field opens and scrolls into view without creating a point',()=>{
+  const s=setup(),panel=s.nodes['scene-panel'];
+  panel.scrollTop=0;
+  panel.getBoundingClientRect=()=>({top:100,bottom:300});
+  s.document.createElement=tag=>{
+    const el=new Element(tag);
+    el.closest=()=>panel;
+    el.getBoundingClientRect=()=>({top:320,bottom:350});
+    return el;
+  };
+  const picker=startIntersectionTool(s);
+  assert.equal(picker.field(0)['aria-expanded'],'true');
+  assert.equal(picker.field(1)['aria-expanded'],'false');
+  assert.equal(panel.scrollTop,54);
+  assert.equal(s.task.scene.points.length,0);
+  assert.equal(s.edits.length,0);
+});
+
+test('second source excludes self, parallel, overlapping and nonintersecting geometries on every surface',()=>{
+  const s=crossingSetup(),picker=startIntersectionTool(s);
+  picker.choose(0,0);
+  assert.equal(picker.field(1)['aria-expanded'],'true');
+  assert.deepEqual(Array.from(picker.select(1).options,option=>option.value),['','1','2']);
+  assert.deepEqual(intersectionMarkers(s).map(marker=>marker.pos),[[25,0],[75,0]]);
+  for(const index of [0,3,4,5]){
+    s.window.sceneEditor.previewSceneSource('segment',index,true);
+    assert.equal(highlightedPaths(s).length,0);
+    s.window.sceneEditor.chooseSceneSource('segment',index);
+    assert.equal(s.task.scene.points.length,0);
+    assert.equal(picker.field(1)['aria-expanded'],'true');
+  }
+  s.nodes['app-canvas'].fire('mousedown',{pos:[95,10]});
+  assert.equal(s.task.scene.points.length,0);
+  assert.equal(s.window.sceneEditor.isSelectingGeometry(),true);
+  picker.choose(1,2);
+  assert.equal(s.task.scene.points.length,1);
+  assert.deepEqual(Array.from(s.task.scene.points[0].pos),[75,0]);
+  assert.equal(s.task.scene.points[0].sources[1].ref,s.task.scene.segments[2].id);
+  assert.equal(s.edits.length,1);
+});
+
+test('candidate handles select the correct source pair before source two and do not recalculate on hover or draw',()=>{
+  const s=crossingSetup();
+  let calculations=0;
+  const intersections=s.window.sceneModel.intersections;
+  s.window.sceneModel.intersections=(...args)=>{calculations++;return intersections(...args);};
+  const picker=startIntersectionTool(s);
+  picker.choose(0,0);
+  assert.equal(calculations,5);
+  for(let i=0;i<3;i++){
+    s.nodes['app-canvas'].fire('mousemove',{pos:[25,20]});
+    const markers=intersectionMarkers(s);
+    assert.equal(markers.length,2);
+    assert.equal(markers[0].state,'pickerHovered');
+    assert.equal(s.task.scene.points.length,0);
+  }
+  assert.equal(calculations,5);
+  assert.equal(picker.select(1).value,'');
+  s.nodes['app-canvas'].fire('mousedown',{pos:[25,0]});
+  assert.equal(s.task.scene.points.length,1);
+  assert.deepEqual(Array.from(s.task.scene.points[0].pos),[25,0]);
+  assert.equal(s.task.scene.points[0].sources[1].ref,s.task.scene.segments[1].id);
+  assert.ok(s.task.scene.points[0].branch.params);
+  assert.equal(calculations,5);
+});
+
+test('geometry keyboard navigation previews without editing and confirms only filtered candidates',()=>{
+  const s=crossingSetup(),picker=startIntersectionTool(s);
+  picker.field(0).fire('keydown',{key:'ArrowDown'});
+  assert.equal(highlightedPaths(s).length,1);
+  assert.equal(s.edits.length,0);
+  picker.field(0).fire('keydown',{key:'Enter'});
+  assert.equal(picker.field(1)['aria-expanded'],'true');
+  picker.field(1).fire('keydown',{key:'ArrowDown'});
+  assert.equal(picker.select(1).value,'');
+  assert.equal(s.task.scene.points.length,0);
+  picker.field(1).fire('keydown',{key:'Enter'});
+  assert.equal(s.task.scene.points.length,1);
+  assert.equal(s.task.scene.points[0].sources[1].ref,s.task.scene.segments[1].id);
+});
+
+test('all four ellipse crossings remain handles and source-two hover preserves other candidates',()=>{
+  const s=realAngleSetup([]);
+  s.task.scene.ellipses=[
+    {center:[0,0],width:100,height:40},
+    {center:[0,0],width:40,height:100},
+    {center:[40,0],width:40,height:40}
+  ];
+  const picker=startIntersectionTool(s);
+  picker.choose(0,0);
+  const total=intersectionMarkers(s).length;
+  assert.ok(total>4);
+  picker.list(1).children.find(item=>item.dataset.value==='1').fire('mouseenter');
+  assert.equal(intersectionMarkers(s).length,total);
+  assert.equal(intersectionMarkers(s).filter(marker=>marker.state==='pickerHovered').length,4);
+  picker.choose(1,1);
+  const markers=intersectionMarkers(s);
+  assert.equal(markers.length,4);
+  assert.equal(s.task.scene.points.length,0);
+  assert.equal(picker.field(1)['aria-expanded'],'false');
+  s.nodes['app-canvas'].fire('mousedown',{pos:markers[0].pos});
+  assert.equal(s.task.scene.points.length,1);
+  assert.equal(s.task.scene.points[0].sources[1].ref,s.task.scene.ellipses[1].id);
+  assert.ok(s.task.scene.points[0].branch.params);
+});
+
+test('rectangles use explicit part choices and text, arrows and points never become geometry sources',()=>{
+  const s=realAngleSetup([]);
+  s.task.scene.rects=[{bottomCenter:[0,0],width:100,height:60}];
+  s.task.scene.arrows=[{a:[0,0],b:[100,100]}];
+  s.task.scene.texts=[{pos:[0,0],text:'Text'}];
+  s.task.scene.points=[{id:'p',pos:[0,0]}];
+  const picker=startIntersectionTool(s);
+  assert.equal(picker.select(0).options.length,5);
+  for(const type of ['text','arrow','point']){
+    s.window.sceneEditor.chooseSceneSource(type,0);
+    assert.equal(s.window.sceneEditor.isSelectingGeometry(),true);
+    assert.equal(picker.field(0)['aria-expanded'],'true');
+  }
+  s.window.sceneEditor.previewSceneSource('rect',0,true);
+  assert.equal(highlightedPaths(s).length,4);
+  s.window.sceneEditor.chooseSceneSource('rect',0);
+  assert.equal(s.edits.length,0);
+  assert.equal(picker.list(0).children.filter(item=>!item.hidden).length,4);
+});
+
+test('no crossing has an explicit empty state; changing source clears old handles and Esc makes no edits',()=>{
+  const s=crossingSetup(),picker=startIntersectionTool(s);
+  picker.choose(0,0);
+  assert.equal(intersectionMarkers(s).length,2);
+  picker.field(0).fire('click');
+  assert.equal(intersectionMarkers(s).length,0);
+  picker.choose(0,5);
+  assert.equal(intersectionMarkers(s).length,0);
+  assert.equal(picker.select(1).options.length,1);
+  assert.match(picker.panel.children.find(child=>child.role==='status').textContent,/Ingen andre geometrier/);
+  assert.equal(picker.panel.children.some(child=>child.textContent?.startsWith('Bekreft treff')),false);
+  s.document.fire('keydown',{key:'Escape'});
+  assert.equal(picker.panel.isConnected,false);
+  assert.equal(s.task.scene.points.length,0);
+  assert.equal(s.edits.length,0);
+});
+
+test('task changes and cancelled intersection reassignment preserve existing points',()=>{
+  const s=crossingSetup();
+  const point={id:'keep',type:'free',pos:[11,12]};
+  s.task.scene.points.push(point);
+  const parent=new Element('div');
+  s.window.sceneEditor.buildProperties(parent,'point',point,0);
+  parent.children.find(child=>child.textContent==='Gjør om til skjæringspunkt').fire('click');
+  s.window.sceneEditor.chooseSceneSource('segment',0);
+  assert.equal(point.type,'free');
+  assert.deepEqual(point.pos,[11,12]);
+  s.window.currentTask={scene:{points:[]}};
+  s.window.sceneEditor.checkTask();
+  assert.equal(s.window.sceneEditor.isSelectingGeometry(),false);
+  assert.equal(s.nodes['scene-panel'].children.length,0);
+  assert.equal(s.edits.length,0);
 });
 
 test('native dropdown change ends picker without reverting the chosen selection',()=>{
@@ -244,6 +474,11 @@ test('point properties expose marker styling and use the shared compact delete b
   color.value='#123456';
   color.fire('change');
   assert.equal(point.color,'#123456');
+  const fill=row('Fyllfarge:').children[1];
+  assert.equal(fill.value,'#ffeb3b');
+  fill.value='#abcdef';
+  fill.fire('change');
+  assert.equal(point.fill_color,'#abcdef');
   const size=sizeStyle.children.find(child=>child.tagName==='INPUT' && child.type==='number');
   size.value='7';
   size.fire('change');
@@ -271,19 +506,14 @@ test('points convert between free and intersection forms without changing their 
     child.textContent==='Gjør om til skjæringspunkt');
   assert.ok(convert);
   convert.fire('click');
+  assert.equal(freeSetup.nodes['btn-add-point'].dataset.mode,'intersection');
+  assert.equal(freeSetup.nodes['btn-add-point']['aria-pressed'],'true');
   const selects=freeSetup.nodes['scene-panel'].children.at(-1).children
     .filter(child=>child.tagName==='DIV').flatMap(row=>row.children)
     .filter(child=>child.tagName==='SELECT');
   assert.equal(selects.length,2);
   selects[0].value='0';
   selects[0].fire('change');
-  selects[1].value='1';
-  selects[1].fire('change');
-  const hitList=freeSetup.nodes['scene-panel'].children.at(-1).children
-    .find(child=>child.children.some(node=>node.tagName==='BUTTON'));
-  const confirm=hitList?.children.find(child=>child.textContent?.startsWith('Bekreft treff'));
-  assert.ok(confirm);
-  confirm.fire('click');
   assert.equal(point.id,'point-stable');
   assert.equal(point.type,'intersection');
 
@@ -292,6 +522,13 @@ test('points convert between free and intersection forms without changing their 
     sources:[{ref:'segment-1'},{ref:'ellipse-1'}],branch:{params:[0.5,0.2]}};
   intersectionSetup.task.scene.points.push(intersection);
   intersectionSetup.window.sceneEditor.buildProperties(intersectionParent,'point',intersection,0);
+  for(const label of ['Størrelse:','Farge:','Fyllfarge:','Linje px:']){
+    assert.ok(intersectionParent.children.some(row=>row.children[0]?.textContent===label));
+  }
+  const fill=intersectionParent.children.find(row=>row.children[0]?.textContent==='Fyllfarge:').children[1];
+  fill.value='#abcdef';
+  fill.fire('change');
+  assert.equal(intersection.fill_color,'#abcdef');
   const toFree=intersectionParent.children.find(child=>child.tagName==='BUTTON' &&
     child.textContent==='Gjør om til fritt punkt');
   assert.ok(toFree);
@@ -381,6 +618,23 @@ test('deleted intersection source keeps a normal hidden point without an invalid
   s.window.drawScene(ctx,s.task,false);
   s.window.sceneEditor.drawOverlay(ctx);
   assert.equal(text.length,0,'pupil never sees a hidden point');
+});
+
+test('lost intersection shows hover reason even while its last position remains a valid anchor',()=>{
+  const s=realAngleSetup([{a:[0,0],b:[100,0]},{a:[40,-50],b:[40,50]}]);
+  const model=s.window.sceneModel;
+  const [a,b]=model.geometries(s.task);
+  const point=model.createIntersectionPoint(s.task,a,b,model.intersections(s.task,a.source,b.source).hits[0]);
+  s.task.scene.segments[1].a=[140,-50];
+  s.task.scene.segments[1].b=[140,50];
+  model.update(s.task);
+  assert.equal(model.pointStatus(s.task,point).valid,true);
+  assert.equal(model.pointStatus(s.task,point).intersectionValid,false);
+  s.window.sceneEditor.mouse=[40,0];
+  const texts=[];
+  s.window.sceneEditor.drawOverlay({save(){},restore(){},measureText:text=>({width:text.length*6}),
+    fillRect(){},fillText:text=>texts.push(text)});
+  assert.ok(texts.join(' ').includes('skjæring'));
 });
 
 test('real editor offset and scrollbar client viewport clamp tooltip in scene coordinates',()=>{

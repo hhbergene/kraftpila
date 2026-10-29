@@ -12,6 +12,7 @@ function bindScenePanelHoverTarget(element,type,index){
   let focusInside=false;
   const isTarget=target=>target?.type===type && target.index===(index ?? 0);
   const update=()=>{
+    if(window.sceneEditor?.previewSceneSource?.(type,index ?? 0,pointerInside || focusInside)) return;
     if(pointerInside || focusInside){
       window.scenePanelHoverTarget={type,index:index ?? 0};
       window.fm?.setHoverCandidate?.(null);
@@ -386,6 +387,7 @@ function updateScenePanel(){
           reference.setAttribute('aria-label',`Velg ${reference.textContent}`);
           reference.addEventListener('click',()=>{
             if(!object) return;
+            if(window.sceneEditor?.chooseSceneSource?.(type,index ?? 0)) return;
             window.selectedSceneElement={type,index:index ?? 0,obj:object};
             window.activeSceneGroupIndex=groupIndex;
             expandedSceneType=null;
@@ -396,6 +398,7 @@ function updateScenePanel(){
           });
           reference.addEventListener('dblclick',()=>{
             if(!object) return;
+            if(window.sceneEditor?.isSelectingGeometry?.()) return;
             window.selectedSceneElement={type,index:index ?? 0,obj:object};
             window.activeSceneGroupIndex=null;
             expandedSceneType=type;
@@ -488,6 +491,7 @@ function updateScenePanel(){
     header.addEventListener('click', (e) => {
       if(e.target.classList.contains('scene-item-arrange-btn')) return;
       if(e.target.classList.contains('scene-item-control-btn')) return;
+      if(window.sceneEditor?.chooseSceneSource?.(type,index ?? 0)) return;
       
       window.activeSceneGroupIndex=null;
       scenePanel.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
@@ -570,6 +574,11 @@ function updateScenePanel(){
     items.className='scene-type-items';
     items.hidden=expandedSceneType!==type;
     const toggle=()=>{
+      if(window.sceneEditor?.isSelectingGeometry?.()){
+        expandedSceneType=expandedSceneType===type ? null : type;
+        updateScenePanel();
+        return;
+      }
       window.activeSceneGroupIndex=null;
       if(entries.length===1){
         const entry=entries[0];

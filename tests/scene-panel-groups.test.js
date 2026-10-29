@@ -161,6 +161,38 @@ test('scene-panel hover and focus publish a canvas highlight target and clear it
   assert.equal(s.window.scenePanelHoverTarget,null);
 });
 
+test('geometry picking routes scene rows to the picker without changing selection or rebuilding its controls',()=>{
+  const s=setup({
+    planes:[],rects:[],ellipses:[],
+    segments:[{a:[0,0],b:[100,0]}],arrows:[],points:[],angles:[],texts:[]
+  });
+  const events=[];
+  s.window.sceneEditor.isSelectingGeometry=()=>true;
+  s.window.sceneEditor.previewSceneSource=(type,index,inside)=>{
+    events.push({action:'preview',type,index,inside});
+    return true;
+  };
+  s.window.sceneEditor.chooseSceneSource=(type,index)=>{
+    events.push({action:'choose',type,index});
+    return true;
+  };
+  s.render();
+  s.sceneItems.querySelector('.scene-type-header').fire('click');
+  assert.equal(s.window.selectedSceneElement,undefined);
+  assert.equal(s.sceneItems.querySelector('.scene-type-items').hidden,false);
+  const item=s.sceneItems.querySelectorAll('.scene-item').find(row=>row.dataset.type==='segment');
+  item.fire('pointerenter');
+  item.fire('pointerleave');
+  item.querySelector('.scene-item-header').fire('click');
+  assert.equal(s.window.selectedSceneElement,undefined);
+  assert.deepEqual(events,[
+    {action:'preview',type:'segment',index:0,inside:true},
+    {action:'preview',type:'segment',index:0,inside:false},
+    {action:'choose',type:'segment',index:0}
+  ]);
+  assert.equal(s.window.scenePanelHoverTarget,null);
+});
+
 test('coordinate previews stay inline and use compact coordinate pairs',()=>{
   const s=setup({
     planes:[{id:'plane-1',through:[10,20],dirPoint:[30,40]}],rects:[],

@@ -691,14 +691,12 @@
   }
   function pointStatus(task,point){
     if(!point) return {valid:false,reason:'Punktet finnes ikke.'};
+    const stored=point.type==='intersection' ? taskRuntime.get(task)?.pointStatus?.get(point.id) : null;
+    if(stored) return {...stored};
     if(validPos(point.pos)) return {valid:true,reason:null};
     if(point.type!=='intersection') return {valid:validPos(point.pos),reason:validPos(point.pos)?null:'Fritt punkt har ugyldige koordinater.'};
     if(point._deletedSource) return {valid:false,reason:'En kildegeometri er slettet.'};
     if(!Array.isArray(point.sources)||point.sources.length!==2) return {valid:false,reason:'Skjæringspunktet krever to kildegeometrier.'};
-    const state=taskRuntime.get(task);
-    const key=point.id;
-    const stored=state?.pointStatus?.get(key);
-    if(stored) return {valid:stored.valid,reason:stored.reason};
     return {valid:point.valid!==false,reason:point.reason||null};
   }
   function angleGeometry(angle,task){
@@ -833,7 +831,7 @@
       point.valid=valid||validPos(point.pos);
       point.reason=valid ? null : (point.valid ? null : reason);
       if(validPos(point.lastValidPos)) point.pos=cp(valid?point.pos:point.lastValidPos);
-      state.pointStatus.set(point.id,{valid:point.valid,reason:point.reason});
+      state.pointStatus.set(point.id,{valid:point.valid,intersectionValid:valid,reason:valid ? null : reason});
     });
     // Resolve angle anchors after dynamic points have been updated.
     (scene.angles||[]).forEach(a=>angleGeometry(a,task));
@@ -1145,15 +1143,22 @@
       if(!editorMode && point.visible !== true) return;
       const [x,y] = point.pos;
       ctx.save();
-      const invalidMarker=editorMode && point.valid === false;
+      const intersectionMarker=editorMode && point.type==='intersection';
+      const invalidIntersection=intersectionMarker && pointStatus(task,point).intersectionValid===false;
+      const invalidMarker=editorMode && (point.valid === false || invalidIntersection);
       const radius = Number.isFinite(point.size) && point.size > 0 ? point.size : 4;
       const markerRadius = invalidMarker ? Math.max(radius, 6) : radius;
-      const markerStyle = point.markerStyle || (point.color ? 'filled' : 'circle');
+      const markerStyle = point.markerStyle || 'filled';
       ctx.lineWidth = invalidMarker ? Math.max(point.lineWidth || 1.5, 2) :
         (Number.isFinite(point.lineWidth) && point.lineWidth > 0 ? point.lineWidth : 1.5);
       ctx.strokeStyle = invalidMarker ? '#d22' : (point.color || '#222');
-      ctx.fillStyle = invalidMarker ? '#fff' : (markerStyle === 'filled' ? (point.color || '#222') : '#fff');
-      if(editorMode && point.valid === false){
+      ctx.fillStyle = invalidMarker || markerStyle==='circle' ? '#fff' : (point.fill_color || '#ffeb3b');
+      if(invalidIntersection){
+        ctx.beginPath();
+        ctx.moveTo(x-markerRadius,y-markerRadius); ctx.lineTo(x+markerRadius,y+markerRadius);
+        ctx.moveTo(x-markerRadius,y+markerRadius); ctx.lineTo(x+markerRadius,y-markerRadius);
+        ctx.stroke();
+      } else if(editorMode && point.valid === false){
         ctx.beginPath(); ctx.arc(x,y,markerRadius,0,Math.PI*2);
         ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#c00'; ctx.font = 'bold 12px Segoe UI, Arial';

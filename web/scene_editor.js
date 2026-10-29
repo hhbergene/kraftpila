@@ -43,6 +43,11 @@
   }
   function edited(...parts){ window.markEdited?.(...parts); refresh(); }
   function cancel(restore = true){
+    if(active?.mode==='free') window.snapIndicator=null;
+    if(active?.mode==='intersection'){
+      window.scenePanelHoverTarget=null;
+      window.hoveredSceneElement=null;
+    }
     if(active?.select?.isConnected){
       active.select.querySelector('[data-preview]')?.remove();
       if(restore) active.select.value = active.original;
@@ -181,7 +186,7 @@
   }
   function moveOption(delta){
     if(!active?.control) return;
-    const items=Array.from(active.control.list.children).filter(item=>item.dataset.value!==undefined);
+    const items=Array.from(active.control.list.children).filter(item=>item.dataset.value!==undefined && !item.hidden);
     const current=active.control.activeRow ? items.indexOf(active.control.activeRow) :
       items.findIndex(item=>item.dataset.value===active.select.value);
     const item=items[Math.max(0,Math.min(items.length-1,current+delta))];
@@ -194,6 +199,7 @@
   function previewOption(control,item){
       checkTask();
       if(active?.control!==control) return;
+      if(control.preview){ control.preview(item); return; }
       const value=item.dataset.value;
       control.activeRow=item;
       active.candidate=candidates(active.task,active.pointsOnly).find(c=>key(c.anchor)===value) || null;
@@ -209,6 +215,10 @@
   function chooseValue(value){
     if(!active) return;
     const state=active;
+    if(state.mode==='intersection'){
+      state.chooseSource(value);
+      return;
+    }
     if(value===''){
       finishAnchor(state,null,null,false,()=>state.detach());
       return;
@@ -226,6 +236,10 @@
     }
   }
   function confirmShown(){
+    if(active?.mode==='intersection' && active.control){
+      chooseValue(active.control.activeRow?.dataset.value ?? active.select.value);
+      return;
+    }
     if(active?.mode!=='anchor') return;
     if(active.suggestion && !active.candidate && active.select.value===active.suggestion.value){
       finishAnchor(active,active.suggestion.anchor,active.suggestion.pos,false);
@@ -330,6 +344,15 @@
     checkTask();
     if(!active) return;
     active.pos = pos;
+    if(active.mode==='free'){
+      active.pos=snapFreePoint(pos);
+      return;
+    }
+    if(active.mode==='intersection'){
+      active.previewSource(active.slot===null ? null : nearestSource(active,pos));
+      active.hoveredHit=nearestIntersectionHit(active,pos);
+      return;
+    }
     if(active.mode !== 'anchor') return;
     active.candidate = nearest(pos,candidates(active.task,active.pointsOnly));
     const select = active.select;
@@ -350,11 +373,15 @@
     if(!active) return;
     const state=active;
     if(state.mode === 'intersection'){
-      const hit=state.hits?.map(h=>({h,d:Math.hypot(pos[0]-h.pos[0],pos[1]-h.pos[1])}))
-        .filter(x=>x.d <= 14).sort((a,b)=>a.d-b.d)[0]?.h;
+      const hit=nearestIntersectionHit(state,pos);
       if(hit){
         window.setLastCanvasCoordinates?.(hit.pos);
         confirmIntersection(state,hit);
+        return;
+      }
+      if(state.slot!==null){
+        const source=nearestSource(state,pos);
+        if(source) state.chooseSource(String(state.geometries.indexOf(source)));
       }
       return;
     }
@@ -367,6 +394,7 @@
       });
       return;
     }
+    pos=snapFreePoint(pos);
     window.setLastCanvasCoordinates?.(pos);
     window.autoSave?.();
     cancel();
@@ -375,6 +403,14 @@
     edited('task');
     revealPoint(point);
     window.autoSave?.();
+  }
+  function snapFreePoint(pos){
+    const result=window.snapping.snap(pos,{
+      points:window.snapPoints,forces:window.fm?.forces || [],
+      gridStep:window.GRID_STEP,origin:window.DRAW_CENTER
+    });
+    window.snapIndicator=result.source ? {pos:result.pos} : null;
+    return result.pos;
   }
   function fillSelect(select, list, selected,reference){
     select.replaceChildren(element('option','Frikoble / fri posisjon',{value:''}));
@@ -576,7 +612,7 @@
         change.addEventListener('click',()=>startIntersection(obj));
         parent.appendChild(change);
       }
-      if(obj.type !== 'intersection'){
+      {
         const sizeStyle=row(parent,'Størrelse:');
         numberField(parent,'',obj.size ?? 4,v=>{obj.size=v; edited('task');},
           {row:sizeStyle,min:'1',max:'30',className:'scene-editor-input scene-point-size-input'});
@@ -590,14 +626,17 @@
           element('option','□',{value:'square',title:'Firkant'}),
           element('option','×',{value:'cross',title:'Kryss'})
         );
-        markerStyle.value=obj.markerStyle || (obj.color ? 'filled' : 'circle');
+        markerStyle.value=obj.markerStyle || 'filled';
         sizeStyle.appendChild(markerStyle);
         markerStyle.addEventListener('change',()=>{obj.markerStyle=markerStyle.value; edited('task');});
       }
-      if(obj.type !== 'intersection'){
+      {
         const color=element('input',null,{type:'color',value:obj.color || '#222222',className:'scene-color-input'});
         row(parent,'Farge:').appendChild(color);
         color.addEventListener('change',()=>{obj.color=color.value; edited('task');});
+        const fillColor=element('input',null,{type:'color',value:obj.fill_color || '#ffeb3b',className:'scene-color-input'});
+        row(parent,'Fyllfarge:').appendChild(fillColor);
+        fillColor.addEventListener('change',()=>{obj.fill_color=fillColor.value; edited('task');});
         numberField(parent,'Linje px:',obj.lineWidth ?? 1.5,v=>{obj.lineWidth=v; edited('task');},{min:'0.5',max:'10',className:'scene-editor-input scene-line-width'});
       }
       checkbox(parent,'Synlig for eleven',obj.visible,v=>{obj.visible=v; edited('task');});
@@ -621,10 +660,11 @@
     window.autoSave?.();
     const point=state.editPoint || model().createPoint(state.task,hit.pos);
     point.type='intersection';
-    point.sources=state.sources.map(s=>({...s}));
+    point.sources=hit.sources.map(s=>({...s}));
     point.branch=JSON.parse(JSON.stringify(hit.branch || {params:hit.params}));
     point.pos=hit.pos.slice();
     point.lastValidPos=hit.pos.slice();
+    window.setLastCanvasCoordinates?.(hit.pos);
     cancel();
     model().update(state.task);
     window.selectedSceneElement={type:'point',index:state.task.scene.points.indexOf(point),obj:point};
@@ -635,48 +675,223 @@
   function startIntersection(editPoint){
     activate({mode:'intersection',editPoint,alive:editPoint ? ()=>window.currentTask?.scene?.points?.includes(editPoint) : null});
     if(!active) return;
-    const state=active, panel=element('div',null,{className:'scene-intersection-picker'});
+    setPointMode('intersection');
+    document.getElementById('btn-add-point')?.setAttribute('aria-pressed','true');
+    const state=active, panel=element('div',null,{className:'scene-item selected scene-intersection-picker'});
     panel.style.minWidth='0';
     panel.style.overflowWrap='anywhere';
     state.panel=panel;
+    const scene=state.task.scene;
     const sources=model().geometries(state.task);
-    panel.appendChild(element('strong','Skjæringspunkt – velg to geometrier'));
+    const owners=new Map();
+    for(const type of ['plane','rect','segment','ellipse']){
+      for(const [index,obj] of (scene[type==='ellipse' ? 'ellipses' : type+'s'] || []).entries()){
+        owners.set(obj.id,{type,index});
+      }
+    }
+    state.geometries=sources.filter(source=>owners.has(source.ref)).map(source=>({
+      ...source,owner:owners.get(source.ref),
+      segments:source.curve ? window.geometry.sampleEllipse(source.value) : [[source.value.a,source.value.b]]
+    }));
+    state.slot=null;
+    state.previewGeometries=[];
+    state.hits=[];
+    state.matches=[];
+    panel.appendChild(element('strong',editPoint
+      ? 'Punkt – velg skjæring på nytt' : 'Nytt skjæringspunkt – velg to geometrier'));
+    const sourceControls=[];
     const selects=[0,1].map(i=>{
       const select=element('select',null);
-      select.style.minWidth='0';
-      select.style.width='100%';
-      select.style.flex='1 1 100%';
+      select.hidden=true;
+      select.tabIndex=-1;
       select.appendChild(element('option','Velg geometri',{value:''}));
-      sources.forEach((s,j)=>select.appendChild(element('option',s.label || s.key,{value:String(j)})));
+      state.geometries.forEach((s,j)=>select.appendChild(element('option',s.label || s.key,{value:String(j)})));
       if(editPoint?.sources?.[i]){
-        const idx=sources.findIndex(s=>JSON.stringify(s.source)===JSON.stringify(editPoint.sources[i]));
+        const idx=state.geometries.findIndex(s=>JSON.stringify(s.source)===JSON.stringify(editPoint.sources[i]));
         if(idx>=0) select.value=String(idx);
       }
-      row(panel,`Kilde ${i+1}:`).appendChild(select);
+      const parent=row(panel,`Kilde ${i+1}:`);
+      parent.appendChild(select);
+      const button=element('button','Velg geometri',{type:'button',className:'scene-anchor-field'});
+      const list=element('div',null,{className:'scene-anchor-list',hidden:true});
+      list.id=`scene-source-list-${++controlId}`;
+      list.setAttribute('role','listbox');
+      list.setAttribute('aria-label',`Kilde ${i+1}`);
+      button.setAttribute('role','combobox');
+      button.setAttribute('aria-haspopup','listbox');
+      button.setAttribute('aria-controls',list.id);
+      button.setAttribute('aria-expanded','false');
+      const control={select,button,list,label:`Kilde ${i+1}`,activeRow:null,
+        preview:item=>state.previewSource(item.dataset.value==='' ? null : state.geometries[Number(item.dataset.value)] || null)};
+      controls.set(select,control);
+      sourceControls.push(control);
+      parent.append(button,list);
+      button.addEventListener('click',()=>openSource(i));
+      const onKey=event=>{
+        if(!['Enter',' ','ArrowDown','ArrowUp'].includes(event.key)) return;
+        event.preventDefault();event.stopPropagation();
+        if(state.slot!==i) openSource(i);
+        else if(event.key==='Enter' || event.key===' ') confirmShown();
+        else moveOption(event.key==='ArrowDown' ? 1 : -1);
+      };
+      button.addEventListener('keydown',onKey);
+      list.addEventListener('keydown',onKey);
+      list.addEventListener('mouseleave',()=>state.previewSource(null));
+      syncControl(select);
       return select;
     });
-    const hits=element('div',null), message=element('div','');
-    panel.append(hits,message,element('span','Klikk et treff i scenen eller bekreft nedenfor. Esc avbryter.'));
-    function calculate(){
-      if(active!==state) return;
-      hits.replaceChildren();
+    const message=element('div','Velg første geometri.');
+    message.setAttribute('role','status');
+    panel.append(message,element('span','Ett treff velges automatisk. Ved flere treff: klikk ønsket handle i scenen. Esc avbryter.'));
+    function calculate(first){
+      state.matches=[];
       state.hits=[];
-      if(selects.some(s=>s.value==='')){message.textContent='Velg begge kilder.';return;}
-      state.sources=selects.map(s=>sources[Number(s.value)].source);
-      const result=model().intersections(state.task,...state.sources);
-      state.hits=result.hits || [];
-      message.textContent=state.hits.length ? `${state.hits.length} treff – velg eksplisitt.` : result.reason || 'Ingen isolert skjæring.';
-      state.hits.forEach((hit,i)=>{
-        const btn=element('button',`Bekreft treff ${i+1} (${hit.pos.map(n=>n.toFixed(1)).join(', ')})`,{type:'button'});
-        btn.style.maxWidth='100%';
-        btn.style.whiteSpace='normal';
-        btn.addEventListener('click',()=>{if(active===state) confirmIntersection(state,hit);});
-        hits.appendChild(btn);
-      });
+      state.hoveredHit=null;
+      selects[1].value='';
+      syncControl(selects[1]);
+      for(const second of state.geometries){
+        if(second.key===first.key) continue;
+        const result=model().intersections(state.task,first.source,second.source);
+        if(result.reason) continue;
+        const hits=(result.hits || []).filter(hit=>finitePos(hit.pos)).map(hit=>({
+          ...hit,sources:[first.source,second.source],source:second
+        }));
+        if(hits.length) state.matches.push({source:second,hits});
+      }
+      state.hits=state.matches.flatMap(match=>match.hits);
+      const select=selects[1];
+      select.replaceChildren(element('option','Velg geometri',{value:''}));
+      for(const {source} of state.matches){
+        select.appendChild(element('option',source.label || source.key,
+          {value:String(state.geometries.indexOf(source))}));
+      }
+      select.value='';
+      syncControl(select);
+      message.textContent=state.hits.length
+        ? `${state.hits.length} skjæringstreff – velg geometri eller klikk et handle.`
+        : 'Ingen andre geometrier har en isolert skjæring med denne. Velg en annen første geometri.';
     }
-    selects.forEach(s=>s.addEventListener('change',calculate));
+    function closeSources(){
+      sourceControls.forEach(control=>{
+        control.list.hidden=true;
+        control.button.setAttribute('aria-expanded','false');
+        control.button.removeAttribute?.('aria-activedescendant');
+      });
+      state.control=null;
+      state.select=null;
+      state.slot=null;
+      state.previewGeometries=[];
+      state.hoveredHit=null;
+    }
+    function openSource(i,subset){
+      if(active!==state) return;
+      if(i===1 && selects[0].value==='') i=0;
+      if(i===0) state.hits=[];
+      else if(selects[1].value!==''){
+        state.hits=state.matches.flatMap(match=>match.hits);
+        selects[1].value='';
+        syncControl(selects[1]);
+      }
+      closeSources();
+      state.slot=i;
+      const control=sourceControls[i];
+      state.control=control;
+      state.select=control.select;
+      state.original=control.select.value;
+      showList(control);
+      for(const item of control.list.children){
+        if(item.dataset.value==='') item.hidden=true;
+        else if(subset) item.hidden=!subset.includes(state.geometries[Number(item.dataset.value)]);
+      }
+      control.button.focus({preventScroll:true});
+      reveal(control.button);
+    }
+    state.previewSource=source=>{
+      state.previewGeometries=source ? [source] : [];
+      const control=state.control;
+      if(!control) return;
+      control.activeRow=source ? Array.from(control.list.children)
+        .find(item=>item.dataset.value===String(state.geometries.indexOf(source))) : null;
+      syncControl(control.select);
+      if(control.activeRow) control.button.setAttribute('aria-activedescendant',control.activeRow.id);
+      else control.button.removeAttribute?.('aria-activedescendant');
+    };
+    state.chooseSource=value=>{
+      if(active!==state || state.slot===null || value==='') return;
+      const source=state.geometries[Number(value)];
+      if(!source || !selectableSources(state).includes(source)) return;
+      const slot=state.slot;
+      selects[slot].value=value;
+      syncControl(selects[slot]);
+      if(slot===0){
+        calculate(source);
+        if(state.hits.length===1){confirmIntersection(state,state.hits[0]);return;}
+        openSource(1);
+      }
+      else {
+        state.hits=state.matches.find(match=>match.source===source).hits;
+        if(state.hits.length===1){confirmIntersection(state,state.hits[0]);return;}
+        closeSources();
+        message.textContent=`${state.hits.length} skjæringstreff – klikk ønsket handle i scenen.`;
+        reveal(message);
+        sourceControls[1].button.focus({preventScroll:true});
+      }
+    };
+    state.openSource=openSource;
+    selects.forEach((select,i)=>select.addEventListener('change',()=>{
+      if(active!==state) return;
+      const value=select.value;
+      openSource(i);
+      state.chooseSource(value);
+    }));
     (document.getElementById('scene-panel') || document.body).appendChild(panel);
-    calculate();
+    window.setActivePanel?.('scene');
+    window.scenePanelHoverTarget=null;
+    window.hoveredSceneElement=null;
+    window.fm?.setHoverCandidate?.(null);
+    openSource(0);
+  }
+  function selectableSources(state){
+    return state.slot===0 ? state.geometries : state.matches.map(match=>match.source);
+  }
+  function nearestIntersectionHit(state,pos){
+    if(state.slot===0) return null;
+    return state.hits.map(hit=>({hit,distance:Math.hypot(pos[0]-hit.pos[0],pos[1]-hit.pos[1])}))
+      .filter(item=>item.distance<=14).sort((a,b)=>a.distance-b.distance)[0]?.hit || null;
+  }
+  function nearestSource(state,pos){
+    return selectableSources(state).map(source=>({source,distance:source.segments.reduce((nearest,[a,b])=>
+      Math.min(nearest,window.geometry.distPointToSegment(pos,a,b)),Infinity)}))
+      .filter(hit=>hit.distance<=9).sort((a,b)=>a.distance-b.distance)[0]?.source || null;
+  }
+  function sceneSources(type,index){
+    return selectableSources(active).filter(source=>source.owner.type===type && source.owner.index===index);
+  }
+  function previewSceneSource(type,index,inside){
+    checkTask();
+    if(active?.mode!=='intersection' || active.slot===null) return false;
+    active.previewSource(null);
+    active.previewGeometries=inside ? sceneSources(type,index) : [];
+    if(active.previewGeometries.length===1) active.previewSource(active.previewGeometries[0]);
+    return true;
+  }
+  function chooseSceneSource(type,index){
+    checkTask();
+    if(active?.mode!=='intersection' || active.slot===null) return false;
+    const sources=sceneSources(type,index);
+    if(sources.length===1) active.chooseSource(String(active.geometries.indexOf(sources[0])));
+    else if(sources.length>1) active.openSource(active.slot,sources);
+    return true;
+  }
+  function setPointMode(mode){
+    pointMode=mode;
+    const button=document.getElementById('btn-add-point');
+    if(!button) return;
+    button.title=mode==='free' ? 'Fritt punkt – følger snapping' : 'Skjæringspunkt – velg geometrier';
+    button.dataset.mode=mode;
+    button.innerHTML=mode==='free' ? '●' :
+      '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h20M4 22Q4 10 20 6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12" r="2.5" fill="currentColor"/></svg>';
+    button.setAttribute('aria-label',button.title);
   }
   function bindForcePicker(select,parent){
     if(!select || select.dataset.scenePickerBound) return;
@@ -741,6 +956,22 @@
     if(!window.editorMode) return;
     ctx.save();
     if(active){
+      if(active.mode==='intersection'){
+        const style=window.ANCHOR_MARKER_STYLES.pickerHovered;
+        ctx.save();
+        ctx.strokeStyle=style.color;
+        ctx.lineWidth=style.lineWidth;
+        ctx.lineCap='round';
+        ctx.lineJoin='round';
+        ctx.shadowColor=style.glowColor || style.color;
+        ctx.shadowBlur=style.glowBlur || 0;
+        for(const source of active.previewGeometries){
+          for(const [a,b] of source.segments){
+            ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
       const list=active.mode==='anchor' ? candidates(active.task,active.pointsOnly) : [];
       list.forEach(c=>{
         const state=c===active.candidate || key(c.anchor)===key(active.candidate?.anchor) ? 'pickerHovered' : 'pickerCandidate';
@@ -757,7 +988,13 @@
           ctx.restore();
         }else window.drawAnchorMarker(ctx,c.pos,state);
       });
-      const positions=active.mode==='intersection' ? (active.hits || []).map(h=>h.pos) :
+      if(active.mode==='intersection'){
+        for(const hit of active.hits){
+          const highlighted=hit===active.hoveredHit || active.previewGeometries.includes(hit.source);
+          window.drawAnchorMarker(ctx,hit.pos,highlighted ? 'pickerHovered' : 'pickerPreview');
+        }
+      }
+      const positions=active.mode==='intersection' ? [] :
         active.pos && !active.candidate ? [active.pos] : [];
       positions.forEach(pos=>window.drawAnchorMarker(ctx,pos,'pickerPreview'));
     }
@@ -765,7 +1002,7 @@
     const task=window.currentTask;
     (task?.scene?.points || []).forEach(point=>{
       const status=model()?.pointStatus(task,point);
-      if(status && !status.valid && finitePos(point.pos)){
+      if(status && (!status.valid || status.intersectionValid===false) && finitePos(point.pos)){
         if(api.mouse && Math.hypot(api.mouse[0]-point.pos[0],api.mouse[1]-point.pos[1])<18) hover={pos:point.pos,reason:status.reason};
       }
     });
@@ -836,6 +1073,12 @@
       checkTask();
       if(active){event.stopImmediatePropagation();preview(pos);}
     },true);
+    canvas.addEventListener('mouseleave',()=>{
+      if(active?.mode==='intersection'){
+        active.previewSource(null);
+        active.hoveredHit=null;
+      }
+    });
     canvas.addEventListener('mousedown',event=>{
       checkTask();
       if(!active) return;
@@ -863,16 +1106,13 @@
       creation=null;
     },true);
     document.getElementById('btn-add-point')?.addEventListener('click',()=>{
-      pointMode=pointMode==='free' ? 'intersection' : 'free';
+      setPointMode(pointMode==='free' ? 'intersection' : 'free');
       const button=document.getElementById('btn-add-point');
-      button.title=pointMode==='free' ? 'Fritt punkt – klikk i scenen uten snapping' : 'Skjæringspunkt – velg geometrier';
-      button.dataset.mode=pointMode;
-      button.setAttribute('aria-label',button.title);
       if(pointMode==='intersection') startIntersection();
       else {
         activate({mode:'free'});
         if(active){
-          const panel=element('div','Fritt punkt – klikk i scenen uten snapping. Esc avbryter.',{className:'scene-intersection-picker'});
+          const panel=element('div','Fritt punkt – klikk i scenen. Følger snapping. Esc avbryter.',{className:'scene-intersection-picker'});
           active.panel=panel;
           document.getElementById('scene-panel')?.appendChild(panel);
         }
@@ -882,6 +1122,8 @@
   }
   const api={init,install:init,cancel,checkTask,drawOverlay,buildProperties,bindForcePicker,applyForceAnchor,candidates,
     startAngle,syncControl,reveal,revealSelection,showForceAnchorPicker,
+    previewSceneSource,chooseSceneSource,
+    isSelectingGeometry:()=>active?.mode==='intersection' && active.slot!==null,
     isPicking:select=>active?.mode==='anchor' && active.select===select};
   window.sceneEditor=api;
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);

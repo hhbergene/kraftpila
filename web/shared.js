@@ -738,6 +738,23 @@ window.AppVersioning = (function(){
     });
   }
 
+  function mergeSchema(target,extension){
+    extension.objectKeys.forEach(key=>{
+      target.objectKeys.add(key);
+      if(extension.children[key]){
+        target.children[key]=target.children[key]
+          ? mergeSchema(target.children[key],extension.children[key])
+          : extension.children[key];
+      }
+    });
+    if(extension.item){
+      target.item=target.item
+        ? mergeSchema(target.item,extension.item)
+        : extension.item;
+    }
+    return target;
+  }
+
   function supportedTaskSchema(reference){
     const schema = collectSchema([{tasks:Array.isArray(reference) ? reference : reference ? [reference] : []}]);
     const task = schema.children.tasks?.item;
@@ -748,22 +765,6 @@ window.AppVersioning = (function(){
         {description:'',members:[{type:'text',id:'text-1'}]},
         {}
       ]);
-      const mergeSchema=(target,extension)=>{
-        extension.objectKeys.forEach(key=>{
-          target.objectKeys.add(key);
-          if(extension.children[key]){
-            target.children[key]=target.children[key]
-              ? mergeSchema(target.children[key],extension.children[key])
-              : extension.children[key];
-          }
-        });
-        if(extension.item){
-          target.item=target.item
-            ? mergeSchema(target.item,extension.item)
-            : extension.item;
-        }
-        return target;
-      };
       const groups=scene.children.groups || {
         objectKeys:new Set(),requiredKeys:[],children:{},item:null
       };

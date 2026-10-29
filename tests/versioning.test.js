@@ -263,6 +263,17 @@ test('version filtering preserves automatic ratio mode and optional answer geome
   assert.deepEqual(imported.relations,[relation,{...relation,ratio:2}]);
 });
 
+test('version filtering preserves sumF planeId',async()=>{
+  const {window,elements}=setup();
+  const reference=[{id:'task',scene:{planes:[]},sumF:{x:0,y:0}}];
+  const sumF={x:1,y:2,n:3,t:4,planeId:'plane-1'};
+  const data={tasks:[{id:'task',scene:{planes:[{id:'plane-1'}],activePlaneId:'plane-1'},sumF}],metadata:{appVersion:'old',tasksetVersion:2}};
+  const pending=window.AppVersioning.checkImport(data,'editor','test.json',reference);
+  elements.find(element=>element.textContent==='Åpne uansett').listeners.click();
+  const result=await pending;
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.tasks[0].sumF)),sumF);
+});
+
 test('full reset from the storage warning clears only this mode and loads current defaults',async()=>{
   const {window,localStorage,elements,confirmations}=setup();
   localStorage.setItem('tk_app_version','2025-01-01 09:00');

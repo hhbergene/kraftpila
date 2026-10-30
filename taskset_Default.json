@@ -226,7 +226,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -402,7 +402,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -582,7 +582,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -796,7 +796,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -836,7 +836,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -1023,7 +1023,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -1062,7 +1062,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -1100,7 +1100,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -1478,7 +1478,7 @@
           "nameBase": "S",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -1514,7 +1514,7 @@
           "nameBase": "R",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -1547,7 +1547,7 @@
           "nameBase": "S",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -2264,7 +2264,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -2298,7 +2298,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -2331,7 +2331,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -2839,7 +2839,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -2871,7 +2871,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -3735,7 +3735,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -3768,7 +3768,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -4026,7 +4026,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -4058,7 +4058,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -4332,7 +4332,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -4372,7 +4372,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -4639,7 +4639,7 @@
           "role": "resultant",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -4886,7 +4886,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -4926,7 +4926,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -4964,7 +4964,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -5199,7 +5199,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -5239,7 +5239,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -5277,7 +5277,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -5531,7 +5531,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -5571,7 +5571,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -5816,7 +5816,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -5848,7 +5848,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],
@@ -6191,7 +6191,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         },
         {
@@ -6223,7 +6223,7 @@
           "role": "force",
           "studentGiven": {
             "name": false,
-            "role": true
+            "role": false
           }
         }
       ],

@@ -2,13 +2,13 @@
 (function(){
   if(!window.editorMode) return;
   const collections = {plane:'planes',rect:'rects', ellipse:'ellipses', point:'points',
+    wagon:'wagons',
     segment:'segments', arrow:'arrows', text:'texts', angle:'angles'};
   const labels = {rect:'Rektangel', ellipse:'Ellipse', point:'Punkt',
-    segment:'Segment', arrow:'Pil', text:'Tekst', angle:'Vinkel', plane:'Plan',
+    segment:'Segment', arrow:'Pil', text:'Tekst', angle:'Vinkel', plane:'Plan',wagon:'Vogn',
     expectedForce:'Fasitkraft', initialForce:'Låst kraft'};
   const entries = [];
   const sourceIds = new WeakMap(), taskIds = new WeakMap();
-  let pointSequence = 0, sceneSequence=0;
   let sourceSequence = 0, taskSequence = 0;
   class ClipboardError extends Error {}
   const position = p=>Array.isArray(p) && p.length===2 && p.every(Number.isFinite);
@@ -43,6 +43,13 @@
       if(!state.valid) throw new ClipboardError(state.reason || 'Punktet er ugyldig.');
       for(const field of ['id','sources','branch','lastValidPos','valid','reason']) delete data[field];
       data.type = 'free';
+    } else if(type==='wagon'){
+      const point=task.scene.points?.find(item=>item?.id===source.pointId&&item.type==='attached');
+      if(!point) throw new ClipboardError('Vognen mangler et gyldig festet punkt.');
+      data.anchorPos=point.pos.slice();
+      delete data.planeId;
+      const geometry=window.sceneModel.wagonGeometry(task,source);
+      if(!geometry.valid) throw new ClipboardError(geometry.reason||'Vognen har ugyldig geometri.');
     } else if(type==='angle'){
       const geometry = window.sceneModel.angleGeometry(source,task);
       if(!geometry.valid) throw new ClipboardError(geometry.reason || 'Vinkelen er ugyldig.');
@@ -124,7 +131,7 @@
     }
     if(type==='angle') return [data.start.pos,data.vertex.pos,data.end.pos];
     if(type==='segment' || type==='arrow') return [data.a,data.b];
-    return [data[type==='rect' ? 'bottomCenter' : type==='plane' ? 'through' :
+    return [data[type==='wagon' ? 'anchorPos' : type==='rect' ? 'bottomCenter' : type==='plane' ? 'through' :
       type==='ellipse' ? 'center' : 'pos']];
   }
 
@@ -145,6 +152,10 @@
     }
     if(type==='ellipse' && !window.geometry.ellipseFrame(data)){
       throw new ClipboardError('Ellipsen har ugyldig geometri.');
+    }
+    if(type==='wagon' && (!data.pointId ||
+       ![data.halfWidth,data.height].every(n=>Number.isFinite(n)&&n>0))){
+      throw new ClipboardError('Vognen mangler et festet punkt eller gyldige mål.');
     }
   }
 
@@ -226,7 +237,7 @@
       const entry = clone(source);
       validate(entry);
       const {type,data} = entry;
-      if(type!=='plane'){
+      if(type!=='plane'&&type!=='wagon'){
         const occupied = existing.get(type);
         while(occupied.some(other=>coincides(entry,other))) translate(entry,step);
         occupied.push(entry);
@@ -239,10 +250,7 @@
         }
       }
       if(!forceEntry(type)){
-        let id;
-        do {
-          id=type==='point' ? `point-copy-${++pointSequence}` : `${type}-copy-${++sceneSequence}`;
-        } while(ids.has(id));
+        const id=window.sceneModel.nextSceneId(task,type,ids);
         data.id=id;
         ids.add(id);
       }
@@ -352,7 +360,12 @@
           const key = type==='expectedForce' ? 'expectedForces' : 'initialForces';
           (task[key] ||= []).push(data);
         } else {
-          (task.scene[collections[type]] ||= []).push(data);
+          if(type==='wagon'){
+            const point=task.scene.points?.find(item=>item?.id===data.pointId);
+            if(!point) throw new ClipboardError('Vognens festede punkt finnes ikke lenger.');
+            const {anchorPos,planeId,...options}=data;
+            window.sceneModel.createWagon(task,point,options);
+          }else (task.scene[collections[type]] ||= []).push(data);
           if(type==='plane') task.scene.activePlaneId=data.id;
         }
       }

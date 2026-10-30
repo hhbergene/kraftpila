@@ -129,6 +129,19 @@
       bottom_center: bc
     };
   }
+  function wagonPoints(wagon,task){
+    return window.sceneModel?.wagonGeometry(task,wagon) || null;
+  }
+  function wagonLookupEntry(task,wagon){
+    const geometry=wagonGeometry(task,wagon);
+    if(!geometry?.corners) return null;
+    const {bottomLeft,bottomRight,topLeft,topRight,center,bottomCenter}=geometry;
+    const point=resolvePoint(task,wagon.pointId);
+    return {points:{center,bottomLeft,bottomRight,topLeft,topRight,bottomCenter,
+      ...(validPos(point?.pos)?{placement:cp(point.pos)}:{})},
+      segments:{left:[bottomLeft,topLeft],top:[topLeft,topRight],right:[bottomRight,topRight]},
+      valid:geometry.valid,reason:geometry.reason};
+  }
 
   function ellipseAnchors(e){
     const points={center:cp(e.center)};
@@ -212,6 +225,23 @@
       ctx.stroke();
     }
     ctx.setLineDash([]);
+    ctx.restore();
+  }
+  function drawWagon(ctx,wagon,task,editorMode){
+    const points=wagonPoints(wagon,task);
+    if(!points?.corners) return;
+    if(!editorMode && wagon.visible===false) return;
+    const [bottomLeft,bottomRight,topRight,topLeft]=points.corners;
+    ctx.save();
+    ctx.strokeStyle=editorMode && !points.valid ? '#d22' : wagon.color || '#333';
+    ctx.lineWidth=wagon.lineWidth || 2;
+    ctx.setLineDash(editorMode && !points.valid ? [5,4] : []);
+    ctx.beginPath();
+    ctx.moveTo(...bottomLeft);
+    ctx.lineTo(...topLeft);
+    ctx.lineTo(...topRight);
+    ctx.lineTo(...bottomRight);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -370,6 +400,7 @@
     if(task.scene.rects){ task.scene.rects.forEach(r=>drawRect(ctx,r)); }
     if(task.scene.segments){ task.scene.segments.forEach(s=>drawSegment(ctx,s)); }
     if(task.scene.ellipses){ task.scene.ellipses.forEach(e=>drawEllipse(ctx,e)); }
+    if(task.scene.wagons){ task.scene.wagons.forEach(w=>drawWagon(ctx,w,task,editorMode)); }
     if(task.scene.arrows){ task.scene.arrows.forEach(a=>drawArrow(ctx,a)); }
     if(task.scene.texts){
       task.scene.texts.forEach((t,idx)=>{
@@ -389,11 +420,11 @@
   const mod1 = x => ((x%1)+1)%1;
   const sceneCollections = {
     plane:'planes',rect:'rects',segment:'segments',ellipse:'ellipses',
-    arrow:'arrows',text:'texts',point:'points',angle:'angles'
+    arrow:'arrows',text:'texts',point:'points',angle:'angles',wagon:'wagons'
   };
   const sceneTypeLabels = {
     plane:'Plan',rect:'Rektangel',segment:'Segment',ellipse:'Ellipse',
-    arrow:'Pil',text:'Tekst',point:'Punkt',angle:'Vinkel'
+    arrow:'Pil',text:'Tekst',point:'Punkt',angle:'Vinkel',wagon:'Vogn'
   };
   const anchorPartLabels={
     center:'sentrum',top_center:'topp',bottom_center:'bunn',
@@ -424,12 +455,9 @@
         used.add(id);
       }
     });
-    const counters=new Map();
     sceneEntries(task).forEach(entry=>{
       if(entry.obj.id) return;
-      let n=(counters.get(entry.type)||0)+1,id;
-      do{id=`${entry.type}-${n++}`;}while(used.has(id));
-      counters.set(entry.type,n-1);
+      const id=nextSceneId(task,entry.type,used);
       entry.obj.id=id;
       used.add(id);
     });
@@ -450,16 +478,82 @@
     if(typeof id!=='string') return null;
     return sceneEntries(task).find(entry=>entry.obj.id===id)||null;
   }
+  function nextSceneId(task,type,reserved=new Set()){
+    const label=sceneTypeLabels[type];
+    if(!label) throw new TypeError(`Ukjent sceneelementtype: ${type}.`);
+    const used=new Set([...sceneEntries(task).map(entry=>entry.obj.id),...reserved]);
+    let n=1;
+    while(used.has(`${label}-${n}`)) n++;
+    return `${label}-${n}`;
+  }
+  function validateSceneId(task,object,id){
+    if(!sceneEntries(task).some(entry=>entry.obj===object)){
+      return 'Sceneelementet finnes ikke lenger i denne oppgaven.';
+    }
+    if(typeof id!=='string'||!id.trim()) return 'ID kan ikke være tom.';
+    if(id!==object.id && !/^[\p{L}\p{N}_-]+$/u.test(id)){
+      return 'Bruk bare bokstaver, tall, bindestrek og understrek.';
+    }
+    if(sceneEntries(task).some(entry=>entry.obj!==object && entry.obj.id===id)){
+      return `ID «${id}» er allerede i bruk.`;
+    }
+    return '';
+  }
+  function sceneReferenceSlots(root){
+    const slots=[],seen=new WeakSet();
+    // Reference formats are shared across owners, including future scene element types.
+    const idFields=new Set(['planeId','pointId','activePlaneId','anchorFrom']);
+    const referenceFields=new Set(['anchor','anchorSpec','attachment','source','sources','lockedTo']);
+    function visit(value,field='',group=false){
+      if(!value || typeof value!=='object' || seen.has(value)) return;
+      seen.add(value);
+      if(Array.isArray(value)){
+        value.forEach(item=>visit(item,field,group));
+        return;
+      }
+      const reference=referenceFields.has(field) || typeof value.point==='string' ||
+        typeof value.segment==='string' || typeof value.curve==='boolean' ||
+        ['point','segment','wagon'].includes(value.type);
+      for(const [key,item] of Object.entries(value)){
+        if(typeof item==='string' && (idFields.has(key) ||
+          key==='ref' && reference || key==='id' && field==='members' && group)){
+          slots.push({object:value,key});
+        }
+        if(key==='key' && reference && typeof item==='string'){
+          slots.push({object:value,key,geometryKey:true});
+        }
+        visit(item,key,field==='groups' || group);
+      }
+    }
+    visit(root);
+    return slots;
+  }
+  function renameSceneId(task,object,id,referenceRoots=[]){
+    const error=validateSceneId(task,object,id);
+    if(error) throw new TypeError(error);
+    const oldId=object.id;
+    if(id===oldId) return false;
+    const changes=[task,...referenceRoots].flatMap(sceneReferenceSlots).flatMap(slot=>{
+      const value=slot.object[slot.key];
+      if(value===oldId) return [{...slot,value:id}];
+      if(slot.geometryKey && value.startsWith(`${oldId}:`)){
+        return [{...slot,value:id+value.slice(oldId.length)}];
+      }
+      return [];
+    });
+    // Collect and validate before touching either the ID or its references.
+    object.id=id;
+    changes.forEach(({object:owner,key,value})=>{owner[key]=value;});
+    taskRuntime.delete(task);
+    return true;
+  }
   function sceneRef(task,type,index,obj){
     ensureSceneIds(task);
     return obj?.id || task?.scene?.[sceneCollections[type]]?.[index]?.id || null;
   }
   function elementLabel(task,id,part){
-    const entry=sceneEntryById(task,id);
     const partLabel=anchorPartLabels[part]||part;
-    if(!entry) return [id,partLabel].filter(Boolean).join(' · ');
-    const noun=sceneTypeLabels[entry.type]||entry.type;
-    return `${noun} ${entry.index+1}${partLabel ? ` · ${partLabel}` : ''}`;
+    return [id,partLabel].filter(Boolean).join(' · ');
   }
 
   function lineRecord(key, ref, segment, a, b, label){
@@ -536,6 +630,357 @@
     if(!record.curve) return true;
     if(record.value.radius !== undefined) return true;
     return modelGeometry.ellipseAngleInSweep(record.value,sourceParam(record,p)*360,1e-5);
+  }
+  function sourceTangent(record,u){
+    if(!record?.curve){
+      return modelGeometry.normalizeVector([
+        record.value.b[0]-record.value.a[0],record.value.b[1]-record.value.a[1]
+      ]);
+    }
+    const frame=modelGeometry.ellipseFrame(record.value);
+    if(!frame) return [0,0];
+    const angle=mod1(u)*Math.PI*2;
+    return modelGeometry.normalizeVector([
+      -frame.rx*Math.sin(angle)*frame.t[0]+frame.ry*Math.cos(angle)*frame.n[0],
+      -frame.rx*Math.sin(angle)*frame.t[1]+frame.ry*Math.cos(angle)*frame.n[1]
+    ]);
+  }
+  function attachedRecord(task,point){
+    const attachment=point?.attachment;
+    if(!attachment || attachment.deleted || typeof attachment.ref!=='string') return null;
+    const record=resolveSource(task,attachment);
+    return record && (record.curve || record.type==='segment') ? record : null;
+  }
+  function pointOnEllipseLine(ellipse,origin,tangent,offsetNormal,offset){
+    const frame=modelGeometry.ellipseFrame(ellipse);
+    if(!frame) return null;
+    const lineOrigin=[origin[0]+offsetNormal[0]*offset,origin[1]+offsetNormal[1]*offset];
+    const relative=[lineOrigin[0]-frame.center[0],lineOrigin[1]-frame.center[1]];
+    const x=modelGeometry.dot(relative,frame.t)/frame.rx;
+    const y=modelGeometry.dot(relative,frame.n)/frame.ry;
+    const dx=modelGeometry.dot(tangent,frame.t)/frame.rx;
+    const dy=modelGeometry.dot(tangent,frame.n)/frame.ry;
+    const a=dx*dx+dy*dy;
+    const b=2*(x*dx+y*dy);
+    const c=x*x+y*y-1;
+    const discriminant=b*b-4*a*c;
+    if(!(a>1e-12)||discriminant< -1e-9) return null;
+    const root=Math.sqrt(Math.max(0,discriminant));
+    const first=(-b-root)/(2*a),second=(-b+root)/(2*a);
+    const p0=[lineOrigin[0]+first*tangent[0],lineOrigin[1]+first*tangent[1]];
+    const p1=[lineOrigin[0]+second*tangent[0],lineOrigin[1]+second*tangent[1]];
+    return {p0,p1,length:modelGeometry.distance(p0,p1)};
+  }
+  function ellipseGradient(ellipse,point){
+    const frame=modelGeometry.ellipseFrame(ellipse);
+    if(!frame||!validPos(point)) return [0,0];
+    const delta=[point[0]-frame.center[0],point[1]-frame.center[1]];
+    const x=modelGeometry.dot(delta,frame.t)/(frame.rx*frame.rx);
+    const y=modelGeometry.dot(delta,frame.n)/(frame.ry*frame.ry);
+    return modelGeometry.normalizeVector([
+      x*frame.t[0]+y*frame.n[0],x*frame.t[1]+y*frame.n[1]
+    ]);
+  }
+  function wagonGeometry(task,wagon){
+    const point=resolvePoint(task,wagon?.pointId);
+    const record=attachedRecord(task,point);
+    const halfWidth=Number(wagon?.halfWidth),height=Number(wagon?.height);
+    const validSize=Number.isFinite(halfWidth)&&halfWidth>0&&Number.isFinite(height)&&height>0;
+    if(!point||!validPos(point.pos)){
+      return {valid:false,reason:'Vognens festede punkt finnes ikke eller har ugyldig posisjon.',corners:null};
+    }
+    let tangent=record ? sourceTangent(record,point.attachment.u) : [1,0];
+    if(Math.hypot(...tangent)<1e-10) tangent=[1,0];
+    let normal=[tangent[1],-tangent[0]];
+    let origin=cp(point.pos);
+    let bottomLeft,bottomRight,valid=!!record&&pointStatus(task,point).valid&&validSize;
+    let reason=!point ? 'Vognens festede punkt finnes ikke.' :
+      !record ? 'Vognens sporkilde finnes ikke.' :
+        !pointStatus(task,point).valid ? pointStatus(task,point).reason :
+          !validSize ? 'Vognens halv-bredde og høyde må være større enn null.' : null;
+    if(record?.curve && validPos(point?.pos)){
+      const frame=modelGeometry.ellipseFrame(record.value);
+      const outward=ellipseGradient(record.value,origin);
+      const inward=modelGeometry.normalizeVector([-outward[0],-outward[1]]);
+      if(modelGeometry.dot(normal,inward)<0) normal=[-normal[0],-normal[1]];
+      let chord=null;
+      const centerOffset=modelGeometry.dot([frame.center[0]-origin[0],frame.center[1]-origin[1]],inward);
+      if(validSize&&centerOffset>1e-10){
+        const central=pointOnEllipseLine(record.value,origin,tangent,inward,centerOffset);
+        if(central&&central.length+1e-7>=halfWidth*2){
+          let low=0,high=centerOffset;
+          for(let i=0;i<64;i++){
+            const mid=(low+high)/2,trial=pointOnEllipseLine(record.value,origin,tangent,inward,mid);
+            if(trial&&trial.length<halfWidth*2) low=mid;
+            else high=mid;
+          }
+          chord=Math.abs(central.length-halfWidth*2)<1e-9 ? central :
+            pointOnEllipseLine(record.value,origin,tangent,inward,(low+high)/2);
+        }
+      }
+      if(chord){
+        bottomLeft=chord.p0;bottomRight=chord.p1;
+        const chordCenter=[(chord.p0[0]+chord.p1[0])/2,(chord.p0[1]+chord.p1[1])/2];
+        const chordGradient=ellipseGradient(record.value,chordCenter);
+        const outwardAtChord=Math.hypot(...chordGradient)>1e-8?chordGradient:outward;
+        const orientation=modelGeometry.dot(normal,outwardAtChord);
+        if((wagon.side==='inside'&&orientation>0)||(wagon.side!=='inside'&&orientation<0)){
+          normal=[-normal[0],-normal[1]];
+        }
+        valid=valid&&!reason;
+      }else{
+        bottomLeft=[origin[0]-tangent[0]*halfWidth,origin[1]-tangent[1]*halfWidth];
+        bottomRight=[origin[0]+tangent[0]*halfWidth,origin[1]+tangent[1]*halfWidth];
+        valid=false;
+        reason=validSize ? 'Ønsket kordebredde kan ikke oppnås på denne ellipsen.' : reason;
+      }
+    }else{
+      bottomLeft=[origin[0]-tangent[0]*halfWidth,origin[1]-tangent[1]*halfWidth];
+      bottomRight=[origin[0]+tangent[0]*halfWidth,origin[1]+tangent[1]*halfWidth];
+      if(wagon?.side==='inside') normal=[-normal[0],-normal[1]];
+    }
+    if(!bottomLeft||!bottomRight) return {valid:false,reason:reason||'Vognens geometri er ugyldig.',corners:null};
+    const topLeft=[bottomLeft[0]+normal[0]*height,bottomLeft[1]+normal[1]*height];
+    const topRight=[bottomRight[0]+normal[0]*height,bottomRight[1]+normal[1]*height];
+    return {
+      valid,reason,corners:[bottomLeft,bottomRight,topRight,topLeft],
+      bottomLeft,bottomRight,topLeft,topRight,
+      bottomCenter:[(bottomLeft[0]+bottomRight[0])/2,(bottomLeft[1]+bottomRight[1])/2],
+      center:[(bottomLeft[0]+bottomRight[0]+topLeft[0]+topRight[0])/4,
+        (bottomLeft[1]+bottomRight[1]+topLeft[1]+topRight[1])/4],
+      tangent,normal
+    };
+  }
+  function wagonBottomArc(task,wagon,shape){
+    const point=resolvePoint(task,wagon?.pointId);
+    const record=attachedRecord(task,point);
+    if(!shape?.valid||!record?.curve||!point) return null;
+    const start=sourceParam(record,shape.bottomLeft),end=sourceParam(record,shape.bottomRight);
+    const center=sourceParam(record,point.pos);
+    if(![start,end,center].every(Number.isFinite)) return null;
+    const mod=value=>((value%1)+1)%1;
+    const forward=mod(end-start),centerOffset=mod(center-start);
+    return centerOffset<=forward+1e-8
+      ? {record,start,span:forward}
+      : {record,start:end,span:mod(start-end)};
+  }
+  function distanceToSegment(point,a,b){
+    const dx=b[0]-a[0],dy=b[1]-a[1],lengthSquared=dx*dx+dy*dy;
+    const u=lengthSquared>1e-16
+      ? Math.max(0,Math.min(1,((point[0]-a[0])*dx+(point[1]-a[1])*dy)/lengthSquared)) : 0;
+    return modelGeometry.distance(point,[a[0]+u*dx,a[1]+u*dy]);
+  }
+  function distanceToArc(point,arc){
+    if(!arc||arc.span<=1e-10) return Infinity;
+    const distanceAt=t=>modelGeometry.distance(point,pointOnSource(arc.record,arc.start+arc.span*t));
+    const steps=64;
+    let bestIndex=0,best=distanceAt(0);
+    for(let i=1;i<=steps;i++){
+      const distance=distanceAt(i/steps);
+      if(distance<best){best=distance;bestIndex=i;}
+    }
+    let low=Math.max(0,(bestIndex-1)/steps),high=Math.min(1,(bestIndex+1)/steps);
+    for(let i=0;i<48;i++){
+      const first=low+(high-low)/3,second=high-(high-low)/3;
+      if(distanceAt(first)<=distanceAt(second)) high=second;
+      else low=first;
+    }
+    return Math.min(best,distanceAt((low+high)/2));
+  }
+  function distanceToWagonBottom(task,wagon,position){
+    const shape=wagonGeometry(task,wagon);
+    if(!shape.valid) return null;
+    const chordDistance=distanceToSegment(position,shape.bottomLeft,shape.bottomRight);
+    const arc=wagonBottomArc(task,wagon,shape);
+    return Math.min(chordDistance,distanceToArc(position,arc));
+  }
+  function updateWagons(task){
+    const scene=task?.scene;
+    if(!scene) return;
+    (scene.wagons||[]).forEach(wagon=>{
+      const geometry=wagonGeometry(task,wagon);
+      wagon.valid=geometry.valid;
+      wagon.reason=geometry.reason||null;
+      const plane=scene.planes?.find(item=>item?.id===wagon.planeId);
+      if(!plane) return;
+      plane.lockedTo={type:'wagon',ref:wagon.id};
+      plane.draw=false;
+      if(!geometry.valid) return;
+      plane.through=cp(geometry.bottomCenter);
+      plane.t_vec=cp(geometry.tangent);
+      plane.n_vec=[geometry.tangent[1],-geometry.tangent[0]];
+      plane.angleDeg=-Math.atan2(geometry.tangent[1],geometry.tangent[0])*180/Math.PI;
+    });
+  }
+  function wagonConstruction(task,wagon){
+    const point=resolvePoint(task,wagon.pointId),record=attachedRecord(task,point);
+    const shape=wagonGeometry(task,wagon);
+    if(!shape.valid || !record?.curve) return null;
+    const frame=modelGeometry.ellipseFrame(record.value);
+    if(!frame || Math.abs(frame.rx-frame.ry)>1e-7) return null;
+    const directions={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]};
+    const k=directions[wagon.construction?.cardinal]||directions.bottom;
+    return {C:cp(shape.center),P:cp(point.pos),O:cp(frame.center),
+      Q:[frame.center[0]+frame.rx*k[0],frame.center[1]+frame.rx*k[1]],
+      radius:frame.rx,halfWidth:wagon.halfWidth,height:wagon.height,
+      side:wagon.side,ref:record.ref};
+  }
+  function solveWagonConstruction(state,handle,pos){
+    if(!state || !validPos(pos)) return {valid:false,reason:'Ugyldige konstruksjonspunkter.'};
+    const result={...state};
+    if(handle==='Q'||handle==='O'){
+      const delta=[pos[0]-state[handle][0],pos[1]-state[handle][1]];
+      for(const name of ['C','P','Q','O']) result[name]=state[name].map((v,i)=>v+delta[i]);
+      return {...result,valid:true};
+    }
+    if(handle!=='C'&&handle!=='P') return {valid:false,reason:'Ukjent konstruksjonshåndtak.'};
+    result[handle]=cp(pos);
+    const d=modelGeometry.distance(result.C,result.P),R=result.radius,w=result.halfWidth;
+    if(!(d>1e-7)||!(R>=w)||!(w>0)||!Number.isFinite(R+d+w)){
+      return {...result,valid:false,reason:'C og P må være ulike, og radius må romme halv-bredden.'};
+    }
+    const sigma=result.side==='inside'?-1:1;
+    const e=result.C.map((v,i)=>sigma*(v-result.P[i])/d);
+    const s=w*w/(R+Math.sqrt(Math.max(0,R*R-w*w)));
+    result.height=2*(d+sigma*s);
+    if(!(result.height>0.1)) return {...result,valid:false,reason:'Avstanden C–P gir for liten vognhøyde.'};
+    const k=state.Q.map((v,i)=>(v-state.O[i])/R);
+    result.O=result.P.map((v,i)=>v-R*e[i]);
+    result.Q=result.O.map((v,i)=>v+R*k[i]);
+    return {...result,valid:true};
+  }
+  function applyWagonConstruction(task,wagon,state){
+    if(!state?.valid) throw new TypeError('Kan ikke bruke ugyldig vognkonstruksjon.');
+    const ellipse=task.scene.ellipses?.find(item=>item.id===state.ref);
+    const point=resolvePoint(task,wagon.pointId);
+    if(!ellipse||!point) throw new TypeError('Vognens sirkel eller festepunkt mangler.');
+    Object.assign(ellipse,{center:cp(state.O),width:2*state.radius,height:2*state.radius,
+      lockAxes:true,t_vec:[1,0],n_vec:[0,-1],startAngleDeg:0,endAngleDeg:360});
+    wagon.height=state.height;
+    setPointAttachment(task,point,{ref:ellipse.id,curve:true},state.P);
+    update(task);
+  }
+  function enableWagonConstruction(task,wagon){
+    const point=resolvePoint(task,wagon.pointId),shape=wagonGeometry(task,wagon);
+    if(!point || !shape.valid) throw new TypeError('Konstruksjonsmodus krever en gyldig vogn.');
+    const record=attachedRecord(task,point);
+    let ellipse=record?.curve ? task.scene.ellipses.find(item=>item.id===record.ref) : null;
+    const sigma=wagon.side==='inside'?-1:1,w=wagon.halfWidth;
+    const e=shape.normal.map(v=>sigma*v);
+    let R=Math.max(100,w*2);
+    if(ellipse){
+      const frame=modelGeometry.ellipseFrame(ellipse),a=point.attachment.u*2*Math.PI;
+      R=Math.pow((frame.rx*Math.sin(a))**2+(frame.ry*Math.cos(a))**2,1.5)/(frame.rx*frame.ry);
+      R=Math.max(R,w);
+    }
+    // Keep C on the intended radial side when converting a strongly curved track.
+    const d=modelGeometry.distance(shape.center,point.pos);
+    if(!(d>1e-7)||modelGeometry.dot(shape.center.map((v,i)=>v-point.pos[i]),shape.normal)<=0){
+      throw new TypeError('Vognsenteret må ligge på valgt side av festepunktet. Tilpass høyden først.');
+    }
+    if(sigma<0) R=Math.max(R,w*w/(2*d)+d);
+    const cardinal=Math.abs(e[0])>Math.abs(e[1])?(e[0]>0?'left':'right'):(e[1]>0?'top':'bottom');
+    const k={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[cardinal];
+    const O=point.pos.map((v,i)=>v-R*e[i]);
+    const initial={C:cp(shape.center),P:cp(point.pos),O,Q:O.map((v,i)=>v+R*k[i]),
+      radius:R,halfWidth:w,height:wagon.height,side:wagon.side};
+    const solved=solveWagonConstruction(initial,'C',initial.C);
+    if(!solved.valid) throw new TypeError(solved.reason);
+    if(!ellipse){
+      ellipse={center:O,width:2*R,height:2*R,lockAxes:true};
+      (task.scene.ellipses ||= []).push(ellipse);
+      ensureSceneIds(task);
+    }
+    solved.ref=ellipse.id;
+    applyWagonConstruction(task,wagon,solved);
+    wagon.construction={enabled:true,cardinal};
+    return wagonConstruction(task,wagon);
+  }
+  function wagonHalfWidthAt(task,wagon,pos){
+    const point=resolvePoint(task,wagon.pointId),record=attachedRecord(task,point);
+    if(!record || !validPos(pos)) return null;
+    const tangent=sourceTangent(record,point.attachment.u);
+    if(!record.curve){
+      return modelGeometry.dot([pos[0]-point.pos[0],pos[1]-point.pos[1]],tangent);
+    }
+    const outward=ellipseGradient(record.value,point.pos),inward=[-outward[0],-outward[1]];
+    const frame=modelGeometry.ellipseFrame(record.value);
+    const offset=modelGeometry.dot([pos[0]-point.pos[0],pos[1]-point.pos[1]],inward);
+    const maximum=modelGeometry.dot([frame.center[0]-point.pos[0],frame.center[1]-point.pos[1]],inward);
+    if(offset<0 || offset>maximum+1e-8) return null;
+    const chord=pointOnEllipseLine(record.value,point.pos,tangent,inward,Math.min(offset,maximum));
+    if(!chord || modelGeometry.distance(pos,chord.p1)>modelGeometry.distance(pos,chord.p0)+1e-8) return null;
+    return chord.length/2;
+  }
+  function setPointAttachment(task,point,source,pos){
+    if(!task?.scene) throw new TypeError('Et festet punkt krever en scene.');
+    const record=resolveSource(task,source?.source||source);
+    if(!record || (record.curve ? sceneEntryById(task,record.ref)?.type!=='ellipse' :
+      !['rect','segment'].includes(sceneEntryById(task,record.ref)?.type))){
+      throw new TypeError('Et festet punkt krever en ellipse, et segment eller en rektangelside.');
+    }
+    const u=validPos(pos) ? sourceParam(record,pos) : 0.5;
+    const parameter=record.curve ? mod1(Number.isFinite(u)?u:0.5) :
+      Math.max(0,Math.min(1,Number.isFinite(u)?u:0.5));
+    const pointPos=pointOnSource(record,parameter);
+    if(!validPos(pointPos)) throw new TypeError('Festepunktets posisjon kunne ikke beregnes.');
+    point.type='attached';
+    point.attachment={ref:record.ref,curve:record.curve===true,
+      ...(record.curve?{}:{segment:record.source.segment}),u:parameter};
+    point.lastValidPos=cp(pointPos);
+    update(task);
+    return point;
+  }
+  function createAttachedPoint(task,source,pos){
+    const point={};
+    setPointAttachment(task,point,source,pos);
+    const created=createPoint(task,point.lastValidPos);
+    Object.assign(created,point);
+    update(task);
+    return created;
+  }
+  function createWagon(task,pointOrId,options={}){
+    if(!task?.scene) throw new TypeError('En vogn krever en scene.');
+    const point=typeof pointOrId==='string' ? resolvePoint(task,pointOrId) : pointOrId;
+    if(!point || point.type!=='attached' || !task.scene.points.includes(point)){
+      throw new TypeError('En vogn må være festet til et sporfast scene-punkt.');
+    }
+    if(!Array.isArray(task.scene.wagons)) task.scene.wagons=[];
+    if(!Array.isArray(task.scene.planes)) task.scene.planes=[];
+    const wagon={pointId:point.id,halfWidth:20,height:16,side:'outside',visible:true,
+      color:'#333333',lineWidth:2,...options};
+    task.scene.wagons.push(wagon);
+    ensureSceneIds(task);
+    let plane=task.scene.planes.find(item=>item?.draw!==true&&!item?.lockedTo);
+    if(!plane){
+      plane={through:cp(point.pos),t_vec:[1,0],n_vec:[0,-1],draw:false};
+      task.scene.planes.push(plane);
+      ensureSceneIds(task);
+    }
+    plane.draw=false;
+    plane.lockedTo={type:'wagon',ref:wagon.id};
+    wagon.planeId=plane.id;
+    update(task);
+    return wagon;
+  }
+  function deleteWagon(task,wagon,index){
+    const scene=task?.scene;
+    const wagonIndex=Number.isInteger(index)?index:scene?.wagons?.indexOf(wagon);
+    if(!scene||wagonIndex<0||!scene.wagons?.[wagonIndex]) return false;
+    const target=scene.wagons[wagonIndex],planeIndex=scene.planes?.findIndex(p=>p?.id===target.planeId) ?? -1;
+    if(planeIndex>=0){
+      if(scene.planes.length>1){
+        remapReferences(task,'plane',planeIndex,'delete');
+        scene.planes.splice(planeIndex,1);
+      }else{
+        delete scene.planes[planeIndex].lockedTo;
+        delete target.planeId;
+      }
+    }
+    remapReferences(task,'wagon',wagonIndex,'delete');
+    scene.wagons.splice(wagonIndex,1);
+    update(task);
+    return true;
   }
   function lineLine(a,b){
     const p=a.value.a, r=[a.value.b[0]-p[0],a.value.b[1]-p[1]], q=b.value.a, s=[b.value.b[0]-q[0],b.value.b[1]-q[1]];
@@ -672,9 +1117,26 @@
       const lookup=buildAllScenePointsBase(task);
       const entry=lookup[anchor.ref];
       const pos=entry?.points?.[anchor.point||'center'];
+      if(entry?.valid===false) return {pos:cp(pos||spec.pos||anchor.pos),valid:false,reason:entry.reason};
       return validPos(pos) ? {pos:cp(pos),valid:true} : {pos:cp(spec.pos||anchor.pos),valid:false,reason:'Punktankeret finnes ikke.'};
     }
     if(anchor.type==='segment'){
+      const wagon=anchor.segment==='bottom'
+        ? task?.scene?.wagons?.find(item=>item?.id===anchor.ref) : null;
+      if(wagon){
+        const shape=wagonGeometry(task,wagon);
+        if(!shape.valid) return {pos:cp(spec.pos||anchor.pos),valid:false,reason:shape.reason||'Vognbunnen er ugyldig.'};
+        const segment={a:cp(shape.bottomLeft),b:cp(shape.bottomRight)};
+        let u=Number.isFinite(anchor.u)?anchor.u:null;
+        if(u===null&&validPos(spec.pos)){
+          const dx=segment.b[0]-segment.a[0],dy=segment.b[1]-segment.a[1],lengthSquared=dx*dx+dy*dy;
+          u=lengthSquared>1e-16
+            ? ((spec.pos[0]-segment.a[0])*dx+(spec.pos[1]-segment.a[1])*dy)/lengthSquared : 0.5;
+        }
+        u=Math.max(0,Math.min(1,u===null?0.5:u));
+        return {pos:[segment.a[0]+(segment.b[0]-segment.a[0])*u,
+          segment.a[1]+(segment.b[1]-segment.a[1])*u],segment,valid:true,wagonBottom:true};
+      }
       const record=resolveSource(task,{ref:anchor.ref,segment:anchor.segment});
       if(!record || record.curve) return {pos:cp(spec.pos||anchor.pos),valid:false,reason:'Segmentankeret finnes ikke.'};
       const segment=record.value;
@@ -760,10 +1222,25 @@
     const changed=state.signature!==signature;
     if(changed){state.signature=signature;state.cache.clear();}
     state.pointStatus.clear();
-    scene.points.forEach((point,index)=>{
+    scene.points.forEach(point=>{
       if(!point || typeof point!=='object') return;
-      if(!point.id) point.id=`point-${Date.now().toString(36)}-${index}`;
       if(!validPos(point.pos) && validPos(point.lastValidPos)) point.pos=cp(point.lastValidPos);
+      if(point.type==='attached'){
+        const record=attachedRecord(task,point);
+        const u=Number(point.attachment?.u);
+        if(record&&Number.isFinite(u)&&u>=0&&u<=1){
+          const pos=pointOnSource(record,u);
+          if(validPos(pos)){
+            point.pos=cp(pos);point.lastValidPos=cp(pos);point.valid=true;point.reason=null;
+            state.pointStatus.set(point.id,{valid:true,reason:null});
+            return;
+          }
+        }
+        point.valid=false;
+        point.reason='Punktets sporkilde finnes ikke eller er ugyldig.';
+        state.pointStatus.set(point.id,{valid:false,reason:point.reason});
+        return;
+      }
       if(point.type!=='intersection') {
         point.valid=validPos(point.pos);
         state.pointStatus.set(point.id,{valid:point.valid,reason:point.valid?null:'Fritt punkt har ugyldige koordinater.'});
@@ -833,6 +1310,7 @@
       if(validPos(point.lastValidPos)) point.pos=cp(valid?point.pos:point.lastValidPos);
       state.pointStatus.set(point.id,{valid:point.valid,intersectionValid:valid,reason:valid ? null : reason});
     });
+    updateWagons(task);
     // Resolve angle anchors after dynamic points have been updated.
     (scene.angles||[]).forEach(a=>angleGeometry(a,task));
   }
@@ -841,9 +1319,11 @@
     const out=[],lookup=buildAllScenePointsBase(task);
     sceneEntries(task).forEach(({type,collection,obj})=>{
       if(type==='angle') return;
+      if(type==='wagon' && (obj.valid===false || !includeNonSnapping && obj.snapping===false)) return;
       const ref=obj.id;
       if(type==='point'){
-        if((includeNonSnapping||obj.snapping!==false)&&validPos(obj.pos)){
+        if((includeNonSnapping||obj.snapping!==false)&&validPos(obj.pos)&&
+           !(obj.type==='attached'&&obj.valid===false)){
           out.push({key:`${ref}.center`,kind:'point',label:elementLabel(task,ref,'center'),ref,pos:cp(obj.pos),anchor:{type:'point',ref,point:'center'}});
         }
         return;
@@ -858,13 +1338,27 @@
       c.anchor=g.curve?g.source:{type:'segment',ref:g.ref,segment:g.source.segment};
       out.push(c);
     });
+    (task?.scene?.wagons||[]).forEach(wagon=>{
+      if(wagon.valid===false||!includeNonSnapping&&wagon.snapping===false) return;
+      const shape=wagonGeometry(task,wagon);
+      if(!shape.valid) return;
+      out.push({
+        key:`${wagon.id}.bottom`,
+        kind:'segment',
+        label:`${elementLabel(task,wagon.id,'vognbunn')} (bue og korde)`,
+        ref:wagon.id,
+        segment:{a:cp(shape.bottomLeft),b:cp(shape.bottomRight)},
+        source:{ref:wagon.id,segment:'bottom'},
+        anchor:{type:'segment',ref:wagon.id,segment:'bottom'}
+      });
+    });
     return out;
   }
   function anchorLabel(candidate){
     const anchor=candidate.anchor || candidate.source || candidate;
     const part=anchor.point || (typeof anchor.segment==='string' ? anchor.segment : '');
     if(candidate.label) return candidate.label;
-    return [part].filter(Boolean).join(' ');
+    return [anchor.ref,anchorPartLabels[part]||part].filter(Boolean).join(' · ');
   }
   function compareAnchors(a,b){
     const aa=a.anchor || a.source || a,bb=b.anchor || b.source || b;
@@ -896,9 +1390,7 @@
     if(!validPos(pos)) throw new TypeError('Et punkt krever endelige x- og y-koordinater.');
     if(!task.scene) task.scene={};
     if(!Array.isArray(task.scene.points)) task.scene.points=[];
-    const ids=new Set(task.scene.points.map(p=>p?.id).filter(Boolean));
-    let i=1,id;
-    do{id=`point-${i++}`;}while(ids.has(id));
+    const id=nextSceneId(task,'point');
     const p={id,type:'free',pos:cp(pos),visible:false};
     task.scene.points.push(p);return p;
   }
@@ -1009,7 +1501,7 @@
   function remapReferences(task,type,index,action,targetType,targetIndex){
     const scene=task?.scene;if(!scene)return;
     ensureSceneIds(task);
-    const prefix={plane:'plane',planes:'plane',rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point',text:'text',texts:'text',angle:'angle',angles:'angle'}[type]||type;
+    const prefix={plane:'plane',planes:'plane',rect:'rect',rects:'rect',rectangle:'rect',segment:'segment',segments:'segment',arrow:'arrow',arrows:'arrow',circle:'circle',circles:'circle',ellipse:'ellipse',ellipses:'ellipse',point:'point',points:'point',text:'text',texts:'text',angle:'angle',angles:'angle',wagon:'wagon',wagons:'wagon'}[type]||type;
     const collection=sceneCollections[prefix];
     const referencedElement=action==='convert'
       ? prefix==='circle' ? scene.circles?.[index] : collection ? scene[collection]?.[index] : null
@@ -1018,7 +1510,7 @@
     const deletedId=deletedElement?.id;
     const convertedId=action==='convert' ? referencedElement?.id : null;
     const convertedType={plane:'plane',rect:'rect',segment:'segment',arrow:'arrow',
-      circle:'circle',ellipse:'ellipse',point:'point',text:'text',angle:'angle'}
+      circle:'circle',ellipse:'ellipse',point:'point',text:'text',angle:'angle',wagon:'wagon'}
       [targetType] || targetType;
     const referenceDeleted=ref=>!!deletedId&&ref===deletedId;
     const remapSpec=(spec,angle,part)=>{
@@ -1098,12 +1590,21 @@
       });
     });
     (scene.points||[]).forEach(point=>{
+      if(point.type==='attached'&&referenceDeleted(point.attachment?.ref)){
+        point.attachment={...point.attachment,deleted:true};
+        point.valid=false;
+        point.reason='Punktets sporkilde er slettet.';
+      }
       if(point.type==='intersection'&&Array.isArray(point.sources)){
         point.sources=point.sources.map(source=>{
           return referenceDeleted(source.ref)?{...source,deleted:true}:source;
         });
         if(point.sources.some(s=>s.deleted)) point._deletedSource=true;
       }
+    });
+    (scene.wagons||[]).forEach(wagon=>{
+      if(referenceDeleted(wagon.pointId)) wagon.pointId=null;
+      if(prefix==='plane'&&referenceDeleted(wagon.planeId)) delete wagon.planeId;
     });
   }
 
@@ -1113,6 +1614,11 @@
     candidates,
     anchorLabel,
     orderAnchors,
+    distanceToAnchor(task,anchor,position){
+      if(anchor?.type!=='segment'||anchor.segment!=='bottom'||!validPos(position)) return null;
+      const wagon=task?.scene?.wagons?.find(item=>item?.id===anchor.ref);
+      return wagon ? distanceToWagonBottom(task,wagon,position) : null;
+    },
     intersections(task,sourceA,sourceB){
       const result=intersectRecords(resolveSource(task,sourceA),resolveSource(task,sourceB));
       const roots=result.hits.map(h=>h.params.slice());
@@ -1120,13 +1626,26 @@
       return result;
     },
     createPoint,
+    createAttachedPoint,
+    setPointAttachment,
     createIntersectionPoint,
+    createWagon,
+    deleteWagon,
+    wagonGeometry(task,wagon){update(task);return wagonGeometry(task,wagon);},
+    wagonHalfWidthAt,
+    wagonConstruction,
+    solveWagonConstruction,
+    applyWagonConstruction,
+    enableWagonConstruction,
     migrateCirclesToEllipses,
     setEllipseAxisLength,
     resolveAnchor,
     angleGeometry,
     pointStatus,
     remapReferences,
+    nextSceneId,
+    validateSceneId,
+    renameSceneId,
     sampleCurve(task,source,maxError=0.25){
       const record=resolveSource(task,source);
       if(!record?.curve)return [];
@@ -1148,11 +1667,12 @@
       const invalidMarker=editorMode && (point.valid === false || invalidIntersection);
       const radius = Number.isFinite(point.size) && point.size > 0 ? point.size : 4;
       const markerRadius = invalidMarker ? Math.max(radius, 6) : radius;
-      const markerStyle = point.markerStyle || 'filled';
+      const markerStyle = point.markerStyle || (point.type || point.color ? 'filled' : 'circle');
       ctx.lineWidth = invalidMarker ? Math.max(point.lineWidth || 1.5, 2) :
         (Number.isFinite(point.lineWidth) && point.lineWidth > 0 ? point.lineWidth : 1.5);
       ctx.strokeStyle = invalidMarker ? '#d22' : (point.color || '#222');
-      ctx.fillStyle = invalidMarker || markerStyle==='circle' ? '#fff' : (point.fill_color || '#ffeb3b');
+      ctx.fillStyle = invalidMarker || markerStyle==='circle' ? '#fff' :
+        (point.fill_color || point.color || '#ffeb3b');
       if(invalidIntersection){
         ctx.beginPath();
         ctx.moveTo(x-markerRadius,y-markerRadius); ctx.lineTo(x+markerRadius,y+markerRadius);
@@ -1222,8 +1742,11 @@
 
 
 
+  function setSceneAlias(task,lookup,alias,entry){
+    if(!sceneEntryById(task,alias)) lookup[alias]=entry;
+  }
   function buildSceneLookup(task){
-    const lookup = {};
+    const lookup = Object.create(null);
     if(!task) return lookup;
     if(window.sceneModel) window.sceneModel.update(task);
     ensureSceneIds(task);
@@ -1240,7 +1763,7 @@
         segments: { plane: [a, b] }
       };
       lookup[plane.id]=entry;
-      lookup[`plane${i}`]=entry;
+      setSceneAlias(task,lookup,`plane${i}`,entry);
     });
     if(task.scene.rects){
       task.scene.rects.forEach((r,i)=>{
@@ -1268,7 +1791,7 @@
           } : {}
         };
         lookup[id]=entry;
-        lookup[`rect${i}`]=entry;
+        setSceneAlias(task,lookup,`rect${i}`,entry);
       });
     }
     // Add ellipses snap points if snapping enabled
@@ -1283,7 +1806,7 @@
           segments: {}
         };
         lookup[id]=entry;
-        lookup[`ellipse${i}`]=entry;
+        setSceneAlias(task,lookup,`ellipse${i}`,entry);
       });
     }
     const allPoints = buildAllScenePointsBase(task);
@@ -1298,15 +1821,25 @@
             segments:enabled ? entry.segments : {}
           };
           lookup[element.id]=snapEntry;
-          lookup[`${prefix}${index}`]=snapEntry;
+          setSceneAlias(task,lookup,`${prefix}${index}`,snapEntry);
         }
       });
     }
     (task.scene.points||[]).forEach((p,i)=>{
-      if(p?.id&&p.snapping!==false&&validPos(p.pos)){
+      if(p?.id&&p.snapping!==false&&validPos(p.pos)&&
+         !(p.type==='attached'&&p.valid===false)){
         lookup[p.id]={snapping:true,points:{center:cp(p.pos)},segments:{}};
-        lookup[`point${i}`]={snapping:true,points:{center:cp(p.pos)},segments:{}};
+        setSceneAlias(task,lookup,`point${i}`,lookup[p.id]);
       }
+    });
+    (task.scene.wagons||[]).forEach((wagon,i)=>{
+      const geometry=allPoints[wagon.id];
+      if(!geometry) return;
+      const enabled=wagon.snapping!==false && geometry.valid;
+      const entry={...geometry,snapping:enabled,
+        points:enabled?geometry.points:{},segments:enabled?geometry.segments:{}};
+      lookup[wagon.id]=entry;
+      setSceneAlias(task,lookup,`wagon${i}`,entry);
     });
     return lookupCurves(task,lookup);
   }
@@ -1318,7 +1851,7 @@
    */
   function buildAllScenePointsBase(task){
     updateTextPositions(task);
-    const lookup = {};
+    const lookup = Object.create(null);
     if(!task || !task.scene) return lookup;
     ensureSceneIds(task);
     const scene = task.scene;
@@ -1334,7 +1867,7 @@
         segments: { plane: [a, b] }
       };
       lookup[plane.id]=entry;
-      lookup[`plane${i}`]=entry;
+      setSceneAlias(task,lookup,`plane${i}`,entry);
     });
     
     // Rects (same as buildSceneLookup)
@@ -1352,7 +1885,7 @@
           segments: { top: [pts.topLeft, pts.topRight], bottom: [pts.bottomLeft, pts.bottomRight], left: [pts.bottomLeft, pts.topLeft], right: [pts.bottomRight, pts.topRight] }
         };
         lookup[r.id]=entry;
-        lookup[`rect${i}`]=entry;
+        setSceneAlias(task,lookup,`rect${i}`,entry);
       });
     }
     
@@ -1365,7 +1898,7 @@
           segments: {}
         };
         lookup[e.id]=entry;
-        lookup[`ellipse${i}`]=entry;
+        setSceneAlias(task,lookup,`ellipse${i}`,entry);
       });
     }
     
@@ -1378,7 +1911,7 @@
           segments: { segment: [[s.a[0], s.a[1]], [s.b[0], s.b[1]]] }
         };
         lookup[s.id]=entry;
-        lookup[`segment${i}`]=entry;
+        setSceneAlias(task,lookup,`segment${i}`,entry);
       });
     }
     
@@ -1391,7 +1924,7 @@
           segments: { arrow: [[a.a[0], a.a[1]], [a.b[0], a.b[1]]] }
         };
         lookup[a.id]=entry;
-        lookup[`arrow${i}`]=entry;
+        setSceneAlias(task,lookup,`arrow${i}`,entry);
       });
     }
     
@@ -1404,10 +1937,16 @@
           segments: {}
         };
         lookup[txt.id]=entry;
-        lookup[`text${i}`]=entry;
+        setSceneAlias(task,lookup,`text${i}`,entry);
       });
     }
     
+    (task.scene.wagons||[]).forEach((wagon,i)=>{
+      const entry=wagonLookupEntry(task,wagon);
+      if(!entry) return;
+      lookup[wagon.id]=entry;
+      setSceneAlias(task,lookup,`wagon${i}`,entry);
+    });
     return lookupCurves(task,lookup);
   }
   function buildAllScenePoints(task){
@@ -1418,7 +1957,7 @@
       if(p?.id&&validPos(p.pos)){
         const entry={points:{center:cp(p.pos)},segments:{},valid:p.valid!==false,reason:p.reason||null};
         lookup[p.id]=entry;
-        lookup[`point${i}`]=entry;
+        setSceneAlias(task,lookup,`point${i}`,entry);
       }
     });
     (task.scene.angles||[]).forEach((angle,i)=>{
@@ -1430,7 +1969,7 @@
       if(marker){
         const entry={points,segments:{},curves:{arc:marker},valid:g.valid,reason:g.reason};
         lookup[angle.id]=entry;
-        lookup[`angle${i}`]=entry;
+        setSceneAlias(task,lookup,`angle${i}`,entry);
         return;
       }
       const delta=((g.endAngle-g.startAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
@@ -1446,7 +1985,7 @@
       }
       const entry={points,segments:{},curves:{arc:segments},valid:g.valid,reason:g.reason};
       lookup[angle.id]=entry;
-      lookup[`angle${i}`]=entry;
+      setSceneAlias(task,lookup,`angle${i}`,entry);
     });
     return lookup;
   }

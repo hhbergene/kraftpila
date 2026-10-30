@@ -94,6 +94,7 @@ function updatePanelHeights(){
       segment:scene.segments?.length || 0,
       arrow:scene.arrows?.length || 0,
       point:scene.points?.length || 0,
+      wagon:scene.wagons?.length || 0,
       angle:scene.angles?.length || 0,
       text:(scene.texts || []).filter(text=>!text._isShortLines).length
     };
@@ -223,6 +224,7 @@ function updateScenePanel(){
       return `${coordinatePreview(obj.a)}-${coordinatePreview(obj.b)}`;
     }
     if(type === 'point') return coordinatePreview(obj.pos);
+    if(type === 'wagon') return `Punkt ${obj.pointId} · ${obj.halfWidth*2}×${obj.height}`;
     if(type === 'angle') return coordinatePreview(obj.vertex?.pos);
     return '';
   }
@@ -230,11 +232,11 @@ function updateScenePanel(){
   const sceneCollections = {
     plane:'planes',
     rect:'rects', ellipse:'ellipses', segment:'segments', arrow:'arrows',
-    text:'texts', point:'points', angle:'angles'
+    text:'texts', point:'points', angle:'angles',wagon:'wagons'
   };
   const sceneElementLabels = {
     plane:'plane', rect:'rect', ellipse:'ellipse', segment:'segment',
-    arrow:'arrow', text:'txt', point:'point', angle:'angle'
+    arrow:'arrow', text:'txt', point:'point', angle:'angle',wagon:'vogn'
   };
   function getSceneElement(type,index){
     if(!Object.hasOwn(sceneCollections,type)) return null;
@@ -252,7 +254,7 @@ function updateScenePanel(){
     const label=sceneElementLabels[type];
     const collection=sceneCollections[type];
     const index=scene[collection]?.findIndex(object=>object?.id===member.id) ?? -1;
-    return label && index>=0 ? `${label} ${index+1}` : 'Ukjent element';
+    return label && index>=0 ? member.id : 'Ukjent element';
   }
   function selectedSceneMember(){
     const selected=window.selectedSceneElement;
@@ -449,6 +451,7 @@ function updateScenePanel(){
     else if(type === 'arrow') typeCount = (scene.arrows || []).length;
     else if(type === 'angle') typeCount = (scene.angles || []).length;
     else if(type === 'point') typeCount = (scene.points || []).length;
+    else if(type === 'wagon') typeCount = (scene.wagons || []).length;
     else if(type === 'text') typeCount = (scene.texts || []).filter(t => !t._isShortLines).length;
     
     const isFirst = index === 0;
@@ -459,7 +462,6 @@ function updateScenePanel(){
     header.className = 'scene-item-header';
     header.innerHTML = `
       <span class="scene-item-icon">${getItemIcon(type)}</span>
-      <span class="scene-item-label">${label}${index !== undefined ? ` [${index}]` : ''}</span>
       <div class="scene-item-controls">
         <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill opp" data-arrange="up" style="display:none; opacity:${isFirst ? '0.4' : '1'}; cursor:${isFirst ? 'default' : 'pointer'};">▲</button>
         <button class="scene-item-control-btn scene-item-arrange-btn" title="Spill ned" data-arrange="down" style="display:none; opacity:${isLast ? '0.4' : '1'}; cursor:${isLast ? 'default' : 'pointer'};">▼</button>
@@ -467,6 +469,20 @@ function updateScenePanel(){
         <button class="scene-item-control-btn" title="Snap" data-control="snap" style="display:none;">🧲</button>
       </div>
     `;
+    const idLabel=document.createElement('span');
+    idLabel.className='scene-item-label';
+    idLabel.textContent=obj.id;
+    header.appendChild(idLabel);
+    const idButton=document.createElement('button');
+    idButton.type='button';
+    idButton.className='scene-id-edit';
+    idButton.textContent=obj.id;
+    idButton.title='Rediger scene-ID';
+    idButton.setAttribute('aria-label',`Rediger ID ${obj.id}`);
+    idButton.addEventListener('click',event=>{
+      event.stopPropagation();
+      window.sceneEditor?.openIdEditor(obj,idButton);
+    });
     function normalizeNormal(vector){
       const length=Math.hypot(...vector);
       return vector.map(value=>value/length);
@@ -482,6 +498,12 @@ function updateScenePanel(){
     const editor = document.createElement('div');
     editor.className = 'scene-item-editor';
     editor.innerHTML = getEditorHTML(type, obj, index);
+    const idRow=document.createElement('div');
+    idRow.className='scene-editor-row';
+    const idFieldLabel=document.createElement('span');
+    idFieldLabel.textContent='ID:';
+    idRow.append(idFieldLabel,idButton);
+    editor.appendChild(idRow);
     
     item.appendChild(header);
     header.appendChild(preview);
@@ -545,7 +567,7 @@ function updateScenePanel(){
     
     // Wire up editor inputs
     setupEditorInputs(editor, type, index, obj);
-    if(type === 'angle' || type === 'point'){
+    if(type === 'angle' || type === 'point' || type==='wagon'){
       window.sceneEditor?.buildProperties(editor, type, obj, index);
     }
     
@@ -618,7 +640,7 @@ function updateScenePanel(){
   function getItemIcon(type) {
     const icons = {
       'plane': '─', 'rect': '▭', 'ellipse': '⬭',
-      'segment': '─', 'arrow': '→', 'text': 'T', 'angle': '∠', 'point': '•'
+      'segment': '─', 'arrow': '→', 'text': 'T', 'angle': '∠', 'point': '•','wagon':'▰'
     };
     return icons[type] || '◆';
   }
@@ -654,7 +676,12 @@ function updateScenePanel(){
   
   // Helper to get editor HTML for each type
   function getEditorHTML(type, obj, index) {
+    const escapeId=value=>String(value ?? '').replace(/[&<>"']/g,char=>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     if(type === 'angle' || type === 'point') return '';
+    if(type==='plane'&&obj.lockedTo){
+      return `<div class="scene-editor-row"><span>Planet følger vogn ${escapeId(obj.lockedTo.ref)} og kan redigeres via vogna.</span></div>`;
+    }
     function coordinatesHTML(vector, position, label, pointLabel = label, readOnly = false) {
       return `
         <div class="scene-editor-row">
@@ -726,11 +753,11 @@ function updateScenePanel(){
       const normalOptions = [
         '<option value="">Velg sceneelement …</option>',
         ...(textScene.planes||[]).flatMap((plane,index)=>sceneElementNormal(textScene,'plane',index)
-          ? [`<option value="plane:${plane.id}">Plan ${index+1}</option>`] : []),
+          ? [`<option value="plane:${escapeId(plane.id)}">${escapeId(plane.id)}</option>`] : []),
         ...(textScene.rects||[]).flatMap((rect,i)=>sceneElementNormal(textScene,'rect',i)
-          ? [`<option value="rect:${i}">Rektangel ${i+1}</option>`] : []),
+          ? [`<option value="rect:${i}">${escapeId(rect.id)}</option>`] : []),
         ...(textScene.ellipses||[]).flatMap((ellipse,i)=>sceneElementNormal(textScene,'ellipse',i)
-          ? [`<option value="ellipse:${i}">Ellipse ${i+1}</option>`] : [])
+          ? [`<option value="ellipse:${i}">${escapeId(ellipse.id)}</option>`] : [])
       ].join('');
       return `
         ${coordinatesHTML('pos', textObj.pos, 'Tekst', '', !!textObj.linked)}
@@ -1364,8 +1391,9 @@ function updateScenePanel(){
   addGroup('Ellipse','ellipse',(scene.ellipses || []).map((obj,index)=>({index,obj})));
   addGroup('Segment','segment',(scene.segments || []).map((obj,index)=>({index,obj})));
   addGroup('Pil','arrow',(scene.arrows || []).map((obj,index)=>({index,obj})));
-  addGroup('txt','text',(scene.texts || []).map((obj,index)=>({index,obj})).filter(entry=>!entry.obj._isShortLines));
+  addGroup('Tekst','text',(scene.texts || []).map((obj,index)=>({index,obj})).filter(entry=>!entry.obj._isShortLines));
   addGroup('Punkt','point',(scene.points || []).map((obj,index)=>({index,obj})));
+  addGroup('Vogn','wagon',(scene.wagons || []).map((obj,index)=>({index,obj})));
   addGroup('Vinkel','angle',(scene.angles || []).map((obj,index)=>({index,obj})));
   addSceneGroups();
   if(window.selectedSceneElement && scenePanel){
@@ -1752,4 +1780,5 @@ function drawHelpLinesCanvas(){
 
 setupHelpPanelPositioning();
 setupFloatingPanelPositioning('relations-modal',520,'relations-close','relations-save');
+setupFloatingPanelPositioning('scene-id-modal',440);
 setupFloatingPanelPositioning('snap-checklist-modal',440,'snap-checklist-close','snap-checklist-cancel');

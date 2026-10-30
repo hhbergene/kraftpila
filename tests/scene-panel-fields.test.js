@@ -130,14 +130,14 @@ test('normal selector copies normalized plane, rectangle and ellipse normals onc
 test('rotation controls and normal list are present with clear copy semantics',()=>{
   const html=editorHTML('text',{txt:'A',pos:[10,20],angle_deg:30},{
     planes:[{id:'plane-1',through:[0,0],n_vec:[0,-1]}],activePlaneId:'plane-1',
-    rects:[{bottomCenter:[0,0]}],ellipses:[{center:[0,0]}]
+    rects:[{id:'Min-Rektangel',bottomCenter:[0,0]}],ellipses:[{id:'Min-Ellipse',center:[0,0]}]
   });
   assert.match(html,/data-field="rotationAngle"/);
   assert.match(html,/data-field="rotationNormal"/);
   assert.match(html,/scene-rotation-derived/);
-  assert.match(html,/<option value="plane:plane-1">Plan 1<\/option>/);
-  assert.match(html,/<option value="rect:0">Rektangel 1<\/option>/);
-  assert.match(html,/<option value="ellipse:0">Ellipse 1<\/option>/);
+  assert.match(html,/<option value="plane:plane-1">plane-1<\/option>/);
+  assert.match(html,/<option value="rect:0">Min-Rektangel<\/option>/);
+  assert.match(html,/<option value="ellipse:0">Min-Ellipse<\/option>/);
   assert.match(html,/Kopierer normalen én gang/);
 });
 

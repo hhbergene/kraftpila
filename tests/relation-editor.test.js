@@ -55,6 +55,7 @@ function setup(overrides={}){
   const controls={
     'relation-snap-choice':{open:false,showModal(){this.open=true;},close(){this.open=false;}},
     'relation-snap-differences':{},
+    'relation-snap-keep':{},
     'relation-snap-merge':{},
     'relation-snap-replace':{}
   };
@@ -118,6 +119,26 @@ test('relation match differences defer all writes, and merge preserves extra and
   assert.equal(task.relations[0].lhs[0].component,'normal');
   assert.equal(s.window.currentSnapChecklist.snapMatchLN,true);
   assert.equal(JSON.parse(s.storage.get('editor_relations_test'))[0].lhs[0].component,'normal');
+});
+
+test('keep checklist saves relation without changing selected match categories',()=>{
+  const s=setup();
+  const task=s.window.currentTask;
+  task.snapChecklist={snapMatchLL:false,snapMatchXY:true,snapMatchLT:false,guidelinesEnabled:false};
+  s.list._relations[0].lhs[0].component='normal';
+  s.list._relations[0].lhs[0].planeId='plane-1';
+  s.relationsSave.click();
+  assert.equal(s.controls['relation-snap-choice'].open,true);
+  s.controls['relation-snap-keep'].onclick();
+  assert.equal(s.controls['relation-snap-choice'].open,false);
+  assert.equal(s.modal.hidden,true);
+  assert.equal(task.snapChecklist.snapMatchLL,false);
+  assert.equal(task.snapChecklist.snapMatchXY,true);
+  assert.equal(task.snapChecklist.snapMatchLT,false);
+  assert.equal(task.snapChecklist.snapMatchLN,false);
+  assert.equal(task.snapChecklist.guidelinesEnabled,false);
+  assert.equal(task.relations[0].lhs[0].component,'normal');
+  assert.equal(s.storage.has('editor_relations_test'),true);
 });
 
 test('replace removes extras, cancel writes nothing, and stale choices cannot affect another task',()=>{

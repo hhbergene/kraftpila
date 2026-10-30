@@ -637,6 +637,275 @@ test('lost intersection shows hover reason even while its last position remains 
   assert.ok(texts.join(' ').includes('skjæring'));
 });
 
+test('wagon creation attaches a scene point to the clicked track and selects the wagon',()=>{
+  const s=setup();
+  let attachedSource,attachedPos;
+  s.window.sceneModel.createAttachedPoint=(task,source,pos)=>{
+    attachedSource=source.source;
+    attachedPos=pos.slice();
+    const point={id:'point-attached',type:'attached',pos:pos.slice(),
+      attachment:{...source.source,u:0.5},valid:true};
+    task.scene.points.push(point);
+    return point;
+  };
+  s.window.sceneModel.createWagon=(task,point)=>{
+    const wagon={id:'wagon-1',pointId:point.id,halfWidth:20,height:16};
+    (task.scene.wagons ||= []).push(wagon);
+    return wagon;
+  };
+  s.window.sceneEditor.startWagonCreation();
+  s.nodes['app-canvas'].fire('mousedown',{pos:[50,50]});
+  assert.deepEqual(attachedSource,{ref:'segment-1',segment:'segment'});
+  assert.deepEqual(Array.from(attachedPos),[50,50]);
+  assert.equal(s.task.scene.points[0].type,'attached');
+  assert.equal(s.window.selectedSceneElement.type,'wagon');
+  assert.equal(s.window.selectedSceneElement.index,0);
+  assert.equal(s.window.selectedSceneElement.obj,s.task.scene.wagons[0]);
+  assert.deepEqual(s.edits.at(-1),['task']);
+});
+
+test('attached point creation highlights its track and previews the committed position with snap on or off',()=>{
+  for(const snapping of [true,false]){
+    const s=realAngleSetup([{a:[0,50],b:[100,50]}]);
+    Object.assign(s.window,{enableSnap:snapping,GRID_STEP:20,DRAW_CENTER:[0,0]});
+    for(let i=0;i<3;i++) s.nodes['btn-add-point'].fire('click');
+    assert.equal(s.nodes['btn-add-point'].dataset.mode,'attached');
+    s.nodes['app-canvas'].fire('mousemove',{pos:[31,53]});
+    const position=snapping ? [40,50] : [31,50];
+    assert.deepEqual(highlightedPaths(s).filter(path=>path[0]?.[0]==='moveTo'),
+      [[['moveTo',0,50],['lineTo',100,50]]]);
+    assert.deepEqual(intersectionMarkers(s),[{pos:position,state:'pickerPreview'}]);
+    assert.equal(s.task.scene.points.length,0);
+    assert.equal(s.edits.length,0);
+    assert.equal(!!s.window.snapIndicator,snapping);
+    s.nodes['app-canvas'].fire('mousedown',{pos:[31,53]});
+    const point=s.task.scene.points[0];
+    assert.equal(point.type,'attached');
+    assert.deepEqual(Array.from(point.pos),position);
+    assert.equal(s.window.selectedSceneElement.obj,point);
+    assert.equal(s.window.snapIndicator,null);
+  }
+});
+
+test('track previews disappear off track, on mouseleave, and on cancel without creating points',()=>{
+  const s=realAngleSetup([{a:[0,50],b:[100,50]}]);
+  s.window.sceneEditor.startAttachedPoint();
+  s.nodes['app-canvas'].fire('mousemove',{pos:[31,53]});
+  assert.equal(intersectionMarkers(s).length,1);
+  s.nodes['app-canvas'].fire('mousemove',{pos:[31,90]});
+  assert.deepEqual(intersectionMarkers(s),[]);
+  assert.deepEqual(highlightedPaths(s),[]);
+  s.nodes['app-canvas'].fire('mousedown',{pos:[31,90]});
+  assert.equal(s.task.scene.points.length,0);
+  s.nodes['app-canvas'].fire('mousemove',{pos:[31,53]});
+  s.nodes['app-canvas'].fire('mouseleave');
+  assert.deepEqual(intersectionMarkers(s),[]);
+  assert.deepEqual(highlightedPaths(s),[]);
+  assert.equal(s.window.snapIndicator,null);
+  s.document.fire('keydown',{key:'Escape'});
+  assert.equal(s.task.scene.points.length,0);
+});
+
+test('choosing a new track previews without mutation and preserves point identity and style',()=>{
+  const s=realAngleSetup([{a:[0,50],b:[100,50]},{a:[0,90],b:[100,90]}]);
+  const model=s.window.sceneModel;
+  const source=model.geometries(s.task).find(source=>source.ref==='segment-1');
+  const point=model.createAttachedPoint(s.task,source,[25,50]);
+  point.color='#123456';
+  const before=JSON.stringify(point);
+  s.window.sceneEditor.startAttachedPoint(point);
+  s.nodes['app-canvas'].fire('mousemove',{pos:[73,92]});
+  assert.deepEqual(intersectionMarkers(s),[{pos:[73,90],state:'pickerPreview'}]);
+  assert.equal(JSON.stringify(point),before);
+  s.document.fire('keydown',{key:'Escape'});
+  assert.equal(JSON.stringify(point),before);
+  s.window.sceneEditor.startAttachedPoint(point);
+  s.nodes['app-canvas'].fire('mousedown',{pos:[73,92]});
+  assert.equal(s.task.scene.points.length,1);
+  assert.equal(s.task.scene.points[0],point);
+  assert.equal(point.color,'#123456');
+  assert.equal(point.attachment.ref,'segment-2');
+  assert.deepEqual(Array.from(point.pos),[73,90]);
+});
+
+test('dragging an attached point stays on its segment, clamps ends and updates its wagon and plane',()=>{
+  const s=realAngleSetup([{a:[0,50],b:[100,50]},{a:[0,80],b:[100,80]}]);
+  const model=s.window.sceneModel;
+  const source=model.geometries(s.task).find(source=>source.ref==='segment-1');
+  const point=model.createAttachedPoint(s.task,source,[25,50]);
+  const wagon=model.createWagon(s.task,point);
+  const plane=s.task.scene.planes.find(plane=>plane.id===wagon.planeId);
+  Object.assign(s.window,{enableSnap:false,GRID_STEP:20,DRAW_CENTER:[0,0]});
+  s.window.sceneEditor.moveAttachedPoint(point,[71.25,79]);
+  assert.deepEqual(Array.from(point.pos),[71.25,50]);
+  assert.equal(point.attachment.ref,'segment-1');
+  assert.equal(point.attachment.u,0.7125);
+  assert.deepEqual(Array.from(plane.through),Array.from(point.pos));
+  assert.equal(s.window.snapIndicator,null);
+  s.window.sceneEditor.moveAttachedPoint(point,[-80,200]);
+  assert.deepEqual(Array.from(point.pos),[0,50]);
+  s.window.sceneEditor.moveAttachedPoint(point,[500,200]);
+  assert.deepEqual(Array.from(point.pos),[100,50]);
+  s.window.enableSnap=true;
+  s.window.snapPoints=[[100,50],[33.5,50],[34,80]];
+  s.window.sceneEditor.moveAttachedPoint(point,[34,80]);
+  assert.deepEqual(Array.from(point.pos),[33.5,50]);
+  s.window.snapPoints=[];
+  s.window.sceneEditor.moveAttachedPoint(point,[31,50]);
+  assert.deepEqual(Array.from(point.pos),[40,50]);
+  assert.deepEqual(Array.from(s.window.snapIndicator.pos),[40,50]);
+  s.task.scene.segments.splice(0,1);
+  model.update(s.task);
+  const before=JSON.stringify(point);
+  assert.equal(s.window.sceneEditor.moveAttachedPoint(point,[25,80]),null);
+  assert.equal(JSON.stringify(point),before);
+});
+
+test('rotated ellipse track preview and dragging snap on the curve rather than off-curve grid nodes',()=>{
+  const s=realAngleSetup();
+  const ellipse={center:[120,120],width:120,height:60,t_vec:[Math.SQRT1_2,Math.SQRT1_2]};
+  s.task.scene.ellipses=[ellipse];
+  const g=s.window.geometry,model=s.window.sceneModel;
+  model.update(s.task);
+  const source=model.geometries(s.task).find(source=>source.curve);
+  const point=model.createAttachedPoint(s.task,source,g.ellipsePoint(ellipse,30));
+  const target=g.ellipsePoint(ellipse,140);
+  Object.assign(s.window,{enableSnap:true,GRID_STEP:20,DRAW_CENTER:[0,0],snapPoints:[]});
+  s.window.sceneEditor.startAttachedPoint(point);
+  s.nodes['app-canvas'].fire('mousemove',{pos:target});
+  const marker=intersectionMarkers(s)[0];
+  assert.ok(marker);
+  const degrees=g.ellipseParameter(ellipse,marker.pos)*180/Math.PI;
+  assert.ok(g.distance(g.ellipsePoint(ellipse,degrees),marker.pos)<1e-8);
+  assert.ok(marker.pos.some(value=>Math.abs(value/20-Math.round(value/20))<1e-8));
+  assert.ok(highlightedPaths(s).length>1);
+  s.nodes['app-canvas'].fire('mousedown',{pos:target});
+  assert.ok(g.distance(point.pos,marker.pos)<1e-8);
+  s.window.sceneEditor.moveAttachedPoint(point,g.ellipsePoint(ellipse,210));
+  const angle=g.ellipseParameter(ellipse,point.pos)*180/Math.PI;
+  assert.ok(g.distance(g.ellipsePoint(ellipse,angle),point.pos)<1e-8);
+  assert.ok(point.pos.some(value=>Math.abs(value/20-Math.round(value/20))<1e-8));
+});
+
+test('wagon width and height handles resize on rotated ellipses and keep the attachment stable',()=>{
+  for(const side of ['inside','outside']){
+    const s=realAngleSetup(),model=s.window.sceneModel,g=s.window.geometry;
+    const ellipse={center:[200,200],width:200,height:120,t_vec:[Math.SQRT1_2,Math.SQRT1_2]};
+    s.task.scene.ellipses=[ellipse];
+    model.update(s.task);
+    const source=model.geometries(s.task).find(source=>source.curve);
+    const point=model.createAttachedPoint(s.task,source,g.ellipsePoint(ellipse,90));
+    const wagon=model.createWagon(s.task,point,{halfWidth:20,height:15,side});
+    const attachment=JSON.stringify(point.attachment);
+    s.window.enableSnap=false;
+    const target=model.wagonGeometry(s.task,{...wagon,halfWidth:45});
+    const handle=s.window.sceneEditor.resizeWagon(wagon,'width',target.bottomRight);
+    assert.ok(handle);
+    assert.ok(Math.abs(wagon.halfWidth-45)<0.2);
+    const resized=model.wagonGeometry(s.task,wagon);
+    for(const corner of [resized.bottomLeft,resized.bottomRight]){
+      const degrees=g.ellipseParameter(ellipse,corner)*180/Math.PI;
+      assert.ok(g.distance(corner,g.ellipsePoint(ellipse,degrees))<1e-7);
+    }
+    const heightTarget=[resized.bottomCenter[0]+resized.normal[0]*35,
+      resized.bottomCenter[1]+resized.normal[1]*35];
+    s.window.sceneEditor.resizeWagon(wagon,'height',heightTarget);
+    assert.ok(Math.abs(wagon.height-35)<1e-8);
+    assert.equal(JSON.stringify(point.attachment),attachment);
+    assert.equal(s.task.scene.points.length,1);
+    const plane=s.task.scene.planes.find(plane=>plane.id===wagon.planeId);
+    assert.ok(g.distance(plane.through,resized.bottomCenter)<1e-8);
+  }
+});
+
+test('straight wagon resizing preserves overhang and measures half-width from its fixed anchor',()=>{
+  const s=realAngleSetup([{a:[100,100],b:[200,100]}]),model=s.window.sceneModel;
+  const point=model.createAttachedPoint(s.task,model.geometries(s.task)[0],[150,100]);
+  const wagon=model.createWagon(s.task,point,{halfWidth:20,height:15});
+  s.window.enableSnap=false;
+  assert.deepEqual(Array.from(s.window.sceneEditor.resizeWagon(wagon,'width',[240,130])),[240,100]);
+  assert.equal(wagon.halfWidth,90);
+  assert.equal(s.window.sceneEditor.resizeWagon(wagon,'width',[100,100]),null);
+  assert.equal(wagon.halfWidth,90);
+  s.window.sceneEditor.resizeWagon(wagon,'height',[200,60]);
+  assert.equal(wagon.height,40);
+  assert.equal(s.window.sceneEditor.resizeWagon(wagon,'height',[200,120]),null);
+  assert.equal(wagon.height,40);
+  Object.assign(s.window,{enableSnap:true,GRID_STEP:20,DRAW_CENTER:[0,0]});
+  s.window.sceneEditor.resizeWagon(wagon,'width',[231,100]);
+  assert.equal(wagon.halfWidth,90);
+  assert.deepEqual(Array.from(point.pos),[150,100]);
+});
+
+test('construction drag previews without mutation, commits once, cancels and retains last valid state',()=>{
+  const s=realAngleSetup([{a:[0,200],b:[400,200]}]),model=s.window.sceneModel;
+  const point=model.createAttachedPoint(s.task,model.geometries(s.task)[0],[200,200]);
+  const wagon=model.createWagon(s.task,point,{halfWidth:20,height:40});
+  model.enableWagonConstruction(s.task,wagon);
+  const original=JSON.stringify(s.task);
+  Object.assign(s.window,{enableSnap:true,GRID_STEP:20,DRAW_CENTER:[0,0]});
+  s.window.sceneEditor.beginConstructionDrag(0,'O');
+  s.window.sceneEditor.previewConstructionDrag([231,243]);
+  assert.equal(JSON.stringify(s.task),original);
+  s.window.sceneEditor.finishConstructionDrag(true);
+  assert.equal(JSON.stringify(s.task),original);
+  s.window.sceneEditor.beginConstructionDrag(0,'O');
+  s.window.sceneEditor.previewConstructionDrag([231,243]);
+  s.window.sceneEditor.finishConstructionDrag();
+  assert.deepEqual(Array.from(model.wagonConstruction(s.task,wagon).O),[240,240]);
+  s.window.enableSnap=false;
+  const state=model.wagonConstruction(s.task,wagon);
+  s.window.sceneEditor.beginConstructionDrag(0,'C');
+  const target=state.C.map(v=>v+30);
+  s.window.sceneEditor.previewConstructionDrag(target);
+  s.window.sceneEditor.previewConstructionDrag(state.P);
+  s.window.sceneEditor.finishConstructionDrag();
+  assert.ok(s.window.geometry.distance(model.wagonConstruction(s.task,wagon).C,target)<1e-7);
+  assert.equal(s.task.scene.points.length,1);
+});
+
+test('construction checkbox and cardinal choice persist and Escape abandons a drag',()=>{
+  const s=realAngleSetup([{a:[0,200],b:[400,200]}]),model=s.window.sceneModel;
+  const point=model.createAttachedPoint(s.task,model.geometries(s.task)[0],[200,200]);
+  const wagon=model.createWagon(s.task,point,{halfWidth:20,height:40});
+  const panel=new Element('div');
+  model.update(s.task);
+  s.window.sceneEditor.buildProperties(panel,'wagon',wagon,0);
+  const checkbox=panel.children.find(row=>row.children[0]?.textContent==='Sirkelkonstruksjon').children[1];
+  checkbox.checked=true;
+  checkbox.fire('change');
+  assert.equal(wagon.construction.enabled,true);
+  const next=new Element('div');
+  s.window.sceneEditor.buildProperties(next,'wagon',wagon,0);
+  const cardinal=next.children.find(row=>row.children[0]?.textContent==='Ytterpunkt Q:').children[1];
+  cardinal.value='right';
+  cardinal.fire('change');
+  assert.equal(wagon.construction.cardinal,'right');
+  const saved=JSON.parse(JSON.stringify(s.task));
+  assert.equal(model.wagonConstruction(saved,saved.scene.wagons[0]).radius,
+    model.wagonConstruction(s.task,wagon).radius);
+  const before=JSON.stringify(s.task);
+  s.window.sceneEditor.beginConstructionDrag(0,'O');
+  s.window.sceneEditor.previewConstructionDrag([345,345]);
+  s.window.draggingHandle={type:'wagon',index:0,handleType:'construction-O'};
+  s.document.fire('keydown',{key:'Escape'});
+  assert.equal(s.window.draggingHandle,null);
+  assert.equal(JSON.stringify(s.task),before);
+});
+
+test('rectangle attachment dragging keeps the same side and fractional position without snapping',()=>{
+  const s=realAngleSetup();
+  s.task.scene.rects=[{bottomCenter:[100,100],width:100,height:40,n_vec:[0,-1],t_vec:[1,0]}];
+  const model=s.window.sceneModel;
+  model.update(s.task);
+  const source=model.geometries(s.task).find(source=>source.source.segment==='top');
+  const point=model.createAttachedPoint(s.task,source,[100,60]);
+  s.window.enableSnap=false;
+  s.window.sceneEditor.moveAttachedPoint(point,[71.25,95]);
+  assert.deepEqual(Array.from(point.pos),[71.25,60]);
+  assert.equal(point.attachment.segment,'top');
+});
+
 test('real editor offset and scrollbar client viewport clamp tooltip in scene coordinates',()=>{
   const s=setup(), canvas=s.nodes['app-canvas'], viewport=new Element('div');
   canvas.width=1400;canvas.height=1040;
@@ -668,7 +937,7 @@ function realAngleSetup(segments=[]){
     vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),s.window);
   }
   s.window.getMousePos=e=>e.pos;
-  s.task.scene.segments=segments;
+  s.task.scene.segments=segments.map((segment,index)=>({id:`segment-${index+1}`,...segment}));
   const angle={vertex:{pos:[0,0]},start:{pos:[30,0]},end:{pos:[30*Math.cos(Math.PI/6),-15]},
     radius:30,symbol:'α'};
   s.task.scene.angles.push(angle);
@@ -694,7 +963,7 @@ test('new angle sequence uses real segments, keeps suggestions unbound until Ent
   assert.equal(s.field('Toppunkt:')['aria-expanded'],'false');
   assert.equal(s.field('Start:')['aria-expanded'],'true');
   assert.equal(s.angle.start.anchor,undefined);
-  assert.equal(s.field('Start:').textContent,'Segment 1 · linje (0px)');
+  assert.equal(s.field('Start:').textContent,'segment-1 · linje (0px)');
   assert.equal(s.edits.length,1);
   s.field('Start:').fire('keydown',{key:'Enter'});
   assert.equal(s.angle.start.anchor.ref,'segment-1');

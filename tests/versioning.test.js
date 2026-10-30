@@ -38,6 +38,12 @@ test('taskset format version is defined by shared.js, not the hook-generated ver
   assert.equal(window.TASKSET_FORMAT_VERSION,2);
 });
 
+test('default taskset validates scene references to wagons',()=>{
+  const {window}=setup();
+  const taskset=JSON.parse(fs.readFileSync(path.join(__dirname,'..','taskset_Default.json'),'utf8'));
+  assert.equal(window.AppVersioning.validateTasksetFormat(taskset),true);
+});
+
 function setup(){
   const elements=[];
   const storage=new Map();

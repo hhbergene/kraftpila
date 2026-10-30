@@ -25,6 +25,16 @@
     const names = new Set();
     const relationNames = new Set(specs.map(force=>force?.name).filter(name=>typeof name === 'string' && name.trim()));
     const lookup = window.buildAllScenePoints(task);
+    (task.scene?.points||[]).forEach((point,index)=>{
+      if(point?.type==='attached'&&point.valid===false){
+        warn(`Festet punkt ${index+1}: ${point.reason||'sporkilden finnes ikke eller er ugyldig.'}`);
+      }
+    });
+    (task.scene?.wagons||[]).forEach((wagon,index)=>{
+      if(wagon?.valid===false){
+        warn(`Vogn ${index+1}: ${wagon.reason||'geometrien eller målene er ugyldige.'}`);
+      }
+    });
     specs.forEach((force,index)=>{
       const label = force?.name || `? (${index + 1})`;
       const key = nameKey(force?.name);
@@ -52,8 +62,15 @@
           warn(`Kraft ${label} har anchor som viser til et manglende eller ugyldig punkt.`);
         }
       }else if(anchor?.type === 'segment'){
-        const segment = lookup[anchor.ref]?.segments?.[anchor.segment];
-        if(!Array.isArray(segment) || segment.length !== 2 || !segment.every(finitePoint)){
+        const wagon = anchor.segment === 'bottom'
+          ? task.scene?.wagons?.find(item=>item?.id===anchor.ref) : null;
+        const resolved = wagon ? window.sceneModel?.resolveAnchor(task,anchor) : null;
+        const segment = wagon ? resolved?.segment : lookup[anchor.ref]?.segments?.[anchor.segment];
+        const valid = wagon
+          ? resolved?.valid === true && finitePoint(resolved.pos) &&
+            finitePoint(segment?.a) && finitePoint(segment?.b)
+          : Array.isArray(segment) && segment.length === 2 && segment.every(finitePoint);
+        if(!valid){
           warn(`Kraft ${label} har anchor som viser til et manglende eller ugyldig segment.`);
         }
       }else{

@@ -43,9 +43,10 @@
       <div class="editor-buttons-right">
         <button id="btn-clipboard" title="Utklippstavle for sceneelementer og krefter" aria-label="Åpne utklippstavle">⧉</button>
         <button id="btn-add-rect" title="Legg til rektangel">▭</button>
+        <button id="btn-add-wagon" title="Legg til vogn på ellipse, segment eller rektangelside">▰</button>
         <button id="btn-add-ellipse" title="Legg til ellipse med låste akser">⬭</button>
         <button id="btn-add-angle" title="Legg til vinkel">∠</button>
-        <button id="btn-add-point" title="Punkt: klikk for fritt punkt, klikk igjen for skjæringspunkt" aria-pressed="false">●</button>
+        <button id="btn-add-point" title="Punkt: fritt, skjæringspunkt eller festet til spor" aria-pressed="false">●</button>
         <button id="btn-add-segment" title="Legg til segment">─</button>
         <button id="btn-add-arrow" title="Legg til pil">→</button>
         <button id="btn-add-text" title="Legg til tekst">T</button>
@@ -144,6 +145,23 @@
       </div>
     </div>
 
+    <div id="scene-id-modal" class="hidden" role="dialog" aria-labelledby="scene-id-title">
+      <div class="relations-header">
+        <h3 id="scene-id-title">Rediger scene-ID</h3>
+        <button id="scene-id-save-icon" title="Bekreft og lukk" aria-label="Bekreft og lukk">💾</button>
+      </div>
+      <form id="scene-id-form" class="relations-body" novalidate>
+        <p>Gjeldende ID: <strong id="scene-id-old"></strong></p>
+        <label for="scene-id-input">Ny ID</label>
+        <input id="scene-id-input" type="text" autocomplete="off" spellcheck="false" aria-describedby="scene-id-error scene-id-help">
+        <p id="scene-id-help">Bruk bokstaver, tall, bindestrek eller understrek. Referanser oppdateres samlet ved bekreftelse.</p>
+        <p id="scene-id-error" role="status" aria-live="polite"></p>
+        <button id="scene-id-confirm" type="submit">Bekreft</button>
+        <button id="scene-id-cancel" type="button">Avbryt</button>
+      </form>
+      <div class="help-resize-handle" aria-hidden="true"></div>
+    </div>
+
     <!-- Relations editor modal -->
     <div id="relations-modal" class="hidden">
       <div class="relations-header">
@@ -185,6 +203,7 @@
       <p>Relevante matchvalg er standardvalgene og kategoriene fra oppgavens kraftforhold.</p>
       <div id="relation-snap-differences"></div>
       <div class="snap-checklist-actions">
+        <button id="relation-snap-keep" type="button">Behold sjekklista uendret</button>
         <button id="relation-snap-merge" type="button">Behold valgte og legg til relevante</button>
         <button id="relation-snap-replace" type="button">Bruk kun relevante</button>
         <form method="dialog"><button>Avbryt</button></form>
@@ -276,11 +295,16 @@
         <div class="settings-divider"></div>
         <details>
           <summary>Vinkler, buer og punkter i scenen</summary>
+          <p>Scene-ID: Paneler, ankervalg og geometrivalg viser elementets faktiske ID. Nye elementer får norske navn fra 1, som Vogn-1 og Plan-1; eksisterende ID-er beholdes. ID-en i samleraden er kun tekst. Åpne elementet og klikk på ID-feltet inne i elementpanelet for et eget redigeringsvindu. Ny ID må være unik i scenen og kan inneholde bokstaver, tall, bindestrek og understrek. Feil vises fortløpende. Bekreft, Enter eller diskettikonet endrer ID og alle tilhørende referanser samlet. Avbryt eller Esc beholder gammel ID. Endringen kan angres; oppgavebytte eller sletting av elementet forkaster utkastet.</p>
           <p>Ellipse: Start- og stoppvinkel er parametervinkler langs ellipsen, ikke nødvendigvis vinkler sett fra sentrum. 0° ligger i positiv lokal bredderetning; positiv retning er mot klokka. 300°–60° krysser 0°, 0°–360° gir hel ellipse, og like verdier gir tom bue. Fyll dekker sektoren inn mot sentrum uten radielinjer.</p>
           <p>Vinkel: ∠ starter valg av Toppunkt → Start → Slutt. Ny vinkel har radius og beinlengde 30 og standardvinkel 30°. Segmenter gjennom toppunktet foreslås som bein; Enter bekrefter et forslag. Et segment bestemmer retning uavhengig av plasseringen; «Snu retning» vender beinet. Bare minste vinkel, 0°–180°, vises. En 90° vinkel markeres med rette linjer som følger vinkelbeinene, i stedet for bue. Symbol/tekst kan inneholde \alpha=30\deg eller α=30°. «Vis grader» legger til =beregnet° når teksten er fylt ut; slå av for bare egen tekst.</p>
-          <p>Punkt: Første klikk på ● aktiverer fri plassering som følger editorens snapping. Neste klikk bytter til skjæringspunkt, vist med et segment, en bue og en prikk. Scenepanelet ruller til et midlertidig punktkort og åpner første geometrivalg. Andre valg viser bare geometrier med isolerte skjæringer mot den første; samme geometri, parallelle linjer, sammenfall og geometrier uten treff utelates. Hovring i tegneflaten eller scenelisten fremhever geometrien, og klikk velger. Rektangler har eksplisitt kantvalg i listen. Tekst, piler og punkter er ikke kildevalg. Ett treff totalt etter første valg, eller ett treff etter andre valg, velges automatisk. Ved flere treff vises alle som handles i scenen; klikk ønsket handle for å velge både kilde og skjæring, uten ekstra bekreftelse. Esc avbryter et uferdig valg uten å endre punktet eller opprette et nytt. Punkter er skjult for eleven som standard, men kan fortsatt brukes som ankre. Begge punkttyper har felles størrelse, markørstil, kantfarge (Farge), fyllfarge og linjetykkelse. Fyllfargen er gul som standard, også for eksisterende punkter uten lagret fyllfarge; fylt sirkel er standardmarkøren. Sirkel uten fyll vises med hvitt indre, og kryss har ikke fyll. Stilen brukes også i elevvisningen når punktet er synlig. En skjæring som forsvinner beholder bindingene og sist gyldige posisjon; editoren viser et rødt kryss uten bakgrunn og forklaring ved hover. Når skjæringen finnes igjen, vises punktet automatisk med valgt stil.</p>
+          <p>Punkt: Gjentatte klikk på ● bytter mellom fritt punkt, skjæringspunkt og festet punkt. Festet punkt følger en ellipse, et segment eller en rektangelside og beholder en parameter langs geometrien; endres kilden, flyttes punktet med den. Skjæringspunkt velger to geometrier. Scenepanelet ruller til et midlertidig punktkort og åpner første geometrivalg. Andre valg viser bare geometrier med isolerte skjæringer mot den første; samme geometri, parallelle linjer, sammenfall og geometrier uten treff utelates. Hovring i tegneflaten eller scenelisten fremhever geometrien, og klikk velger. Rektangler har eksplisitt kantvalg. Ett treff velges automatisk; ved flere treff vises handles i scenen. Esc avbryter uten å endre punktet. Punkter er skjult for eleven som standard, men kan fortsatt brukes som ankre. Punktstil, størrelse, farge og fyll kan redigeres; en skjæring som forsvinner beholder sist gyldige posisjon og vises ugyldig i editoren.</p>
+          <p>Festet punkt: Velg punktet og dra håndtaket for å flytte det langs samme ellipse, segment eller rektangelside. «Velg nytt sporsted» lar deg bytte spor. Ved oppretting og nytt sporvalg fremheves sporet under pekeren, og et forhåndspunkt viser plasseringen uten å endre scenen. Med Snap på brukes nærliggende ankre på sporet og skjæringer med rutenettlinjene; med Snap av følger punktet sporet kontinuerlig. Punktet forlater aldri sporet. Esc avbryter sporvalget.</p>
+          <p>Vognhåndtak: Når vogna er valgt, vises også håndtaket for plasseringspunktet. Klikk på det velger punktet; dra det langs sporet for å flytte vogna og planet. Dra nedre høyre hjørne for å endre halv-bredden uten å flytte festepunktet. På ellipse er hjørnet geometrisk låst til kurven, og begge bunnhjørnene følger ellipsen. Hjørnet er beregnet fra vogna, ikke et ekstra punkt i punktlisten. På rette spor beholdes muligheten for overheng. Dra håndtaket midt på toppen for å endre høyden langs vognas normalretning. Vogna har snappunkter i senter, alle fire hjørner, bunnmidtpunkt og plasseringspunkt. «Snap» i vognpanelet slår vognas snappunkter av og på.</p>
+          <p>Sirkelkonstruksjon: Avhukingen i vognpanelet låser eksisterende ellipse til en hel sirkel, eller oppretter en sirkel for rett spor. C er vognas faktiske rektangelsenter, P festepunktet, Q valgt globalt ytterpunkt og O sirkelens sentrum. Drag av C beholder P; drag av P beholder C. Radius og halv-bredde beholdes, mens sirkel og høyde tilpasses med korreksjon for bunnkorden. Drag av Q eller O flytter hele konstruksjonen uten å endre mål eller retning. Bare håndtaket du drar følger gjeldende snapping; øvrige punkter snappes ikke separat. Håndtakknappene C/P/Q/O velger prioritet ved overlapp. Under drag vises en forhåndsvisning; ved ugyldig plassering forklares feilen, og siste gyldige konstruksjon brukes når du slipper. Esc avbryter. Endringene kan angres. Delte spor endres også, uten advarselsdialog. Slå av modusen for vanlige størrelseshåndtak.</p>
+          <p>Vogn: Velg ▰ og klikk på ellipse, segment eller rektangelside for å opprette en vogn med et festet punkt. Halv-bredden bestemmer halvparten av bunnkorden på ellipse; hjørnene beregnes som skjæringer mellom ellipsen og en parallell linje. På rette spor kan vogna stikke forbi endene. Bunnlinjen tegnes ikke. Dra håndtakene for bredde og høyde, eller rediger målene i panelet. Umulige mål beholdes og markeres ugyldige til vogn eller spor er tilpasset. Vogna får et skjult plan som følger bunnen; et ledig usynlig plan gjenbrukes, ellers opprettes et nytt.</p>
           <p>Ankre: Klikk ankerfeltet for liste og scenevalg, både for vinkler og krefter. Hover i canvas eller listen og blaing med piltaster uthever kandidaten i canvas uten å lagre. Canvas-/listevalg eller Enter bekrefter, og Esc avbryter. Vinkler går automatisk til neste felt. «Frikoble» i listen bevarer geometrien og tillater fri flytting. Ledig canvas-klikk oppretter et skjult hjelpepunkt; punkt og binding angres samlet. Klikk på annet element eller knapp bekrefter aktivt forslag og avslutter sekvensen. Panelet ruller bare når aktivt felt ikke er fullt synlig.</p>
-        <p>Ankerlistene bruker faktiske referanser, som rect0 bottom og point-1 center. Rektangler har også hjørneankrene top_left, top_right, bottom_left og bottom_right; disse følger rektangelets rotasjon. Når et annet vinkelanker er valgt (eller kraften har anker/base), vises 5 nærmeste først; segmentavstand måles til selve segmentet. «Alle ankrene» er alltid komplett og sortert etter elementtype og nummer, så rect2 kommer før rect10. Nærmeste ankrene finnes også i den komplette listen.</p>
+        <p>Ankerlistene viser faktisk ID og elementdel, som Vogn-1 · sentrum og Rektangel-1 · bunn. Rektangler har også hjørneankrene top_left, top_right, bottom_left og bottom_right; disse følger rektangelets rotasjon. Når et annet vinkelanker er valgt (eller kraften har anker/base), vises 5 nærmeste først; segmentavstand måles til selve segmentet. «Alle ankrene» er alltid komplett og sortert etter faktisk ID og nummer, så Vogn-2 kommer før Vogn-10. Nærmeste ankrene finnes også i den komplette listen.</p>
         </details>
         <details>
           <summary>Forfatteradvarsler før publisering</summary>

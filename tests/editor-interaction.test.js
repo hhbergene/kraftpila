@@ -405,6 +405,158 @@ test('a selected linked text shows and drags its root handle, moving the whole c
     [[140,120],[140,145],[140,164],[300,300]]);
 });
 
+test('a selected attached point exposes a handle and canvas dragging updates its track parameter',()=>{
+  const scene={segments:[{a:[0,50],b:[100,50]}]};
+  const context=sceneHoverFinder({},null,scene);
+  vm.runInContext(fs.readFileSync(path.join(root,'web','scene_model.js'),'utf8'),context);
+  const model=context.window.sceneModel;
+  const source=model.geometries(context.window.currentTask)[0];
+  const point=model.createAttachedPoint(context.window.currentTask,source,[25,50]);
+  context.window.selectedSceneElement={type:'point',index:0,obj:point};
+  context.window.editorMode=true;
+  context.window.enableSnap=false;
+  context.document.readyState='loading';
+  context.document.addEventListener=()=>{};
+  for(const file of ['snapping.js','scene_editor.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const drawn=[];
+  context.window.SCENE_HANDLE_COLOR='#000';
+  const drawStart=editorSource.indexOf('  function drawSceneElementHandles(');
+  const drawEnd=editorSource.indexOf('  requestAnimationFrame(frame);',drawStart);
+  vm.runInContext(editorSource.slice(drawStart,drawEnd),context);
+  context.drawSceneElementHandles({
+    beginPath(){},arc:(x,y)=>drawn.push([x,y]),fill(){},stroke(){}
+  },context.window.selectedSceneElement);
+  assert.deepEqual(drawn,[[25,50]]);
+  assert.equal(context.findSceneHandle([25,50]).handleType,'center');
+  const manager=forceManager('scene');
+  manager.forces=[];
+  manager.activeIndex=-1;
+  context.window.fm=manager;
+  const handlers=canvasInteractions(context);
+  handlers.mousedown({pos:[25,50]});
+  assert.equal(context.window.draggingHandle.type,'point');
+  handlers.mousemove({pos:[71.25,85]});
+  assert.deepEqual(Array.from(point.pos),[71.25,50]);
+  assert.equal(point.attachment.u,0.7125);
+  assert.equal(point.attachment.ref,source.ref);
+  assert.equal(scene.points.length,1);
+  assert.equal(context.window.selectedSceneElement.type,'point');
+  assert.equal(context.window.selectedSceneElement.index,0);
+});
+
+test('wagon canvas handles dispatch width and height resizing instead of generic scene movement',()=>{
+  const scene={segments:[{a:[0,100],b:[200,100]}]};
+  const context=sceneHoverFinder({},null,scene);
+  vm.runInContext(fs.readFileSync(path.join(root,'web','geometry.js'),'utf8'),context);
+  vm.runInContext(fs.readFileSync(path.join(root,'web','scene_model.js'),'utf8'),context);
+  const model=context.window.sceneModel,task=context.window.currentTask;
+  const point=model.createAttachedPoint(task,model.geometries(task)[0],[100,100]);
+  const wagon=model.createWagon(task,point,{halfWidth:20,height:15});
+  context.window.selectedSceneElement={type:'wagon',index:0};
+  context.window.enableSnap=false;
+  context.document.readyState='loading';
+  context.document.addEventListener=()=>{};
+  for(const file of ['snapping.js','scene_editor.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const manager=forceManager('scene');
+  manager.forces=[];
+  manager.activeIndex=-1;
+  context.window.fm=manager;
+  const handlers=canvasInteractions(context);
+  assert.equal(context.findSceneHandle([120,100]).handleType,'width');
+  handlers.mousedown({pos:[120,100]});
+  handlers.mousemove({pos:[150,110]});
+  assert.equal(wagon.halfWidth,50);
+  context.window.draggingHandle=null;
+  assert.equal(context.findSceneHandle([100,85]).handleType,'height');
+  handlers.mousedown({pos:[100,85]});
+  handlers.mousemove({pos:[120,60]});
+  assert.equal(wagon.height,40);
+  assert.deepEqual(Array.from(point.pos),[100,100]);
+});
+
+test('construction handles select wagon rather than attachment and preview before commit',()=>{
+  const scene={segments:[{a:[0,200],b:[400,200]}]};
+  const context=sceneHoverFinder({},null,scene);
+  for(const file of ['geometry.js','scene_model.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const model=context.window.sceneModel,task=context.window.currentTask;
+  const point=model.createAttachedPoint(task,model.geometries(task)[0],[200,200]);
+  const wagon=model.createWagon(task,point,{halfWidth:20,height:40});
+  model.enableWagonConstruction(task,wagon);
+  context.window.selectedSceneElement={type:'wagon',index:0};
+  context.window.enableSnap=false;
+  context.document.readyState='loading';
+  context.document.addEventListener=()=>{};
+  for(const file of ['snapping.js','scene_editor.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const manager=forceManager('scene');
+  manager.forces=[];
+  manager.activeIndex=-1;
+  context.window.fm=manager;
+  const handlers=canvasInteractions(context);
+  const state=model.wagonConstruction(task,wagon);
+  assert.equal(context.findSceneHandle(state.P).handleType,'construction-P');
+  assert.equal(context.findSceneHandle(state.O).handleType,'construction-O');
+  handlers.mousedown({pos:state.O});
+  assert.equal(context.window.selectedSceneElement.type,'wagon');
+  handlers.mousemove({pos:state.O.map(v=>v+25)});
+  assert.deepEqual(Array.from(model.wagonConstruction(task,wagon).O),Array.from(state.O));
+  context.window.sceneEditor.finishConstructionDrag();
+  assert.deepEqual(Array.from(model.wagonConstruction(task,wagon).O),Array.from(state.O,v=>v+25));
+  assert.equal(wagon.height,state.height);
+});
+
+test('selected wagon exposes its placement point as a point handle for selection and dragging',()=>{
+  const scene={segments:[{a:[0,100],b:[200,100]}]};
+  const context=sceneHoverFinder({},null,scene);
+  for(const file of ['geometry.js','scene_model.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const model=context.window.sceneModel,task=context.window.currentTask;
+  const point=model.createAttachedPoint(task,model.geometries(task)[0],[100,100]);
+  const wagon=model.createWagon(task,point,{halfWidth:20,height:15});
+  context.window.selectedSceneElement={type:'wagon',index:0};
+  context.window.enableSnap=false;
+  context.document.readyState='loading';
+  context.document.addEventListener=()=>{};
+  for(const file of ['snapping.js','scene_editor.js']){
+    vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+  }
+  const drawn=[];
+  context.window.SCENE_HANDLE_COLOR='#000';
+  const drawStart=editorSource.indexOf('  function drawSceneElementHandles(');
+  const drawEnd=editorSource.indexOf('  requestAnimationFrame(frame);',drawStart);
+  vm.runInContext(editorSource.slice(drawStart,drawEnd),context);
+  context.drawSceneElementHandles({
+    beginPath(){},arc:(x,y)=>drawn.push([x,y]),fill(){},stroke(){}
+  },context.window.selectedSceneElement);
+  assert.deepEqual(drawn,[[100,100],[100,85],[120,100]]);
+  const handle=context.findSceneHandle([100,100]);
+  assert.equal(handle.type,'point');
+  assert.equal(handle.index,0);
+  const manager=forceManager('scene');
+  manager.forces=[];
+  manager.activeIndex=-1;
+  context.window.fm=manager;
+  const handlers=canvasInteractions(context);
+  handlers.mousedown({pos:[100,100]});
+  assert.equal(context.window.selectedSceneElement.type,'point');
+  assert.equal(context.window.selectedSceneElement.index,0);
+  handlers.mousemove({pos:[150,130]});
+  assert.deepEqual(Array.from(point.pos),[150,100]);
+  assert.deepEqual(Array.from(model.wagonGeometry(task,wagon).bottomCenter),[150,100]);
+  const plane=scene.planes.find(plane=>plane.id===wagon.planeId);
+  assert.deepEqual(Array.from(plane.through),[150,100]);
+  assert.equal(wagon.halfWidth,20);
+  assert.equal(wagon.height,15);
+});
+
 test('an unfocused active force wins hover and drag against another force and scene text',()=>{
   const context=sceneHoverFinder({
     text0:{points:{pos:[50,0]},segments:{}}

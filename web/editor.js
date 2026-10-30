@@ -247,7 +247,7 @@ window.tasks = [];
     
     if(type === 'point' && scene.points?.[index]){
       const point = scene.points[index];
-      if(point.type === 'free') drawHandle(...point.pos);
+      if(point.type === 'free' || point.type === 'attached' && point.valid!==false) drawHandle(...point.pos);
     }
     else if(type === 'angle' && scene.angles?.[index]){
       const angle = scene.angles[index];
@@ -256,7 +256,7 @@ window.tasks = [];
         if(angle[field] && !angle[field].anchor && resolved[field]) drawHandle(...resolved[field]);
       });
     }
-    else     if(type === 'plane' && scene.plane){
+    else     if(type === 'plane' && scene.plane && !scene.planes?.[index]?.lockedTo){
       // Draw handle at through point
       const [x, y] = scene.plane.through;
       drawHandle(x, y);
@@ -342,6 +342,27 @@ window.tasks = [];
       const clampedHeightHandle = window.clampToCanvas(heightHandle);
       drawHandle(clampedHeightHandle[0], clampedHeightHandle[1]);
     } 
+    else if(type==='wagon'&&scene.wagons?.[index]){
+      const wagon=scene.wagons[index],g=window.sceneModel.wagonGeometry(window.currentTask,wagon);
+      if(wagon.construction?.enabled){
+        const state=window.sceneModel.wagonConstruction(window.currentTask,wagon);
+        if(state){
+          for(const name of ['C','P','Q','O']){
+            drawHandle(...state[name]);
+            ctx.fillText(name,state[name][0]+10,state[name][1]-10);
+          }
+        }
+        return;
+      }
+      const point=scene.points?.find(point=>point.id===wagon.pointId);
+      if(point && point.valid!==false) drawHandle(...point.pos);
+      if(g?.corners){
+        const [bottomLeft,bottomRight,topRight,topLeft]=g.corners;
+        const topCenter=[(topLeft[0]+topRight[0])/2,(topLeft[1]+topRight[1])/2];
+        drawHandle(...window.clampToCanvas(topCenter));
+        drawHandle(...window.clampToCanvas(bottomRight));
+      }
+    }
     else if(type === 'segment' && scene.segments && scene.segments[index]){
       const seg = scene.segments[index];
       // Clamp handle positions for display while keeping actual coordinates unclamped
@@ -1756,6 +1777,42 @@ window.tasks = [];
   }
   window.autoSave = autoSave;
 
+  window.commitSceneId = function(task,object,id){
+    if(task!==window.currentTask) throw new TypeError('Oppgaven er ikke lenger aktiv.');
+    const error=window.sceneModel.validateSceneId(task,object,id);
+    if(error) throw new TypeError(error);
+    if(id===object.id) return false;
+    autoSave();
+    recordUndo();
+    window.sceneEditor?.cancel();
+    const oldId=object.id;
+    const list=document.getElementById('relations-list');
+    const drafts=list?._taskId===task.id ? [list._relations,list._sumF] : [];
+    window.sceneModel.renameSceneId(task,object,id,[window.fm?.forces,...drafts]);
+    if(list?._taskId===task.id){
+      list.querySelectorAll('.lhs-plane, .rhs-plane, .sumf-plane-input').forEach(select=>{
+        const selected=select.value;
+        Array.from(select.options).forEach(option=>{
+          if(option.value===oldId){
+            option.value=id;
+            option.textContent=id;
+          }
+        });
+        select.value=selected===oldId ? id : selected;
+      });
+    }
+    // Export/reload can prefer these stored overlays over the task's own values.
+    queueStorage(`editor_relations_${task.id}`,task.relations || []);
+    queueStorage(`editor_sumF_${task.id}`,task.sumF || {});
+    window.sceneModel.update(task);
+    window.updateScenePanel();
+    window.fm?.syncInputs(document.getElementById('force-inputs'),true);
+    window.updateAppState();
+    window.markEdited('task','forces');
+    autoSave();
+    return true;
+  };
+
   // ===== Angre / gjør om =====
   // Et steg er et øyeblikksbilde av hele oppgavesettet slik det ligger i localStorage
   // (oppgaver, krefter, relasjoner, sumF og rekkefølge), tatt etter hver autoSave.
@@ -2068,6 +2125,7 @@ window.tasks = [];
   const hA = GRID_STEP * 6;
   
   const btnAddRect = document.getElementById('btn-add-rect');
+  const btnAddWagon = document.getElementById('btn-add-wagon');
   const btnAddEllipse = document.getElementById('btn-add-ellipse');
   const btnAddAngle = document.getElementById('btn-add-angle');
   const btnAddSegment = document.getElementById('btn-add-segment');
@@ -2118,6 +2176,12 @@ window.tasks = [];
         snapping: true
       });
       selectNewElement('rect',scene.rects);
+    });
+  }
+  if(btnAddWagon){
+    btnAddWagon.addEventListener('click',()=>{
+      if(!window.currentTask) return;
+      window.sceneEditor?.startWagonCreation();
     });
   }
   
@@ -2559,6 +2623,7 @@ window.tasks = [];
         segments: scene.segments ? JSON.stringify(scene.segments) : null,
         arrows: scene.arrows ? JSON.stringify(scene.arrows) : null,
         points: scene.points ? JSON.stringify(scene.points) : null,
+        wagons: scene.wagons ? JSON.stringify(scene.wagons) : null,
         angles: scene.angles ? JSON.stringify(scene.angles) : null,
         // NOTE: Deliberately excluding texts, help_lines, and other metadata
       };
@@ -2832,7 +2897,32 @@ window.tasks = [];
     
     if(type === 'point' && scene?.points?.[index]){
       const point = scene.points[index];
-      if(point.type === 'free' && isNear(...point.pos)) return {type, index, handleType: 'center'};
+      if((point.type === 'free' || point.type === 'attached' && point.valid!==false) &&
+        isNear(...point.pos)) return {type, index, handleType: 'center'};
+    }
+    else if(type==='wagon'&&scene?.wagons?.[index]){
+      const wagon=scene.wagons[index];
+      if(wagon.construction?.enabled){
+        const state=window.sceneModel.wagonConstruction(window.currentTask,wagon);
+        const preferred=window.sceneEditor.preferredConstructionHandle();
+        const names=preferred?[preferred,...['C','P','Q','O'].filter(name=>name!==preferred)]:['C','P','Q','O'];
+        for(const name of names){
+          if(state && isNear(...state[name])) return {type,index,handleType:`construction-${name}`};
+        }
+        return null;
+      }
+      const pointIndex=scene.points?.findIndex(point=>point.id===wagon.pointId) ?? -1;
+      const point=scene.points?.[pointIndex];
+      if(point && point.valid!==false && isNear(...point.pos)){
+        return {type:'point',index:pointIndex,handleType:'center'};
+      }
+      const g=window.sceneModel.wagonGeometry(window.currentTask,wagon);
+      if(g?.corners){
+        const [,bottomRight,topRight,topLeft]=g.corners;
+        const topCenter=[(topLeft[0]+topRight[0])/2,(topLeft[1]+topRight[1])/2];
+        if(isNear(...window.clampToCanvas(topCenter))) return {type,index,handleType:'height'};
+        if(isNear(...window.clampToCanvas(bottomRight))) return {type,index,handleType:'width'};
+      }
     }
     else if(type === 'angle' && scene?.angles?.[index]){
       const angle = scene.angles[index];
@@ -2989,6 +3079,19 @@ window.tasks = [];
     const { type, index, handleType } = handleInfo;
     const scene = window.currentTask.scene;
 
+    if(type==='wagon'&&scene.wagons?.[index]){
+      if(handleType.startsWith('construction-')){
+        window.sceneEditor.previewConstructionDrag(newPos);
+        return;
+      }
+      const handle=window.sceneEditor.resizeWagon(scene.wagons[index],handleType,newPos);
+      if(!handle) return;
+      window.selectedSceneElement._handleStartPos=handle;
+      window.setLastCanvasCoordinates?.(handle);
+      markEdited('task');
+      window.updateAppState();
+      return;
+    }
     if(type === 'point' || type === 'angle'){
       const point = type === 'point' ? scene.points?.[index] : null;
       const position = newPos;
@@ -3005,6 +3108,9 @@ window.tasks = [];
         point.pos[0]=clamped[0];
         point.pos[1]=clamped[1];
         window.snapIndicator = res.source ? {pos: clamped} : null;
+      } else if(point?.type === 'attached'){
+        clamped=window.sceneEditor.moveAttachedPoint(point,position);
+        if(!clamped) return;
       } else if(type === 'angle' && scene.angles?.[index]?.[handleType] && !scene.angles[index][handleType].anchor){
         clamped = window.clampToCanvas(position);
         scene.angles[index][handleType].pos = clamped;
@@ -3508,6 +3614,9 @@ window.tasks = [];
     // Check if clicking on scene element handle in edit mode
     const handle = hoverWinner?.handle;
     if(handle){
+      if(handle.type==='wagon'&&handle.handleType.startsWith('construction-')){
+        if(!window.sceneEditor.beginConstructionDrag(handle.index,handle.handleType.slice('construction-'.length))) return;
+      }
       window.selectedSceneElement = {type:handle.type,index:handle.index};
       window.draggingHandle = handle;
         window.selectedSceneElement._handleStartPos = pos;
@@ -3721,6 +3830,7 @@ window.tasks = [];
   canvas.addEventListener('mouseup', (e)=>{
     // Stop dragging scene element handle
     if(window.draggingHandle){
+      window.sceneEditor?.finishConstructionDrag();
       // Clean up the stored snap origin before clearing the handle
       if(window.draggingHandle._snapOriginAtDragStart){
         delete window.draggingHandle._snapOriginAtDragStart;
@@ -4191,13 +4301,15 @@ window.tasks = [];
         category: 'Egendefinert',
         help_lines: [],
         scene: {
-          planes: [{ id:'plane-1', angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false }],
-          activePlaneId: 'plane-1',
+          planes: [{ id:'Plan-1', angleDeg: 0, through: DRAW_CENTER.slice(), draw: true, snapping: false }],
+          activePlaneId: 'Plan-1',
           rects: [],
           ellipses: [],
           segments: [],
           arrows: [],
-          texts: []
+          texts: [],
+          points: [],
+          wagons: []
         },
         expectedForces: [],
         initialForces: [],
@@ -4312,6 +4424,7 @@ window.tasks = [];
         window.updateTextPositions(task);
         task.scene.texts = task.scene.texts.map((text, idx) => {
           const clean = {
+            id: text.id,
             txt: text.txt,
             pos: text.pos,
             size: text.size || 14,
@@ -4526,7 +4639,7 @@ window.tasks = [];
     const forces = window.fm.forces.filter(f=>f.name);
     const planes=window.currentTask.scene?.planes||[];
     const planeOptions=selected=>`<option value="">Velg plan</option>${planes.map((plane,index)=>
-      `<option value="${escapeHtml(plane.id)}" ${selected===plane.id?'selected':''}>Plan ${index+1}</option>`).join('')}`;
+      `<option value="${escapeHtml(plane.id)}" ${selected===plane.id?'selected':''}>${escapeHtml(plane.id)}</option>`).join('')}`;
     // Build UI
     let html = '';
     html += '<div style="margin-bottom:8px;">Legg til eller rediger relasjoner mellom krefter:</div>';
@@ -4803,7 +4916,7 @@ window.tasks = [];
       ? `<strong>${title}</strong><ul>${categories.map(({label})=>`<li>${escapeHtml(label)}</li>`).join('')}</ul>` : '';
     differences.innerHTML=section('Mangler i sjekklista',missing)+section('Valgt utover relevante kategorier',extra);
     const task=window.currentTask;
-    for(const [id,mode] of [['relation-snap-merge','merge'],['relation-snap-replace','replace']]){
+    for(const [id,mode] of [['relation-snap-keep','keep'],['relation-snap-merge','merge'],['relation-snap-replace','replace']]){
       document.getElementById(id).onclick=()=>{
         if(window.currentTask!==task){
           dialog.close();
@@ -4858,7 +4971,8 @@ window.tasks = [];
       return false;
     }
     for(const {key} of window.snapMatchCategories){
-      checklist[key]=matchChoice==='merge' ? checklist[key]||relevant[key] : relevant[key];
+      if(matchChoice==='merge') checklist[key]=checklist[key]||relevant[key];
+      else if(matchChoice==='replace') checklist[key]=relevant[key];
     }
     window.currentTask.snapChecklist=checklist;
     window.fm.forces.forEach(force=>window.syncForceSpec?.(force));

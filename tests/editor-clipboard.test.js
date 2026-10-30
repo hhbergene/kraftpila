@@ -109,6 +109,78 @@ function setup(){
   return {window,document,nodes,clipboard,select,addForce,task,load,storage,layouts,context};
 }
 
+test('scene ID commit persists references and overlays as one undoable change without losing relation drafts',()=>{
+  const s=setup();
+  const point={id:'Punkt-1',type:'free',pos:[100,100]};
+  const plane={id:'plane-1',through:[0,0],draw:true,t_vec:[1,0]};
+  const task=s.task({points:[point],planes:[plane],activePlaneId:plane.id});
+  const force=s.addForce('G');
+  task.expectedForces=[{name:'G',anchor:{type:'point',ref:point.id,point:'center'},planeId:plane.id}];
+  task.relations=[{lhs:[{name:'G',component:'normal',planeId:plane.id}],rhs:[]}];
+  task.sumF={n:0,planeId:plane.id};
+  s.window.markEdited('task','forces');
+  s.window.autoSave();
+  const geometry=plain([force.anchor,force.arrowBase,force.arrowTip]);
+  const list=s.document.getElementById('relations-list');
+  list._taskId=task.id;
+  list._relations=[{lhs:[{name:'G',component:'tangent',planeId:plane.id}],rhs:[]}];
+  list._sumF={t:7,planeId:plane.id};
+  const select={value:plane.id,options:[{value:plane.id,textContent:'plane-1'}]};
+  list.querySelectorAll=()=>[select];
+  let rebuilds=0;
+  s.window.updateScenePanel=()=>{rebuilds++;};
+  s.window.fm.syncInputs=()=>{rebuilds++;};
+  assert.equal(s.window.commitSceneId(task,plane,'Skråplan'),true);
+  assert.equal(rebuilds,2);
+  assert.equal(task.scene.activePlaneId,'Skråplan');
+  assert.equal(task.expectedForces[0].planeId,'Skråplan');
+  assert.equal(list._relations[0].lhs[0].planeId,'Skråplan');
+  assert.equal(list._relations[0].lhs[0].component,'tangent');
+  assert.equal(list._sumF.t,7);
+  assert.equal(list._sumF.planeId,'Skråplan');
+  assert.equal(select.value,'Skråplan');
+  assert.equal(select.options[0].textContent,'Skråplan');
+  assert.equal(JSON.parse(s.storage.get(`editor_relations_${task.id}`))[0].lhs[0].planeId,'Skråplan');
+  assert.equal(JSON.parse(s.storage.get(`editor_sumF_${task.id}`)).planeId,'Skråplan');
+  assert.equal(JSON.parse(s.storage.get(`editor_task_${task.id}`)).scene.planes[0].id,'Skråplan');
+  assert.deepEqual(plain([force.anchor,force.arrowBase,force.arrowTip]),geometry);
+  s.window.undo();
+  assert.equal(s.window.currentTask.scene.planes[0].id,'plane-1');
+  assert.equal(s.window.currentTask.expectedForces[0].planeId,'plane-1');
+  s.window.redo();
+  assert.equal(s.window.currentTask.scene.planes[0].id,'Skråplan');
+  assert.equal(s.window.currentTask.expectedForces[0].planeId,'Skråplan');
+  const loaded=JSON.parse(s.storage.get(`editor_task_${task.id}`));
+  assert.equal(loaded.scene.activePlaneId,'Skråplan');
+  assert.equal(loaded.relations[0].lhs[0].planeId,'Skråplan');
+  assert.equal(s.window.sceneModel.resolveAnchor(loaded,loaded.expectedForces[0].anchor).valid,true);
+});
+
+test('ID commit updates force anchors in storage and refuses duplicate, unchanged and inactive targets',()=>{
+  const s=setup();
+  const point={id:'old',type:'free',pos:[100,100]};
+  const task=s.task({points:[point],texts:[{id:'taken',txt:'x',pos:[0,0]}]});
+  const force=s.addForce('G');
+  task.expectedForces=[{name:'G',anchor:{type:'point',ref:point.id,point:'center'}}];
+  s.window.updateScenePanel=()=>{};
+  s.window.fm.syncInputs=()=>{};
+  const before=JSON.stringify(task);
+  assert.throws(()=>s.window.commitSceneId(task,point,'taken'),{name:'TypeError'});
+  assert.equal(s.window.commitSceneId(task,point,'old'),false);
+  assert.equal(JSON.stringify(task),before);
+  s.window.commitSceneId(task,point,'Punkt-Navn');
+  assert.equal(task.expectedForces[0].anchor.ref,'Punkt-Navn');
+  assert.equal(JSON.parse(s.storage.get(`editor_task_${task.id}`)).expectedForces[0].anchor.ref,'Punkt-Navn');
+  assert.deepEqual(plain(force.anchor),[100,100]);
+  s.window.undo();
+  assert.equal(s.window.currentTask.scene.points[0].id,'old');
+  assert.equal(s.window.currentTask.expectedForces[0].anchor.ref,'old');
+  s.window.redo();
+  assert.equal(s.window.currentTask.scene.points[0].id,'Punkt-Navn');
+  assert.equal(s.window.currentTask.expectedForces[0].anchor.ref,'Punkt-Navn');
+  assert.throws(()=>s.window.commitSceneId(task,point,'Other'),{name:'TypeError'});
+});
+
 test('accumulates deep independent scene copies, with no implicit forces or task metadata',()=>{
   const s=setup(), source=s.window.currentTask;
   source.scene.rects=[{bottomCenter:[100,100],width:80,height:40,color:'#123456',snapping:false}];
@@ -130,6 +202,18 @@ test('accumulates deep independent scene copies, with no implicit forces or task
   assert.deepEqual(target.expectedForces,[]);
   assert.equal(target.scene.rects[0].color,'#123456');
   assert.equal(s.clipboard.entries.length,2);
+});
+
+test('paste allocates Norwegian IDs globally across existing and newly pasted element types',()=>{
+  const s=setup();
+  s.window.currentTask.scene.rects=[{id:'legacy',bottomCenter:[100,100],width:80,height:40}];
+  s.select('rect');
+  s.clipboard.copy();
+  s.clipboard.copy();
+  const target=s.task({texts:[{id:'Rektangel-1',txt:'Reserved',pos:[0,0]}]});
+  s.clipboard.paste();
+  assert.deepEqual(Array.from(target.scene.rects,rect=>rect.id),['Rektangel-2','Rektangel-3']);
+  assert.equal(target.scene.texts[0].id,'Rektangel-1');
 });
 
 test('Ctrl+C in an open group adds unique member copies once; Ctrl+V keeps normal paste behavior',()=>{

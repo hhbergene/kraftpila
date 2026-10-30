@@ -109,6 +109,24 @@ test('moving along the allowed segment stays correct, including its endpoints',(
   close(context.lastEvaluation.summary.finalScore,(2+0.999)/3);
 });
 
+test('wagon-bottom anchors accept the curved edge and chord but not the surrounding area',()=>{
+  const context=setup();
+  const anchor={type:'segment',ref:'wagon-1',segment:'bottom'};
+  const task={scene:{wagons:[{id:'wagon-1'}]},expectedForces:[{name:'G',dir:[1,0],anchor}]};
+  context.sceneModel={distanceToAnchor:(currentTask,currentAnchor,position)=>{
+    assert.equal(currentTask,task);
+    assert.equal(currentAnchor,anchor);
+    return Math.min(Math.abs(position[1]),Math.abs(position[1]-10));
+  }};
+  context.currentTask=task;
+  for(const [position,distance] of [[[50,0],0],[[50,10],0],[[50,5],5],[[50,20],10]]){
+    context.fm.forces=[force(position)];
+    const result=context.evaluation.evalForces(task,context.fm.forces)[0];
+    assert.equal(result.posErr,distance);
+    assert.equal(result.posOk,distance<=5);
+  }
+});
+
 test('small position deductions can cross a points threshold with other deductions',()=>{
   const context=setup();
   const angle=0.5+24*(3*(1-0.9401));

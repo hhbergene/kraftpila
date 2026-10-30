@@ -100,7 +100,7 @@ test('scene types collapse to count rows, expand with previews, and follow panel
   const group=type=>s.sceneItems.querySelectorAll('.scene-type-group')
     .find(item=>item.dataset.type===type);
   const textGroup=group('text'),segmentGroup=group('segment');
-  assert.ok(textGroup.querySelector('.scene-type-header').textContent.includes('txt (3)'));
+  assert.ok(textGroup.querySelector('.scene-type-header').textContent.includes('Tekst (3)'));
   assert.equal(textGroup.querySelector('.scene-type-items').hidden,true);
   assert.equal(segmentGroup.querySelector('.scene-type-items').hidden,true);
 
@@ -138,6 +138,41 @@ test('scene types collapse to count rows, expand with previews, and follow panel
   assert.equal(group('segment').querySelector('.scene-type-items').hidden,true,
     'canvas selection collapses the previously active type');
   assert.ok(group('text').querySelectorAll('.scene-item')[1].classList.contains('selected'));
+});
+
+test('all scene types show read-only IDs in headers and editable IDs only inside their open editor',()=>{
+  const s=setup({
+    planes:[{id:'Plan-1',through:[0,0]}],
+    rects:[{id:'Rektangel-1',bottomCenter:[0,0],width:20,height:10}],
+    ellipses:[{id:'Ellipse-1',center:[0,0],width:20,height:10}],
+    segments:[{id:'Segment-1',a:[0,0],b:[10,0]}],
+    arrows:[{id:'Pil-1',a:[0,0],b:[10,0]}],
+    texts:[{id:'Tekst-1',txt:'A',pos:[0,0]}],
+    points:[{id:'Punkt-1',type:'free',pos:[0,0]}],
+    angles:[{id:'Vinkel-1',vertex:{pos:[0,0]},start:{pos:[10,0]},end:{pos:[0,10]}}],
+    wagons:[{id:'Vogn-1',pointId:'Punkt-1',halfWidth:10,height:10}]
+  });
+  const edits=[];
+  s.window.sceneEditor.openIdEditor=(...args)=>edits.push(args);
+  s.render();
+  const types=new Set(['plane','rect','ellipse','segment','arrow','text','point','angle','wagon']);
+  const items=s.sceneItems.querySelectorAll('.scene-item').filter(item=>types.has(item.dataset.type));
+  assert.equal(new Set(items.map(item=>item.dataset.type)).size,9);
+  for(const item of items){
+    const header=item.querySelector('.scene-item-header');
+    const label=header.querySelector('.scene-item-label');
+    assert.equal(label.tagName,'SPAN');
+    assert.equal(header.querySelector('.scene-id-edit'),null);
+    const editor=item.querySelector('.scene-item-editor');
+    const button=editor.querySelector('.scene-id-edit');
+    assert.equal(button.tagName,'BUTTON');
+    assert.equal(button.textContent,label.textContent);
+    button.fire('click');
+    assert.equal(edits.at(-1)[0].id,label.textContent);
+    header.fire('click');
+    assert.equal(edits.length,items.indexOf(item)+1,'header selects without opening ID editing');
+    assert.equal(item.classList.contains('selected'),true);
+  }
 });
 
 test('scene-panel hover and focus publish a canvas highlight target and clear it afterward',()=>{
@@ -238,7 +273,7 @@ test('scene groups create, show references, select members, and remove only memb
   group().querySelector('.scene-group-controls').querySelector('.scene-group-control').fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
     [{type:'text',id:'text-c'}]);
-  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt 3');
+  assert.equal(group().querySelector('.scene-group-preview').textContent,'text-c');
 
   s.window.selectedSceneElement={type:'arrow',index:1,obj:arrow};
   s.render();
@@ -250,14 +285,14 @@ test('scene groups create, show references, select members, and remove only memb
     'adding a selected member twice does not duplicate its reference');
   addButton=group().querySelector('.scene-group-controls').querySelector('.scene-group-control');
   assert.equal(addButton.disabled,true);
-  assert.equal(group().querySelector('.scene-group-preview').textContent,'txt 3, arrow 2');
+  assert.equal(group().querySelector('.scene-group-preview').textContent,'text-c, arrow-b');
 
   const rows=group().querySelectorAll('.scene-group-member');
   assert.equal(rows.length,2);
   assert.deepEqual(rows[1].children.map(child=>child.className),
     ['scene-group-member-reference','scene-group-remove-member']);
   const reference=rows[1].querySelector('.scene-group-member-reference');
-  assert.equal(reference.textContent,'arrow 2');
+  assert.equal(reference.textContent,'arrow-b');
   reference.fire('click');
   assert.equal(s.window.selectedSceneElement.obj,arrow);
   assert.equal(s.window.activeSceneGroupIndex,0);
@@ -302,7 +337,7 @@ test('scene groups accept planes and cannot add a stale scene selection from the
   group().querySelector('.scene-group-controls').children[0].fire('click');
   assert.deepEqual(JSON.parse(JSON.stringify(s.window.currentTask.scene.groups[0].members)),
     [{type:'plane',id:'plane-1'}]);
-  assert.equal(group().querySelector('.scene-group-member-reference').textContent,'plane 1');
+  assert.equal(group().querySelector('.scene-group-member-reference').textContent,'plane-1');
 
   s.window.activePanel='force';
   s.render();

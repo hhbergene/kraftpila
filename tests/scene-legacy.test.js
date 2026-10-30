@@ -273,7 +273,7 @@ test('legacy circles migrate to locked ellipses and preserve their rendering sty
   assert.equal(Object.hasOwn(legacy.task.scene,'circles'),false);
   assert.deepEqual(JSON.parse(JSON.stringify(legacy.task.scene.ellipses[0])),{
     center:[10,20],width:10,height:10,t_vec:[1,0],n_vec:[0,-1],
-    color:'#999999',lockAxes:true,id:'ellipse-1'
+    color:'#999999',lockAxes:true,id:'Ellipse-1'
   });
   assert.equal(legacy.state.strokes[0].width,2);
   assert.equal(legacy.state.strokes[0].color,'#999999');

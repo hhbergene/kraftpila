@@ -110,12 +110,15 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 .scene-group-member.selected .scene-group-member-reference { background:#e3f2fd; color:#145a8d; }
 .scene-group-member-reference:hover, .scene-group-member-reference:focus-visible { color:var(--editor-highlight-panel, #8052bd); outline:1px solid var(--editor-highlight-panel, #8052bd); }
 .scene-group-remove-member { flex:0 0 22px; width:22px; height:22px; padding:0; border:1px solid #aaa; border-radius:3px; background:#fff; cursor:pointer; }
-.scene-item-preview { flex:1 1 0; min-width:0; overflow:hidden; color:#555; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.scene-item-preview { order:1; flex:1 1 0; min-width:0; overflow:hidden; color:#555; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .scene-item-header { display:flex; align-items:center; gap:6px; min-width:0; margin-bottom:0; }
 .scene-item.selected .scene-item-header { margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #ccc; }
 .scene-item-icon { font-size:14px; width:18px; text-align:center; }
 .scene-item-label { flex:0 1 auto; min-width:0; overflow:hidden; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
-.scene-item-controls { display:none; gap:4px; }
+.scene-id-edit { border:0; padding:0; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
+.scene-id-edit:hover { text-decoration:underline; }
+.scene-id-edit:focus-visible { outline:2px solid #1599b5; outline-offset:2px; }
+.scene-item-controls { order:2; display:none; gap:4px; }
 .scene-item.selected .scene-item-controls { display:flex; }
 .scene-item-control-btn { width:20px; height:20px; padding:0; font-size:12px; border:1px solid #999; border-radius:2px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .scene-item-control-btn:hover { background:#e6ffe6; }
@@ -252,6 +255,10 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 /* Movable/resizable relations window, positioned and bounded to the visible canvas by ui.js */
 #relations-modal { position:fixed; left:0; top:var(--top-bar-height); width:520px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1100; overflow:hidden; }
 #relations-modal.hidden { display:none; }
+#scene-id-modal { position:fixed; left:0; top:var(--top-bar-height); width:440px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1400; overflow:hidden; }
+#scene-id-modal.hidden { display:none; }
+#scene-id-input { box-sizing:border-box; width:100%; }
+#scene-id-error { color:#b00020; min-height:1.2em; overflow-wrap:anywhere; }
 #relations-modal .ratio-input::placeholder { color:#888; opacity:1; }
 #snap-checklist-modal { position:fixed; left:0; top:var(--top-bar-height); width:440px; background:#fff; border:1px solid rgba(0,0,0,0.25); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; z-index:1300; overflow:hidden; }
 #snap-checklist-modal.hidden { display:none; }

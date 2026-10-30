@@ -161,6 +161,10 @@
    * @returns {number} Shortest distance from p to segment ab
    */
   function distPointToSegment(p,a,b){ const ab=[b[0]-a[0],b[1]-a[1]]; const ab2=ab[0]*ab[0]+ab[1]*ab[1]; if(ab2===0) return geometry.distance(p,a); const t=Math.max(0,Math.min(1, ((p[0]-a[0])*ab[0]+(p[1]-a[1])*ab[1])/ab2)); const proj=[a[0]+t*ab[0], a[1]+t*ab[1]]; return geometry.distance(p,proj); }
+  function specialAnchorDistance(position,anchor,task){
+    const distance=window.sceneModel?.distanceToAnchor?.(task,anchor,position);
+    return Number.isFinite(distance) ? distance : null;
+  }
 
   /**
    * Linear ramp-down scoring function with hard cut (strict version)
@@ -339,7 +343,10 @@
         // Position match
         let posScore = 0;
         if(spec.anchor && drawnF.anchor){
-          if(spec.anchor.type==='point'){
+          const specialDistance=specialAnchorDistance(drawnF.anchor,spec.anchor,task);
+          if(specialDistance!==null){
+            posScore=positionScore(specialDistance);
+          }else if(spec.anchor.type==='point'){
             const sceneObj = window.sceneLookup[spec.anchor.ref];
             const P = sceneObj && sceneObj.points[spec.anchor.point];
             if(P){
@@ -433,9 +440,13 @@
           posErr = geometry.distance(match.anchor, spec.anchor.pos); posOk = positionScore(posErr) === 1;
         } else if(spec.anchor.type==='segment'){
           anchorType = 'segment';
-          const sceneObj = window.sceneLookup[spec.anchor.ref];
-          const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
-          if(seg){ posErr = distPointToSegment(match.anchor, seg[0], seg[1]); posOk = positionScore(posErr) === 1; }
+          posErr=specialAnchorDistance(match.anchor,spec.anchor,task);
+          if(posErr===null){
+            const sceneObj = window.sceneLookup[spec.anchor.ref];
+            const seg = sceneObj && sceneObj.segments[spec.anchor.segment];
+            if(seg) posErr=distPointToSegment(match.anchor,seg[0],seg[1]);
+          }
+          if(posErr!==null) posOk=positionScore(posErr)===1;
         }
       }
       
@@ -795,7 +806,9 @@
 if(r.anchorType === 'point'){
           anchorDesc = (sp.point === 'center') ? 'massesenteret' : 'kontaktpunktet';
         } else if(r.anchorType === 'segment'){
-          anchorDesc = 'kontaktflaten';
+          anchorDesc = r.anchorSpec?.segment==='bottom' &&
+            window.currentTask?.scene?.wagons?.some(wagon=>wagon.id===r.anchorSpec.ref)
+            ? 'vognbunnen (buen eller korden)' : 'kontaktflaten';
         } else if(r.anchorType === 'custom'){
           anchorDesc = 'markert punkt';
         }

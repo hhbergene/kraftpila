@@ -3,7 +3,11 @@
   function anchorCandidates(task){
     if(window.sceneModel){
       return window.sceneModel.candidates(task).filter(c=>(c.anchor?.type || c.type || c.kind) !== 'curve')
-        .map(c=>({...c, ...(c.anchor || {}), pos:c.pos}));
+        .map(c=>{
+          const anchor=c.anchor || c;
+          const resolved=window.sceneModel.resolveAnchor(task,anchor);
+          return {...c,...anchor,pos:resolved.pos || c.pos};
+        });
     }
     return window.buildAnchorCandidates ? window.buildAnchorCandidates(task) : [];
   }

@@ -944,7 +944,7 @@ window.AppVersioning = (function(){
         throw new Error(`Oppgave ${task?.id||'?'} mangler ny scene-/planstruktur.`);
       }
       const ids=new Set();
-      const collections=['planes','rects','segments','ellipses','arrows','texts','points','angles'];
+      const collections=['planes','rects','segments','ellipses','arrows','texts','points','angles','wagons'];
       collections.forEach(collection=>(scene[collection]||[]).forEach((element,index)=>{
         if(!element||typeof element.id!=='string'||!element.id.trim()||ids.has(element.id)){
           throw new Error(`Oppgave ${task.id} har manglende eller duplisert ID i scene.${collection}[${index}].`);

@@ -8,7 +8,15 @@ const source=fs.readFileSync(path.join(__dirname,'..','web','author_validation.j
 function setup(){
   const confirmations=[];
   const alerts=[];
-  const window={buildAllScenePoints:()=>({ellipse0:{points:{center:[0,0]},segments:{edge:[[0,0],[10,0]]}}})};
+  const window={
+    buildAllScenePoints:()=>({ellipse0:{points:{center:[0,0]},segments:{edge:[[0,0],[10,0]]}}}),
+    sceneModel:{resolveAnchor(task,anchor){
+      const wagon=task.scene?.wagons?.find(item=>item.id===anchor.ref);
+      return wagon?.valid===false ? {valid:false} : wagon
+        ? {valid:true,pos:[0,0],segment:{a:[-10,0],b:[10,0]}}
+        : {valid:false};
+    }}
+  };
   const context=vm.createContext({window,alert:message=>alerts.push(message),
     confirm:message=>{confirmations.push(message);return false;}});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8'),context);
@@ -52,6 +60,44 @@ test('custom and broken scene anchors warn, even when custom coordinates are val
   assert.ok(warnings.some(text=>text.includes('G har anchor') && text.includes('manglende')));
   task.expectedForces[0].anchor={type:'segment',ref:'ellipse0',segment:'edge'};
   assert.ok(!window.collectAuthorWarnings(task).some(text=>text.includes('Kraft N')));
+});
+
+test('valid wagon-bottom virtual segment passes author checks but missing or invalid wagons warn',()=>{
+  const {window,task}=setup();
+  task.expectedForces[0].anchor={type:'segment',ref:'wagon-1',segment:'bottom'};
+  task.scene={wagons:[{id:'wagon-1',valid:true}]};
+  assert.ok(!window.collectAuthorWarnings(task).some(text=>text.includes('Kraft N')&&text.includes('segment')));
+
+  task.scene.wagons=[];
+  assert.ok(window.collectAuthorWarnings(task).some(text=>
+    text.includes('Kraft N')&&text.includes('manglende eller ugyldig segment')));
+
+  task.scene.wagons=[{id:'wagon-1',valid:false}];
+  assert.ok(window.collectAuthorWarnings(task).some(text=>
+    text.includes('Kraft N')&&text.includes('manglende eller ugyldig segment')));
+});
+
+test('author validation resolves a real wagon-bottom anchor against wagon geometry',()=>{
+  const window={WIDTH:1000,HEIGHT:640};
+  window.window=window;
+  const context=vm.createContext({window,console,Math,Date,Number,Array,JSON,Set,Map,WeakMap,RegExp});
+  for(const file of ['shared.js','geometry.js','scene_render.js','scene_model.js','author_validation.js']){
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web',file),'utf8'),context);
+  }
+  const task={id:'wagon-anchor',title:'Vogn',help_lines:['Beskrivelse'],
+    scene:{ellipses:[{center:[0,0],width:100,height:100,t_vec:[1,0]}],points:[],wagons:[],planes:[]},
+    expectedForces:[{name:'M'}],initialForces:[],relations:[]};
+  const source=window.sceneModel.geometries(task).find(item=>item.ref==='Ellipse-1');
+  const point=window.sceneModel.createAttachedPoint(task,source,[50,0]);
+  const wagon=window.sceneModel.createWagon(task,point,{halfWidth:20,height:10});
+  task.expectedForces[0].anchor={type:'segment',ref:wagon.id,segment:'bottom'};
+  window.sceneModel.update(task);
+  assert.equal(wagon.valid,true);
+  assert.ok(!window.collectAuthorWarnings(task).some(text=>text.includes('manglende eller ugyldig segment')));
+  wagon.halfWidth=1000;
+  window.sceneModel.update(task);
+  assert.equal(wagon.valid,false);
+  assert.ok(window.collectAuthorWarnings(task).some(text=>text.includes('manglende eller ugyldig segment')));
 });
 
 test('relations report missing forces, sides, components, ratio and tolerance',()=>{

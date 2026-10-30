@@ -17,6 +17,80 @@ function taskWith(scene){
   return {scene:{rects:[],segments:[],arrows:[],ellipses:[],...scene}};
 }
 
+test('circle construction preserves actual wagon center and translates rigidly through Q and O',()=>{
+  const {model,geometry}=loadModel();
+  for(const side of ['inside','outside']){
+    const task=taskWith({segments:[{a:[0,200],b:[400,200]}]});
+    const point=model.createAttachedPoint(task,model.geometries(task)[0],[200,200]);
+    const wagon=model.createWagon(task,point,{halfWidth:20,height:40,side});
+    const before=model.wagonGeometry(task,wagon).center.slice();
+    const state=model.enableWagonConstruction(task,wagon);
+    assert.ok(geometry.distance(state.C,before)<1e-7);
+    assert.equal(task.scene.ellipses[0].lockAxes,true);
+    for(const handle of ['C','P']){
+      const target=state[handle].map((v,i)=>v+(i?20:40));
+      const solved=model.solveWagonConstruction(state,handle,target);
+      assert.equal(solved.valid,true);
+      model.applyWagonConstruction(task,wagon,solved);
+      const current=model.wagonConstruction(task,wagon);
+      assert.ok(geometry.distance(current.C,solved.C)<1e-7);
+      assert.ok(geometry.distance(current.P,solved.P)<1e-7);
+      assert.equal(current.radius,state.radius);
+    }
+    for(const handle of ['Q','O']){
+      const solved=model.solveWagonConstruction(state,handle,state[handle].map(v=>v+23));
+      assert.equal(solved.valid,true);
+      for(const name of ['C','P','Q','O']){
+        assert.ok(geometry.distance(solved[name],state[name].map(v=>v+23))<1e-8);
+      }
+      assert.equal(solved.height,state.height);
+      assert.equal(solved.radius,state.radius);
+    }
+    assert.equal(model.solveWagonConstruction(state,'C',state.P).valid,false);
+    assert.equal(model.solveWagonConstruction(state,'P',[NaN,0]).valid,false);
+  }
+});
+
+test('existing ellipse conversion preserves IDs and supports all global cardinal handles',()=>{
+  const {model,geometry}=loadModel();
+  const task=taskWith({ellipses:[{center:[200,200],width:200,height:100,t_vec:[1,0]}]});
+  const point=model.createAttachedPoint(task,model.geometries(task)[0],[200,150]);
+  const wagon=model.createWagon(task,point,{halfWidth:15,height:50});
+  const ids=[point.id,wagon.id,wagon.planeId,task.scene.ellipses[0].id];
+  model.enableWagonConstruction(task,wagon);
+  assert.deepEqual([point.id,wagon.id,wagon.planeId,task.scene.ellipses[0].id],ids);
+  assert.equal(task.scene.ellipses.length,1);
+  for(const [cardinal,direction] of Object.entries({top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]})){
+    wagon.construction.cardinal=cardinal;
+    const state=model.wagonConstruction(task,wagon);
+    assert.ok(geometry.distance(state.Q,state.O.map((v,i)=>v+state.radius*direction[i]))<1e-8);
+  }
+});
+
+test('construction diameter limit and invalid inside height are explicit, and shared attachments follow translations',()=>{
+  const {model,geometry}=loadModel();
+  for(const side of ['inside','outside']){
+    const task=taskWith({ellipses:[{center:[200,200],width:80,height:80}]});
+    const source=model.geometries(task)[0];
+    const point=model.createAttachedPoint(task,source,[200,160]);
+    const other=model.createAttachedPoint(task,source,[240,200]);
+    const wagon=model.createWagon(task,point,{halfWidth:40,height:120,side});
+    const state={C:side==='inside'?[200,240]:[200,140],P:[200,160],O:[200,200],Q:[200,240],
+      radius:40,halfWidth:40,height:120,side,ref:source.ref};
+    const solved=model.solveWagonConstruction(state,'C',state.C);
+    assert.equal(solved.valid,true);
+    model.applyWagonConstruction(task,wagon,solved);
+    assert.ok(geometry.distance(model.wagonGeometry(task,wagon).center,state.C)<1e-6);
+    const translated=model.solveWagonConstruction(solved,'O',[240,260]);
+    model.applyWagonConstruction(task,wagon,translated);
+    assert.ok(geometry.distance(other.pos,[280,260])<1e-7);
+    assert.equal(model.solveWagonConstruction({...state,radius:39},'C',state.C).valid,false);
+    if(side==='inside'){
+      assert.equal(model.solveWagonConstruction(state,'C',[200,180]).valid,false);
+    }
+  }
+});
+
 test('ellipse angles are CCW in local coordinates and arcs expose only drawn anchors',()=>{
   const {geometry}=loadModel();
   const ellipse={center:[10,20],width:8,height:4,t_vec:[1,0],startAngleDeg:300,endAngleDeg:60};
@@ -36,7 +110,7 @@ test('rectangle corner anchors follow local axes in candidates, snapping and res
   const {window,model}=loadModel();
   for(const rotation of [0,Math.PI/6,Math.PI/2]){
     const t=[Math.cos(rotation),Math.sin(rotation)],n=[Math.sin(rotation),-Math.cos(rotation)];
-    const rect={bottomCenter:[100,80],width:40,height:30,t_vec:t,n_vec:n};
+    const rect={id:'rect-1',bottomCenter:[100,80],width:40,height:30,t_vec:t,n_vec:n};
     const task=taskWith({rects:[rect]});
     for(const [name,side,height] of [
       ['bottom_left',-1,0],['bottom_right',1,0],['top_left',-1,30],['top_right',1,30]
@@ -44,7 +118,7 @@ test('rectangle corner anchors follow local axes in candidates, snapping and res
       const expected=[100+side*20*t[0]+height*n[0],80+side*20*t[1]+height*n[1]];
       const cornerLabel={bottom_left:'nedre venstre',bottom_right:'nedre høyre',
         top_left:'øvre venstre',top_right:'øvre høyre'}[name];
-      const candidate=model.candidates(task).find(c=>c.label===`Rektangel 1 · ${cornerLabel}`);
+      const candidate=model.candidates(task).find(c=>c.label===`rect-1 · ${cornerLabel}`);
       assert.ok(candidate, name);
       assert.deepEqual(Array.from(candidate.pos),expected);
       assert.deepEqual(Array.from(model.resolveAnchor(task,candidate.anchor).pos),expected);
@@ -53,7 +127,7 @@ test('rectangle corner anchors follow local axes in candidates, snapping and res
     }
     rect.snapping=false;
     assert.equal(Object.keys(window.buildSceneLookup(task)['rect-1'].points).length,0);
-    assert.ok(model.candidates(task).some(c=>c.label==='Rektangel 1 · øvre venstre'));
+    assert.ok(model.candidates(task).some(c=>c.label==='rect-1 · øvre venstre'));
   }
 });
 
@@ -157,16 +231,16 @@ test('intersection points preserve branch and last valid position through loss a
   assert.equal(model.candidates(task).some(c=>c.anchor?.ref===point.id),true);
 });
 
-test('new scene point IDs are unique among points without reserving dangling force references',()=>{
+test('new scene point IDs use Norwegian names without reserving dangling force references',()=>{
   const {model}=loadModel();
   const task=taskWith({points:[]});
-  task.expectedForces=[{name:'G',anchor:{type:'point',ref:'point-1',point:'center'}}];
-  task.initialForces=[{name:'N',anchorFrom:'point-2',point:'center'}];
+  task.expectedForces=[{name:'G',anchor:{type:'point',ref:'Punkt-1',point:'center'}}];
+  task.initialForces=[{name:'N',anchorFrom:'Punkt-2',point:'center'}];
   const first=model.createPoint(task,[10,20]);
   const second=model.createPoint(task,[30,40]);
-  assert.equal(first.id,'point-1');
-  assert.equal(second.id,'point-2');
-  assert.deepEqual(Array.from(task.scene.points,point=>point.id),['point-1','point-2']);
+  assert.equal(first.id,'Punkt-1');
+  assert.equal(second.id,'Punkt-2');
+  assert.deepEqual(Array.from(task.scene.points,point=>point.id),['Punkt-1','Punkt-2']);
 });
 
 test('deleting a point detaches force references at the last source position',()=>{
@@ -222,7 +296,7 @@ test('a newly reused point ID cannot reattach a force already detached at its ol
   vm.runInContext(fs.readFileSync(`${__dirname}/shared.js`,'utf8'),context);
   const force={name:'G',isExpected:true,anchor:[10,20],arrowBase:[15,20],arrowTip:[15,80],
     updateDirectionAndLength(){}};
-  const spec={name:'G',anchor:{type:'point',ref:'point-1',point:'center'}};
+  const spec={name:'G',anchor:{type:'point',ref:'Punkt-1',point:'center'}};
   const task=taskWith({points:[]});
   task.expectedForces=[spec];
   window.getForceSpec=()=>({spec,prop:'anchor'});
@@ -230,7 +304,7 @@ test('a newly reused point ID cannot reattach a force already detached at its ol
   assert.equal(window.syncSceneForceAnchors(task,window.fm,true),true);
   assert.deepEqual(JSON.parse(JSON.stringify(spec.anchor)),{type:'custom',pos:[10,20]});
   const point=model.createPoint(task,[90,100]);
-  assert.equal(point.id,'point-1');
+  assert.equal(point.id,'Punkt-1');
   model.update(task);
   assert.equal(window.syncSceneForceAnchors(task,window.fm,true),false);
   assert.deepEqual(JSON.parse(JSON.stringify(spec.anchor)),{type:'custom',pos:[10,20]});
@@ -536,7 +610,7 @@ test('both point types use yellow default fill and honor shared styles in editor
   }
 });
 
-test('all anchor and geometry labels show readable indices without changing bindings',()=>{
+test('all anchor and geometry labels show actual IDs without changing bindings',()=>{
   const {model}=loadModel();
   const task=taskWith({planes:[{id:'plane-1',through:[0,0],t_vec:[1,0],draw:true}],activePlaneId:'plane-1',
     rects:[{bottomCenter:[0,0],width:40,height:20},{bottomCenter:[100,0],width:40,height:20}],
@@ -545,18 +619,18 @@ test('all anchor and geometry labels show readable indices without changing bind
     points:[{id:'point-17',type:'free',pos:[5,5],visible:false}],texts:[{txt:'t',pos:[8,8]}]});
   const geometries=model.geometries(task);
   for(const geometry of geometries){
-    assert.match(geometry.label,/^(Plan|Rektangel|Segment|Pil|Ellipse) \d+ · /);
+    assert.ok(geometry.label.startsWith(`${geometry.ref} · `));
     assert.notEqual(geometry.label,geometry.ref);
   }
   const labels=model.candidates(task).map(candidate=>candidate.label);
-  for(const label of ['Rektangel 1 · bunn','Rektangel 2 · høyre','Segment 1 · linje','Pil 1 · pilspiss',
-    'Ellipse 1 · sentrum','Ellipse 1 · topp','Plan 1 · plan','Punkt 1 · sentrum','Tekst 1 · tekstposisjon']){
+  for(const label of ['Rektangel-1 · bunn','Rektangel-2 · høyre','Segment-1 · linje','Pil-1 · pilspiss',
+    'Ellipse-1 · sentrum','Ellipse-1 · topp','plane-1 · plan','point-17 · sentrum','Tekst-1 · tekstposisjon']){
     assert.ok(labels.includes(label),label);
   }
-  const bottom=model.candidates(task).find(c=>c.label==='Rektangel 2 · bunn');
-  assert.equal(bottom.anchor.ref,'rect-2');
+  const bottom=model.candidates(task).find(c=>c.label==='Rektangel-2 · bunn');
+  assert.equal(bottom.anchor.ref,'Rektangel-2');
   assert.equal(bottom.anchor.point,'bottom_center');
-  const point=model.candidates(task).find(c=>c.label==='Punkt 1 · sentrum');
+  const point=model.candidates(task).find(c=>c.label==='point-17 · sentrum');
   assert.equal(point.anchor.ref,'point-17');
 });
 
@@ -588,15 +662,15 @@ test('shared lookup migrates legacy circles and exposes ellipse curve samples',(
   const ellipse={center:[100,100],width:120,height:60,t_vec:[Math.SQRT1_2,Math.SQRT1_2],startAngleDeg:300,endAngleDeg:60};
   const task=taskWith({ellipses:[ellipse],circles:[{center:[0,0],radius:20}],
     angles:[{vertex:{pos:[0,0]},start:{pos:[100,0]},end:{pos:[0,-100]},radius:40}]});
-  const lookup=window.buildAllScenePoints(task),outline=lookup['ellipse-1'].curves.outline;
+  const lookup=window.buildAllScenePoints(task),outline=lookup['Ellipse-1'].curves.outline;
   assert.equal(Object.hasOwn(task.scene,'circles'),false);
-  assert.ok(lookup['ellipse-2'].curves.outline.length>0);
+  assert.ok(lookup['Ellipse-2'].curves.outline.length>0);
   assert.ok(outline.length>0);
   assert.deepEqual(Object.keys(lookup.ellipse0.segments),[]);
-  assert.deepEqual(Object.keys(lookup['angle-1'].segments),[]);
-  assert.ok(lookup['angle-1'].curves.arc.length>0);
+  assert.deepEqual(Object.keys(lookup['Vinkel-1'].segments),[]);
+  assert.ok(lookup['Vinkel-1'].curves.arc.length>0);
   const candidates=model.candidates(task);
-  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='ellipse-1'||c.ref==='ellipse-2'||c.ref==='angle-1')),false);
+  assert.equal(candidates.some(c=>c.anchor?.type==='segment'&&(c.ref==='Ellipse-1'||c.ref==='Ellipse-2'||c.ref==='Vinkel-1')),false);
   assert.ok(geometry.distance(outline[0][0],geometry.ellipsePoint(ellipse,300))<1e-8);
   assert.ok(geometry.distance(outline.at(-1)[1],geometry.ellipsePoint(ellipse,60))<1e-8);
   outline.forEach(([a,b])=>{
@@ -604,19 +678,228 @@ test('shared lookup migrates legacy circles and exposes ellipse curve samples',(
   });
   const excluded=geometry.ellipsePoint(ellipse,180);
   assert.ok(Math.min(...outline.map(([a,b])=>geometry.distPointToSegment(excluded,a,b)))>20);
-  const migratedOutline=lookup['ellipse-2'].curves.outline;
-  const samples=model.sampleCurve(task,{ref:'ellipse-2',curve:true});
+  const migratedOutline=lookup['Ellipse-2'].curves.outline;
+  const samples=model.sampleCurve(task,{ref:'Ellipse-2',curve:true});
   assert.equal(samples.length,migratedOutline.length);
-  assert.equal(window.buildSceneLookup(task)['ellipse-2'].curves.outline.length,migratedOutline.length);
+  assert.equal(window.buildSceneLookup(task)['Ellipse-2'].curves.outline.length,migratedOutline.length);
   ellipse.endAngleDeg=ellipse.startAngleDeg;
-  assert.equal(window.buildAllScenePoints(task)['ellipse-1'].curves.outline.length,0);
+  assert.equal(window.buildAllScenePoints(task)['Ellipse-1'].curves.outline.length,0);
 });
 
 test('ellipse axis length helper keeps dimensions equal only while locked',()=>{
   const {model}=loadModel();
   const ellipse={width:40,height:20,lockAxes:true};
   model.setEllipseAxisLength(ellipse,'height',60);
-  assert.deepEqual(ellipse,{width:60,height:60,lockAxes:true});
+  assert.deepEqual(ellipse,{width:60,height:60,lockAxes:true  });
+
+  test('attached point follows ellipse geometry and becomes explicitly invalid when source is deleted',()=>{
+    const {geometry,model}=loadModel();
+    const ellipse={id:'loop',center:[0,0],width:100,height:80,t_vec:[1,0]};
+    const task=taskWith({ellipses:[ellipse]});
+    const source=model.geometries(task).find(item=>item.ref==='loop');
+    const initial=geometry.ellipsePoint(ellipse,45);
+    const point=model.createAttachedPoint(task,source,initial);
+    const id=point.id;
+    assert.equal(point.type,'attached');
+    assert.equal(model.pointStatus(task,point).valid,true);
+    ellipse.center=[10,20];
+    model.update(task);
+    assert.ok(geometry.distance(point.pos,geometry.ellipsePoint(ellipse,45))<1e-8);
+    assert.equal(point.id,id);
+    assert.ok(geometry.distance(model.resolveAnchor(task,{type:'point',ref:id,point:'center'}).pos,
+      point.pos)<1e-8);
+    assert.ok(model.candidates(task).some(candidate=>candidate.anchor?.ref===id));
+    const last=point.pos.slice();
+    model.remapReferences(task,'ellipse',0,'delete');
+    task.scene.ellipses.splice(0,1);
+    model.update(task);
+    assert.equal(point.valid,false);
+    assert.deepEqual(Array.from(point.pos),Array.from(last));
+  });
+
+  test('attached points follow rectangle sides and straight-track wagons overhang endpoints',()=>{
+    const {model}=loadModel();
+    const rect={bottomCenter:[0,0],width:100,height:60,t_vec:[1,0],n_vec:[0,-1]};
+    const task=taskWith({rects:[rect]});
+    const source=model.geometries(task).find(item=>item.ref==='Rektangel-1'&&item.source.segment==='top');
+    const point=model.createAttachedPoint(task,source,[50,-60]);
+    const wagon=model.createWagon(task,point,{halfWidth:70,height:12});
+    const g=model.wagonGeometry(task,wagon);
+    assert.equal(g.valid,true);
+    assert.deepEqual(Array.from(g.bottomLeft),[-20,-60]);
+    assert.deepEqual(Array.from(g.bottomRight),[120,-60]);
+    assert.deepEqual(Array.from(g.topLeft),[-20,-72]);
+    const plane=task.scene.planes.find(item=>item.id===wagon.planeId);
+    assert.equal(plane.draw,false);
+    assert.deepEqual(Array.from(plane.through),Array.from(g.bottomCenter));
+    assert.deepEqual(Array.from(plane.t_vec),Array.from(g.tangent));
+  });
+
+  test('ellipse wagon bottom is a requested-length chord and inside/outside select opposite normals',()=>{
+    const {geometry,model}=loadModel();
+    const task=taskWith({ellipses:[{center:[0,0],width:100,height:100,t_vec:[1,0]}]});
+    const source=model.geometries(task).find(item=>item.ref==='Ellipse-1');
+    const point=model.createAttachedPoint(task,source,[50,0]);
+    const wagon=model.createWagon(task,point,{halfWidth:20,height:10});
+    const outside=model.wagonGeometry(task,wagon);
+    assert.equal(outside.valid,true);
+    assert.ok(Math.abs(geometry.distance(outside.bottomLeft,outside.bottomRight)-40)<1e-7);
+    for(const endpoint of [outside.bottomLeft,outside.bottomRight]){
+      assert.ok(Math.abs((endpoint[0]**2+endpoint[1]**2)-2500)<1e-5);
+    }
+    assert.ok(outside.normal[0]>0);
+    wagon.side='inside';
+    const inside=model.wagonGeometry(task,wagon);
+    assert.ok(inside.normal[0]<0);
+    assert.ok(Math.abs(inside.bottomLeft[0]-outside.bottomLeft[0])<1e-7);
+  });
+
+  test('wagon-bottom anchor exposes the chord and accepts points on the curved bottom',()=>{
+    const {geometry,model}=loadModel();
+    const task=taskWith({ellipses:[{center:[0,0],width:100,height:100,t_vec:[1,0]}]});
+    const source=model.geometries(task).find(item=>item.ref==='Ellipse-1');
+    const point=model.createAttachedPoint(task,source,[50,0]);
+    const wagon=model.createWagon(task,point,{halfWidth:20,height:10});
+    const candidate=model.candidates(task).find(item=>
+      item.anchor?.type==='segment'&&item.anchor.ref===wagon.id&&item.anchor.segment==='bottom');
+    assert.ok(candidate);
+    assert.match(candidate.label,/vognbunn.*bue og korde/i);
+    const resolved=model.resolveAnchor(task,candidate.anchor);
+    const shape=model.wagonGeometry(task,wagon);
+    assert.equal(resolved.valid,true);
+    assert.ok(geometry.distance(resolved.pos,shape.bottomCenter)<1e-8);
+    assert.ok(model.distanceToAnchor(task,candidate.anchor,point.pos)<1e-8);
+    assert.ok(model.distanceToAnchor(task,candidate.anchor,shape.bottomCenter)<1e-8);
+    assert.ok(model.distanceToAnchor(task,candidate.anchor,[0,0])>5);
+  });
+
+  test('rotated ellipse wagons solve chords in the ellipse local frame',()=>{
+    const {geometry,model}=loadModel();
+    const ellipse={center:[7,-3],width:120,height:40,t_vec:[Math.SQRT1_2,Math.SQRT1_2]};
+    const task=taskWith({ellipses:[ellipse]});
+    const source=model.geometries(task).find(item=>item.ref==='Ellipse-1');
+    const point=model.createAttachedPoint(task,source,geometry.ellipsePoint(ellipse,30));
+    const wagon=model.createWagon(task,point,{halfWidth:10,height:8});
+    const result=model.wagonGeometry(task,wagon);
+    assert.equal(result.valid,true);
+    assert.ok(Math.abs(geometry.distance(result.bottomLeft,result.bottomRight)-20)<1e-7);
+    for(const endpoint of [result.bottomLeft,result.bottomRight]){
+      const delta=[endpoint[0]-ellipse.center[0],endpoint[1]-ellipse.center[1]];
+      const frame=geometry.ellipseFrame(ellipse);
+      const x=geometry.dot(delta,frame.t)/frame.rx;
+      const y=geometry.dot(delta,frame.n)/frame.ry;
+      assert.ok(Math.abs(x*x+y*y-1)<1e-8);
+    }
+  });
+
+  test('ellipse wagon keeps impossible requested width and linked plane follows the wagon',()=>{
+    const {model}=loadModel();
+    const ellipse={center:[0,0],width:30,height:30,t_vec:[1,0]};
+    const task=taskWith({ellipses:[ellipse],planes:[{id:'hidden-plane',through:[0,0],draw:false}]});
+    const source=model.geometries(task).find(item=>item.ref==='Ellipse-1');
+    const point=model.createAttachedPoint(task,source,[15,0]);
+    const wagon=model.createWagon(task,point,{halfWidth:20,height:10});
+    assert.equal(wagon.planeId,'hidden-plane');
+    assert.equal(wagon.halfWidth,20);
+    assert.equal(wagon.valid,false);
+    assert.match(wagon.reason,/kordebredde/);
+    ellipse.width=100;ellipse.height=100;
+    model.update(task);
+    assert.equal(wagon.halfWidth,20);
+    assert.equal(wagon.valid,true);
+    const plane=task.scene.planes[0];
+    assert.equal(plane.draw,false);
+    assert.equal(plane.lockedTo.ref,wagon.id);
+    const before=plane.through.slice();
+    point.attachment.u=0.25;
+    model.update(task);
+    assert.notDeepEqual(Array.from(plane.through),Array.from(before));
+  });
+
+  test('wagon does not reuse an invisible plane locked to another element',()=>{
+    const {model}=loadModel();
+    const task=taskWith({segments:[{a:[0,0],b:[100,0]}],
+      planes:[{id:'already-locked',through:[0,0],draw:false,lockedTo:{type:'other',ref:'other-1'}}]});
+    const source=model.geometries(task).find(item=>item.ref==='Segment-1');
+    const point=model.createAttachedPoint(task,source,[50,0]);
+    const wagon=model.createWagon(task,point);
+    assert.notEqual(wagon.planeId,'already-locked');
+    assert.equal(task.scene.planes.length,2);
+    assert.equal(task.scene.planes.find(plane=>plane.id==='already-locked').lockedTo.ref,'other-1');
+    assert.equal(task.scene.planes.find(plane=>plane.id===wagon.planeId).lockedTo.ref,wagon.id);
+  });
+
+  test('wagon snap points and persistent anchors expose center, corners and placement and follow edits',()=>{
+    const {model,window,geometry,context}=loadModel();
+    vm.runInContext(fs.readFileSync(`${__dirname}/snapping.js`,'utf8'),context);
+    window.enableSnap=true;
+    const task=taskWith({ellipses:[{center:[200,200],width:200,height:120}]});
+    const source=model.geometries(task).find(source=>source.curve);
+    const point=model.createAttachedPoint(task,source,[200,140]);
+    const wagon=model.createWagon(task,point,{halfWidth:25,height:20});
+    const names=['center','bottomLeft','bottomRight','topLeft','topRight','placement'];
+    const check=()=>{
+      const shape=model.wagonGeometry(task,wagon);
+      const snap=window.buildSceneLookup(task)[wagon.id];
+      const all=window.buildAllScenePoints(task)[wagon.id];
+      assert.equal(snap.snapping,true);
+      for(const name of names){
+        const expected=name==='placement'?point.pos:shape[name];
+        assert.ok(geometry.distance(snap.points[name],expected)<1e-8);
+        assert.ok(geometry.distance(all.points[name],expected)<1e-8);
+        const candidate=model.candidates(task).find(item=>item.ref===wagon.id&&item.anchor.point===name);
+        assert.ok(candidate,`missing ${name} anchor`);
+        const resolved=model.resolveAnchor(task,candidate.anchor);
+        assert.equal(resolved.valid,true);
+        assert.ok(geometry.distance(resolved.pos,expected)<1e-8);
+        const snapped=window.snapping.snap(expected,{points:window.snapping.buildSnapPoints(window.buildSceneLookup(task)),
+          gridStep:20,origin:[0,0]});
+        assert.equal(snapped.source,'point');
+        assert.ok(geometry.distance(snapped.pos,expected)<1e-8);
+      }
+    };
+    check();
+    wagon.halfWidth=35;
+    wagon.height=30;
+    point.attachment.u=0.1;
+    task.scene.ellipses[0].center=[300,250];
+    model.update(task);
+    check();
+    wagon.snapping=false;
+    assert.equal(window.buildSceneLookup(task)[wagon.id].snapping,false);
+    assert.equal(Object.keys(window.buildSceneLookup(task)[wagon.id].points).length,0);
+    assert.ok(window.buildAllScenePoints(task)[wagon.id].points.center);
+    assert.equal(model.candidates(task).filter(item=>item.ref===wagon.id).length,0);
+    assert.ok(model.candidates(task,true).some(item=>item.ref===wagon.id));
+    wagon.snapping=true;
+    wagon.halfWidth=1000;
+    model.update(task);
+    assert.equal(window.buildSceneLookup(task)[wagon.id].snapping,false);
+    assert.equal(model.resolveAnchor(task,{type:'point',ref:wagon.id,point:'center'}).valid,false);
+  });
+
+  test('deleting a wagon deletes its plane when shared and unlocks the sole plane',()=>{
+    const {model}=loadModel();
+    const makeWagon=task=>{
+      const source=model.geometries(task).find(item=>item.ref==='Segment-1');
+      const point=model.createAttachedPoint(task,source,[50,0]);
+      return model.createWagon(task,point);
+    };
+    const sole=taskWith({segments:[{a:[0,0],b:[100,0]}],planes:[]});
+    const singleWagon=makeWagon(sole),singlePlane=sole.scene.planes[0];
+    assert.equal(model.deleteWagon(sole,singleWagon),true);
+    assert.equal(sole.scene.planes.length,1);
+    assert.equal(singlePlane.lockedTo,undefined);
+
+    const shared=taskWith({segments:[{a:[0,0],b:[100,0]}],
+      planes:[{id:'other-plane',through:[0,0],draw:true}]});
+    const wagon=makeWagon(shared),linkedId=wagon.planeId;
+    assert.equal(shared.scene.planes.length,2);
+    model.deleteWagon(shared,wagon);
+    assert.equal(shared.scene.planes.length,1);
+    assert.equal(shared.scene.planes[0].id,'other-plane');
+    assert.equal(shared.scene.planes.some(plane=>plane.id===linkedId),false);
+  });
   ellipse.lockAxes=false;
   model.setEllipseAxisLength(ellipse,'width',80);
   assert.deepEqual(ellipse,{width:80,height:60,lockAxes:false});

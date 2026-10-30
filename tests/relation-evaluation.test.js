@@ -113,7 +113,7 @@ test('missing sumF with relations does not enable an equilibrium fallback',()=>{
 test('92zvk incorrect component match gives feedback and 0.92 with 1.75 points',()=>{
   const window=setup();
   const task=structuredClone(taskset.tasks.find(task=>task.id.endsWith('92zvk')));
-  const normal=task.scene.planes.find(plane=>plane.id==='plane-1').n_vec;
+  const normal=task.scene.planes[0].n_vec;
   window.currentTask=task;
   window.sceneLookup=window.buildAllScenePoints(task);
   window.fm.forces=[

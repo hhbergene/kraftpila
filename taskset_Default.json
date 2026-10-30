@@ -32,7 +32,7 @@
             ],
             "snapping": false,
             "lockAxes": true,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           }
         ],
         "texts": [
@@ -50,7 +50,7 @@
               440,
               20
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Tegn inn tyngdekraften G.",
@@ -66,7 +66,7 @@
               240,
               80
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "- Klikk i ballens sentrum og dra rett ned.",
@@ -83,7 +83,7 @@
               240,
               99
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "- Husk å navngi kraften.",
@@ -100,7 +100,7 @@
               240,
               118
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "Trykk på Sjekk-knappen før du går til neste oppgave",
@@ -117,7 +117,7 @@
               20
             ],
             "linked": false,
-            "id": "text-5"
+            "id": "Tekst-5"
           },
           {
             "txt": "v",
@@ -133,7 +133,7 @@
               340,
               240
             ],
-            "id": "text-6"
+            "id": "Tekst-6"
           }
         ],
         "arrows": [
@@ -147,7 +147,7 @@
               260
             ],
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "rects": [],
@@ -185,10 +185,10 @@
               500,
               340
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -206,7 +206,7 @@
           ],
           "anchor": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "drawn": {
@@ -291,7 +291,7 @@
               0
             ],
             "snapping": false,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           }
         ],
         "texts": [
@@ -309,7 +309,7 @@
               200,
               114
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           }
         ],
         "segments": [
@@ -325,7 +325,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           }
         ],
         "rects": [
@@ -368,17 +368,17 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
           "name": "S",
           "anchor": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "top_center"
           },
           "dir": [
@@ -424,7 +424,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -506,7 +506,7 @@
               0
             ],
             "snapping": false,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           }
         ],
         "texts": [
@@ -525,7 +525,7 @@
               114
             ],
             "linked": false,
-            "id": "text-1"
+            "id": "Tekst-1"
           }
         ],
         "segments": [],
@@ -548,17 +548,17 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
           "name": "N",
           "anchor": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "bottom_center"
           },
           "dir": [
@@ -604,7 +604,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -698,7 +698,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "v=0 (konstant)",
@@ -714,7 +714,7 @@
               375,
               102
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "A",
@@ -730,7 +730,7 @@
               442,
               338
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           }
         ],
         "points": [],
@@ -755,10 +755,10 @@
               500,
               300
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -928,7 +928,7 @@
               144
             ],
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -946,7 +946,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "v = konstant",
@@ -962,7 +962,7 @@
               500,
               122
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           }
         ],
         "points": [],
@@ -983,10 +983,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -1285,7 +1285,7 @@
             "color": "#4090ff",
             "lineWidth": 2,
             "snapping": true,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           },
           {
             "center": [
@@ -1306,7 +1306,7 @@
             "color": "#4090ff",
             "lineWidth": 2,
             "snapping": true,
-            "id": "ellipse-2"
+            "id": "Ellipse-2"
           }
         ],
         "segments": [
@@ -1320,7 +1320,7 @@
               220
             ],
             "snapping": false,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -1332,7 +1332,7 @@
               340
             ],
             "snapping": false,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "arrows": [
@@ -1346,7 +1346,7 @@
               100
             ],
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -1364,7 +1364,7 @@
               260,
               40
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "(Ikke tegn krefter på kloss B)",
@@ -1381,7 +1381,7 @@
               59
             ],
             "linked": true,
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "B",
@@ -1397,7 +1397,7 @@
               600,
               380
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "A",
@@ -1413,7 +1413,7 @@
               320,
               260
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "v = konstant",
@@ -1430,7 +1430,7 @@
               460,
               80
             ],
-            "id": "text-5"
+            "id": "Tekst-5"
           }
         ],
         "points": [],
@@ -1443,10 +1443,10 @@
             ],
             "draw": true,
             "snapping": false,
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -1522,7 +1522,7 @@
           "role": "force",
           "anchor": {
             "type": "segment",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "segment": "segment",
             "u": 0
           },
@@ -1565,7 +1565,7 @@
           ],
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-2",
+            "ref": "Ellipse-2",
             "point": "center"
           },
           "arrowBase": [
@@ -1648,7 +1648,7 @@
       }
     },
     {
-      "id": "task_1791480987572_yjio90r9e.",
+      "id": "task_1793252649436_730oiponm",
       "title": "Krefter på vogn",
       "category": "Fysikk 1",
       "help_lines": [
@@ -1712,7 +1712,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "\\mu = 0",
@@ -1728,7 +1728,7 @@
               375,
               102
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "m_B= 2 · m_A",
@@ -1744,7 +1744,7 @@
               375,
               124
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "A",
@@ -1760,7 +1760,7 @@
               320,
               260
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "B",
@@ -1776,7 +1776,7 @@
               600,
               220
             ],
-            "id": "text-5"
+            "id": "Tekst-5"
           }
         ],
         "points": [],
@@ -1791,7 +1791,7 @@
               320
             ],
             "snapping": false,
-            "id": "segment-1"
+            "id": "Segment-1"
           }
         ],
         "planes": [
@@ -1811,10 +1811,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -1822,7 +1822,7 @@
           "role": "force",
           "anchor": {
             "type": "point",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "point": "start"
           },
           "dir": [
@@ -1853,7 +1853,7 @@
           "role": "force",
           "anchor": {
             "type": "point",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "point": "end"
           },
           "dir": [
@@ -2140,7 +2140,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "v = 0",
@@ -2156,7 +2156,7 @@
               375,
               102
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "m_A = 2 · m_B",
@@ -2172,7 +2172,7 @@
               375,
               124
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "A",
@@ -2188,7 +2188,7 @@
               440,
               260
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "B",
@@ -2204,7 +2204,7 @@
               460,
               180
             ],
-            "id": "text-5"
+            "id": "Tekst-5"
           }
         ],
         "points": [],
@@ -2225,10 +2225,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -2473,7 +2473,7 @@
               99
             ],
             "linked": false,
-            "id": "text-1"
+            "id": "Tekst-1"
           }
         ],
         "segments": [],
@@ -2517,10 +2517,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -2695,7 +2695,7 @@
               160,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Tegn normalkraften og friksjonskraften på kassa.",
@@ -2712,7 +2712,7 @@
               99
             ],
             "linked": true,
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "v = konstant",
@@ -2729,7 +2729,7 @@
               660,
               180
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           }
         ],
         "segments": [
@@ -2746,7 +2746,7 @@
             "color": "#7a7a7a",
             "lineWidth": 8,
             "body": "solid",
-            "id": "segment-1"
+            "id": "Segment-1"
           }
         ],
         "rects": [
@@ -2784,7 +2784,7 @@
             ],
             "snapping": false,
             "lineWidth": 2,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "planes": [
@@ -2804,10 +2804,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -2911,7 +2911,7 @@
           "role": "force",
           "anchorSpec": {
             "type": "segment",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "segment": "segment",
             "u": 1
           },
@@ -2938,7 +2938,7 @@
             {
               "name": "S",
               "component": "normal",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ],
           "rhs": [
@@ -2997,7 +2997,7 @@
               150,
               90
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "8 N",
@@ -3013,7 +3013,7 @@
               500,
               200
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "4 N",
@@ -3029,7 +3029,7 @@
               500,
               360
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "8 N",
@@ -3045,7 +3045,7 @@
               400,
               300
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "12 N",
@@ -3061,7 +3061,7 @@
               640,
               300
             ],
-            "id": "text-5"
+            "id": "Tekst-5"
           }
         ],
         "rects": [],
@@ -3097,10 +3097,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -3160,7 +3160,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3183,7 +3183,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3206,7 +3206,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3229,7 +3229,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3324,7 +3324,7 @@
               150,
               90
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           }
         ],
         "rects": [],
@@ -3360,10 +3360,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -3423,7 +3423,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3446,7 +3446,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3469,7 +3469,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "segment",
-            "ref": "plane-1",
+            "ref": "Plan-1",
             "segment": "plane",
             "u": 0.5
           },
@@ -3571,7 +3571,7 @@
               200,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Kassen henger i ro",
@@ -3587,7 +3587,7 @@
               200,
               99
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           }
         ],
         "segments": [
@@ -3603,7 +3603,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -3617,7 +3617,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "rects": [
@@ -3630,12 +3630,12 @@
             ],
             "angleDeg": 0,
             "n_vec": [
-              7.774172613278579e-06,
+              0.000007774172613278579,
               -0.9999999999697813
             ],
             "t_vec": [
               0.9999999999697813,
-              7.774172613278579e-06
+              0.000007774172613278579
             ],
             "snapping": true,
             "color": "#000000",
@@ -3700,10 +3700,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -3882,7 +3882,7 @@
               400,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Kassen henger i ro.",
@@ -3898,7 +3898,7 @@
               400,
               60
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           }
         ],
         "segments": [
@@ -3914,7 +3914,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -3928,7 +3928,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "rects": [
@@ -3991,10 +3991,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -4190,7 +4190,7 @@
               216.89164944001342
             ],
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -4208,7 +4208,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "μ = 0",
@@ -4224,7 +4224,7 @@
               375,
               102
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "v",
@@ -4244,7 +4244,7 @@
               409.6628537090085,
               179.325707418017
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "A",
@@ -4260,7 +4260,7 @@
               438.2845238210058,
               366.26099033699944
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           }
         ],
         "points": [
@@ -4291,10 +4291,10 @@
               0.8944271909999159,
               -0.4472135954999579
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -4379,7 +4379,7 @@
       "initialForces": [],
       "sumF": {
         "n": 0,
-        "planeId": "plane-1"
+        "planeId": "Plan-1"
       },
       "relations": [
         {
@@ -4387,7 +4387,7 @@
             {
               "name": "G",
               "component": "normal",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ],
           "rhs": [
@@ -4452,7 +4452,7 @@
               0.4472135954999579
             ],
             "snapping": true,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           },
           {
             "width": 240,
@@ -4472,7 +4472,7 @@
             "snapping": true,
             "body": "dashed",
             "color": "#6b6b6b",
-            "id": "ellipse-2"
+            "id": "Ellipse-2"
           }
         ],
         "texts": [
@@ -4490,7 +4490,7 @@
               300,
               100
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Tegn summen av kreftene \\sumF (sumF)",
@@ -4506,7 +4506,7 @@
               300,
               120
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "|v| = konstant",
@@ -4523,7 +4523,7 @@
               300,
               140
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           }
         ],
         "arrows": [],
@@ -4540,7 +4540,7 @@
             "snapping": false,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -4554,7 +4554,7 @@
             "snapping": false,
             "body": "dashed",
             "color": "#6e6e6e",
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "rects": [
@@ -4601,17 +4601,17 @@
               560,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
           "name": "ΣF",
           "anchor": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "dir": [
@@ -4661,7 +4661,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -4683,7 +4683,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "top_center"
           },
           "role": "force"
@@ -4771,7 +4771,7 @@
               216.89164944001342
             ],
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -4789,7 +4789,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "v = konstant",
@@ -4809,7 +4809,7 @@
               409.6628537090085,
               179.325707418017
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "A",
@@ -4825,7 +4825,7 @@
               438.2845238210058,
               366.26099033699944
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           }
         ],
         "points": [],
@@ -4845,10 +4845,10 @@
               0.8944271909999159,
               -0.4472135954999579
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -4975,7 +4975,7 @@
             {
               "name": "G",
               "component": "normal",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ],
           "rhs": [
@@ -4990,7 +4990,7 @@
             {
               "name": "G",
               "component": "tangent",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ],
           "rhs": [
@@ -5004,7 +5004,7 @@
       "sumF": {
         "n": 0,
         "t": 0,
-        "planeId": "plane-1"
+        "planeId": "Plan-1"
       },
       "taskTitle": "Kloss på skråplan",
       "taskSubTitle": "Dekomponering",
@@ -5072,7 +5072,7 @@
               482
             ],
             "snapping": false,
-            "id": "segment-1"
+            "id": "Segment-1"
           }
         ],
         "arrows": [
@@ -5087,7 +5087,7 @@
             ],
             "body": "dashed",
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -5105,7 +5105,7 @@
               375,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "|v| = konstant",
@@ -5121,7 +5121,7 @@
               375,
               102
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "Til sentrum av sirkelbevegelsen",
@@ -5137,7 +5137,7 @@
               500,
               550
             ],
-            "id": "text-3"
+            "id": "Tekst-3"
           }
         ],
         "points": [],
@@ -5158,10 +5158,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -5291,14 +5291,14 @@
             {
               "name": "G",
               "component": "normal",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ],
           "rhs": [
             {
               "name": "N",
               "component": "normal",
-              "planeId": "plane-1"
+              "planeId": "Plan-1"
             }
           ]
         }
@@ -5369,7 +5369,7 @@
               360
             ],
             "snapping": false,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -5381,7 +5381,7 @@
               480
             ],
             "snapping": false,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "arrows": [
@@ -5396,7 +5396,7 @@
             ],
             "body": "dashed",
             "snapping": false,
-            "id": "arrow-1"
+            "id": "Pil-1"
           }
         ],
         "texts": [
@@ -5414,7 +5414,7 @@
               280,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "|v| = konstant",
@@ -5431,7 +5431,7 @@
               99
             ],
             "linked": true,
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "Friksjon: \\mu = 0",
@@ -5448,7 +5448,7 @@
               118
             ],
             "linked": true,
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "Til sentrum av sirkelbevegelsen",
@@ -5465,7 +5465,7 @@
               550
             ],
             "linked": false,
-            "id": "text-4"
+            "id": "Tekst-4"
           }
         ],
         "points": [],
@@ -5490,10 +5490,10 @@
               496.20001220703125,
               428
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -5649,7 +5649,7 @@
               0
             ],
             "snapping": true,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           }
         ],
         "texts": [
@@ -5667,7 +5667,7 @@
               200,
               80
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Ballen henger i ro",
@@ -5683,7 +5683,7 @@
               200,
               99
             ],
-            "id": "text-2"
+            "id": "Tekst-2"
           }
         ],
         "arrows": [],
@@ -5700,7 +5700,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -5714,7 +5714,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "rects": [
@@ -5781,10 +5781,10 @@
               500,
               480
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -5792,7 +5792,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "point": "start"
           },
           "dir": [
@@ -5824,7 +5824,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "left_middle"
           },
           "dir": [
@@ -5870,7 +5870,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -5950,7 +5950,7 @@
               0
             ],
             "snapping": true,
-            "id": "ellipse-1"
+            "id": "Ellipse-1"
           }
         ],
         "texts": [
@@ -5968,7 +5968,7 @@
               330,
               90
             ],
-            "id": "text-1"
+            "id": "Tekst-1"
           },
           {
             "txt": "Ballen henger i ro",
@@ -5985,7 +5985,7 @@
               109
             ],
             "linked": true,
-            "id": "text-2"
+            "id": "Tekst-2"
           },
           {
             "txt": "Det lønner seg å skru av snapping på denne oppgaven",
@@ -6002,7 +6002,7 @@
               128
             ],
             "linked": true,
-            "id": "text-3"
+            "id": "Tekst-3"
           },
           {
             "txt": "Og det kan være lurt å regne litt",
@@ -6018,7 +6018,7 @@
               330,
               147
             ],
-            "id": "text-4"
+            "id": "Tekst-4"
           },
           {
             "txt": "Snor 1",
@@ -6034,7 +6034,7 @@
               135.1999969482422,
               89
             ],
-            "id": "text-5"
+            "id": "Tekst-5"
           },
           {
             "txt": "Snor 2",
@@ -6050,7 +6050,7 @@
               823.1999969482422,
               89
             ],
-            "id": "text-6"
+            "id": "Tekst-6"
           },
           {
             "txt": "45°",
@@ -6066,7 +6066,7 @@
               183.1999969482422,
               59
             ],
-            "id": "text-7"
+            "id": "Tekst-7"
           },
           {
             "txt": "30°",
@@ -6082,7 +6082,7 @@
               793.1999969482422,
               56
             ],
-            "id": "text-8"
+            "id": "Tekst-8"
           }
         ],
         "arrows": [],
@@ -6099,7 +6099,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-1"
+            "id": "Segment-1"
           },
           {
             "a": [
@@ -6113,7 +6113,7 @@
             "snapping": true,
             "color": "#aaa7a7",
             "lineWidth": 3,
-            "id": "segment-2"
+            "id": "Segment-2"
           }
         ],
         "rects": [
@@ -6156,10 +6156,10 @@
               1,
               0
             ],
-            "id": "plane-1"
+            "id": "Plan-1"
           }
         ],
-        "activePlaneId": "plane-1"
+        "activePlaneId": "Plan-1"
       },
       "expectedForces": [
         {
@@ -6167,7 +6167,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment-1",
+            "ref": "Segment-1",
             "point": "start"
           },
           "dir": [
@@ -6199,7 +6199,7 @@
           "nameBase": "S",
           "anchor": {
             "type": "point",
-            "ref": "segment-2",
+            "ref": "Segment-2",
             "point": "start"
           },
           "dir": [
@@ -6245,7 +6245,7 @@
           "moveable": false,
           "anchorSpec": {
             "type": "point",
-            "ref": "ellipse-1",
+            "ref": "Ellipse-1",
             "point": "center"
           },
           "role": "force"
@@ -6299,13 +6299,280 @@
         "snapMatchYN": false,
         "snapMatchYT": false
       }
+    },
+    {
+      "id": "task_1793252279855_yaopg0jns",
+      "title": "Loop konstant fart",
+      "category": "Fysikk 2",
+      "help_lines": [
+        "En bil kjører inn i en loop, og passer på å akselerere slik at banefarten holder seg konstant gjennom hele loopen.",
+        "",
+        "Krefter som er tegnet inn:",
+        "N - Normalkraften fra underlaget",
+        "G - Tyngdekraften",
+        "",
+        "Tegn M - motorkraften som skal til for å holde banefarten konstant i posisjonen som er vist. ",
+        "",
+        "Se bort fra luftmotstand og rullemotstand."
+      ],
+      "scene": {
+        "planes": [
+          {
+            "id": "Plan-1",
+            "angleDeg": 0,
+            "through": [
+              540,
+              500
+            ],
+            "draw": true,
+            "snapping": false
+          },
+          {
+            "through": [
+              675.6845909322053,
+              164.31540906779483
+            ],
+            "t_vec": [
+              -0.7071067811865465,
+              -0.7071067811865486
+            ],
+            "n_vec": [
+              -0.7071067811865486,
+              0.7071067811865465
+            ],
+            "draw": false,
+            "id": "Plan-2",
+            "lockedTo": {
+              "type": "wagon",
+              "ref": "Vogn-1"
+            },
+            "angleDeg": 134.99999999999991
+          }
+        ],
+        "activePlaneId": "Plan-1",
+        "rects": [],
+        "ellipses": [
+          {
+            "center": [
+              539.287527205297,
+              300.7124727947028
+            ],
+            "width": 397.994974842648,
+            "height": 397.994974842648,
+            "t_vec": [
+              1,
+              0
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "lockAxes": true,
+            "color": "#4090ff",
+            "lineWidth": 2,
+            "snapping": true,
+            "id": "Ellipse-1",
+            "startAngleDeg": 0,
+            "endAngleDeg": 360
+          }
+        ],
+        "segments": [],
+        "arrows": [],
+        "texts": [],
+        "points": [
+          {
+            "id": "point-1",
+            "type": "attached",
+            "pos": [
+              680.0000000000001,
+              160.00000000000014
+            ],
+            "visible": false,
+            "attachment": {
+              "ref": "Ellipse-1",
+              "curve": true,
+              "u": 0.12499999999999978
+            },
+            "lastValidPos": [
+              680.0000000000001,
+              160.00000000000014
+            ],
+            "valid": true,
+            "reason": null
+          },
+          {
+            "id": "Punkt-1",
+            "type": "attached",
+            "pos": [
+              539.287527205297,
+              499.70996021602684
+            ],
+            "visible": false,
+            "attachment": {
+              "ref": "Ellipse-1",
+              "curve": true,
+              "u": 0.75
+            },
+            "lastValidPos": [
+              539.287527205297,
+              499.70996021602684
+            ],
+            "valid": true,
+            "reason": null
+          }
+        ],
+        "wagons": [
+          {
+            "pointId": "point-1",
+            "halfWidth": 48.9048260742792,
+            "height": 44.36272243319753,
+            "side": "inside",
+            "visible": true,
+            "color": "#333333",
+            "lineWidth": 2,
+            "id": "Vogn-1",
+            "planeId": "Plan-2",
+            "valid": true,
+            "reason": null,
+            "construction": {
+              "enabled": true,
+              "cardinal": "bottom"
+            }
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "M",
+          "role": "force",
+          "anchor": {
+            "type": "segment",
+            "ref": "Vogn-1",
+            "segment": "bottom",
+            "u": 0.49999999999999944
+          },
+          "dir": [
+            -0.707,
+            -0.707
+          ],
+          "drawn": {
+            "anchor": [
+              675.6845909322054,
+              164.31540906779486
+            ],
+            "arrowBase": [
+              695.6845909322053,
+              144.31540906779472
+            ],
+            "arrowTip": [
+              645.6845909322053,
+              94.31540906779455
+            ]
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "role": "force",
+          "anchor": [
+            660,
+            180.00000000000009
+          ],
+          "dir": [
+            0,
+            1
+          ],
+          "anchorSpec": {
+            "type": "point",
+            "ref": "Vogn-1",
+            "point": "center"
+          },
+          "arrowBase": [
+            660,
+            180.00000000000009
+          ],
+          "arrowTip": [
+            660,
+            280.0000000000001
+          ],
+          "moveable": false
+        },
+        {
+          "name": "N",
+          "role": "force",
+          "anchor": [
+            680.0000000000001,
+            160.00000000000014
+          ],
+          "dir": [
+            -0.707,
+            0.707
+          ],
+          "anchorSpec": {
+            "type": "point",
+            "ref": "point-1",
+            "point": "center"
+          },
+          "arrowBase": [
+            660.0000000000002,
+            140.00000000000014
+          ],
+          "arrowTip": [
+            559.9999999999999,
+            240.00000000000014
+          ],
+          "moveable": false
+        }
+      ],
+      "sumF": {},
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "M",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "M",
+              "component": "tangent",
+              "planeId": "Plan-2"
+            }
+          ]
+        }
+      ],
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": true,
+        "snapMatchTT": true,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      },
+      "taskSubTitle": "Sirkelbevegelse",
+      "subTitle": "Sirkelbevegelse"
     }
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-28T14:04:30.734Z",
-    "count": 21,
-    "appVersion": "2026-10-28 11:34",
+    "exported": "2026-10-30T05:01:06.745Z",
+    "count": 22,
+    "appVersion": "2026-10-29 11:24",
     "tasksetVersion": 2
   }
 }

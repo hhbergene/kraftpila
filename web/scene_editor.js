@@ -8,6 +8,9 @@
   let creation = null;
   let controlId = 0;
   let deferRefresh = false;
+  let constructionDrag=null;
+  let constructionHandle=null;
+  let idEdit=null;
   const controls = new WeakMap();
   const angleControls = new WeakMap();
   const finitePos = pos => Array.isArray(pos) && pos.length >= 2 && pos.every(Number.isFinite);
@@ -43,7 +46,7 @@
   }
   function edited(...parts){ window.markEdited?.(...parts); refresh(); }
   function cancel(restore = true){
-    if(active?.mode==='free') window.snapIndicator=null;
+    if(['free','attached','wagon'].includes(active?.mode)) window.snapIndicator=null;
     if(active?.mode==='intersection'){
       window.scenePanelHoverTarget=null;
       window.hoveredSceneElement=null;
@@ -65,13 +68,99 @@
     document.getElementById('app-canvas')?.style.removeProperty('cursor');
   }
   function checkTask(){
+    if(idEdit && (idEdit.task!==window.currentTask ||
+      model().validateSceneId(idEdit.task,idEdit.object,idEdit.oldId))){
+      closeIdEditor(false);
+    }
+    if(constructionDrag && (constructionDrag.task!==window.currentTask ||
+      !window.currentTask?.scene?.wagons?.[constructionDrag.index]?.construction?.enabled)){
+      finishConstructionDrag(true);
+      window.draggingHandle=null;
+    }
     if(active && (active.task !== window.currentTask || (active.alive && !active.alive()))) cancel();
     if(creation && (creation.task!==window.currentTask || !creation.task.scene.angles.includes(creation.angle))) creation=null;
+  }
+  function closeIdEditor(restoreFocus=true){
+    const state=idEdit;
+    idEdit=null;
+    document.getElementById('scene-id-modal')?.classList.add('hidden');
+    if(!restoreFocus || !state) return;
+    const trigger=state.trigger?.isConnected ? state.trigger :
+      Array.from(document.querySelectorAll('.scene-id-edit')).find(button=>button.textContent===state.object.id);
+    trigger?.focus();
+  }
+  function validateIdDraft(){
+    if(!idEdit) return false;
+    const input=document.getElementById('scene-id-input');
+    const error=model().validateSceneId(idEdit.task,idEdit.object,input.value);
+    input.setCustomValidity(error);
+    input.setAttribute('aria-invalid',String(!!error));
+    document.getElementById('scene-id-error').textContent=error;
+    document.getElementById('scene-id-confirm').disabled=!!error;
+    document.getElementById('scene-id-save-icon').disabled=!!error;
+    return !error;
+  }
+  function openIdEditor(object,trigger){
+    const task=window.currentTask;
+    const panel=document.getElementById('scene-id-modal');
+    if(!panel || !task || model().validateSceneId(task,object,object.id)) return;
+    cancel();
+    creation=null;
+    idEdit={task,object,oldId:object.id,trigger};
+    document.getElementById('scene-id-old').textContent=object.id;
+    document.getElementById('scene-id-cancel').textContent=`Avbryt bruk ${object.id}`;
+    const input=document.getElementById('scene-id-input');
+    input.value=object.id;
+    panel.classList.remove('hidden');
+    validateIdDraft();
+    input.focus();
+    input.select();
+  }
+  function confirmIdEditor(){
+    checkTask();
+    if(!idEdit || !validateIdDraft()) return;
+    const state=idEdit;
+    try {
+      window.commitSceneId(state.task,state.object,document.getElementById('scene-id-input').value);
+    }catch(error){
+      if(!(error instanceof TypeError)) throw error;
+      document.getElementById('scene-id-error').textContent=error.message;
+      return;
+    }
+    closeIdEditor();
+  }
+  function initIdEditor(){
+    const panel=document.getElementById('scene-id-modal');
+    if(!panel) return;
+    document.getElementById('scene-id-input').addEventListener('input',validateIdDraft);
+    document.getElementById('scene-id-form').addEventListener('submit',event=>{
+      event.preventDefault();
+      confirmIdEditor();
+    });
+    document.getElementById('scene-id-save-icon').addEventListener('click',confirmIdEditor);
+    document.getElementById('scene-id-cancel').addEventListener('click',()=>closeIdEditor());
+    document.addEventListener('keydown',event=>{
+      if(!idEdit) return;
+      if(event.key==='Escape'){
+        event.preventDefault();event.stopImmediatePropagation();
+        closeIdEditor();
+      }else if(panel.contains(event.target)){
+        event.stopImmediatePropagation();
+        if(event.key==='Enter' && !event.isComposing && event.target.tagName==='INPUT'){
+          event.preventDefault();
+          confirmIdEditor();
+        }
+      }
+    },true);
   }
   function activate(config){
     cancel();
     if(!window.editorMode || !window.currentTask || !model()) return;
     active = {...config, task:window.currentTask, original:config.select?.value || '', pos:null, candidate:null};
+    if(active.mode==='attached'||active.mode==='wagon'){
+      window.scenePanelHoverTarget=null;
+      window.hoveredSceneElement=null;
+    }
     document.getElementById('app-canvas')?.style.setProperty('cursor','var(--canvas-cursor)');
   }
   function bindPicker(select, parent, config){
@@ -353,6 +442,11 @@
       active.hoveredHit=nearestIntersectionHit(active,pos);
       return;
     }
+    if(active.mode==='attached'||active.mode==='wagon'){
+      active.candidate=nearestTrackHit(pos,active.trackSources);
+      window.snapIndicator=active.candidate?.snapped ? {pos:active.candidate.pos} : null;
+      return;
+    }
     if(active.mode !== 'anchor') return;
     active.candidate = nearest(pos,candidates(active.task,active.pointsOnly));
     const select = active.select;
@@ -372,6 +466,29 @@
     checkTask();
     if(!active) return;
     const state=active;
+    if(state.mode==='attached'||state.mode==='wagon'){
+      const hit=nearestTrackHit(pos,state.trackSources);
+      if(!hit)return;
+      window.setLastCanvasCoordinates?.(hit.pos);
+      window.autoSave?.();
+      cancel();
+      if(state.mode==='attached'){
+        const point=state.editPoint||model().createAttachedPoint(state.task,hit.source,hit.pos);
+        if(state.editPoint){
+          model().setPointAttachment(state.task,point,hit.source,hit.pos);
+        }
+        model().update(state.task);
+        window.selectedSceneElement={type:'point',index:state.task.scene.points.indexOf(point),obj:point};
+      }else{
+        const point=model().createAttachedPoint(state.task,hit.source,hit.pos);
+        const wagon=model().createWagon(state.task,point);
+        window.selectedSceneElement={type:'wagon',index:state.task.scene.wagons.indexOf(wagon),obj:wagon};
+      }
+      edited('task');
+      window.updateAppState?.();
+      window.autoSave?.();
+      return;
+    }
     if(state.mode === 'intersection'){
       const hit=nearestIntersectionHit(state,pos);
       if(hit){
@@ -547,7 +664,71 @@
     parent.style.minWidth='0';
     parent.style.overflowWrap='anywhere';
     let inlineDeleteRow=null;
-    if(type === 'angle'){
+    if(type==='wagon'){
+      checkbox(parent,'Sirkelkonstruksjon',obj.construction?.enabled===true,value=>{
+        window.autoSave?.();
+        if(value){
+          try { model().enableWagonConstruction(window.currentTask,obj); }
+          catch(error){
+            if(!(error instanceof TypeError)) throw error;
+            window.alert(error.message);
+            refresh();
+            return;
+          }
+        }else obj.construction={...obj.construction,enabled:false};
+        edited('task');
+        window.autoSave?.();
+      });
+      if(obj.construction?.enabled){
+        const cardinal=element('select',null);
+        for(const [value,label] of [['top','Topp'],['bottom','Bunn'],['left','Venstre'],['right','Høyre']]){
+          cardinal.appendChild(element('option',label,{value}));
+        }
+        cardinal.value=obj.construction.cardinal;
+        row(parent,'Ytterpunkt Q:').appendChild(cardinal);
+        cardinal.addEventListener('change',()=>{
+          obj.construction.cardinal=cardinal.value;edited('task');
+        });
+        const handles=row(parent,'Håndtak:');
+        for(const name of ['C','P','Q','O']){
+          const button=element('button',name,{type:'button',title:{
+            C:'Vognsenter',P:'Festepunkt',Q:'Ytterpunkt – flytt samlet',O:'Sirkelsenter – flytt samlet'
+          }[name]});
+          button.setAttribute('aria-pressed',String(constructionHandle===name));
+          button.addEventListener('click',()=>{constructionHandle=constructionHandle===name?null:name;refresh();});
+          handles.appendChild(button);
+        }
+      }
+      const points=(window.currentTask?.scene?.points||[]).filter(point=>point?.type==='attached');
+      const select=element('select',null,{className:'scene-editor-input'});
+      select.appendChild(element('option','Velg festet punkt',{value:''}));
+      points.forEach(point=>select.appendChild(element('option',
+        `${point.id} (${finitePos(point.pos)?point.pos.map(n=>n.toFixed(1)).join(', '):'ugyldig posisjon'})`,
+        {value:point.id})));
+      select.value=obj.pointId||'';
+      row(parent,'Festet punkt:').appendChild(select);
+      select.addEventListener('change',()=>{
+        obj.pointId=select.value||null;
+        model().update(window.currentTask);
+        edited('task');
+      });
+      numberField(parent,'Halv-bredde:',obj.halfWidth ?? 20,v=>{obj.halfWidth=v;edited('task');},{min:'0.1'});
+      numberField(parent,'Høyde:',obj.height ?? 16,v=>{obj.height=v;edited('task');},{min:'0.1'});
+      const side=element('select',null,{className:'scene-editor-input'});
+      side.append(element('option','Utside / normal side',{value:'outside'}),
+        element('option','Innside / motsatt side',{value:'inside'}));
+      side.value=obj.side==='inside'?'inside':'outside';
+      row(parent,'Side:').appendChild(side);
+      side.addEventListener('change',()=>{obj.side=side.value;edited('task');});
+      const color=element('input',null,{type:'color',value:obj.color||'#333333',className:'scene-color-input'});
+      row(parent,'Farge:').appendChild(color);
+      color.addEventListener('change',()=>{obj.color=color.value;edited('task');});
+      numberField(parent,'Linje px:',obj.lineWidth??2,v=>{obj.lineWidth=v;edited('task');},{min:'0.5',max:'10'});
+      checkbox(parent,'Synlig for eleven',obj.visible!==false,v=>{obj.visible=v;edited('task');});
+      inlineDeleteRow=checkbox(parent,'Snap',obj.snapping!==false,v=>{obj.snapping=v;edited('task');});
+      model().update(window.currentTask);
+      if(obj.valid===false) row(parent,'Ugyldig vogn:').appendChild(element('span',obj.reason||'Sjekk spor og mål.'));
+    }else if(type === 'angle'){
       anchorFields(parent,obj,'vertex','Toppunkt:');
       anchorFields(parent,obj,'start','Start:');
       anchorFields(parent,obj,'end','Slutt:');
@@ -573,22 +754,27 @@
       row(parent,'Stil:').appendChild(style);
       style.addEventListener('change',()=>{obj.body=style.value; edited('task');});
     } else {
-      if(obj.type !== 'intersection'){
+      if(obj.type === 'free'){
         const coordinates=row(parent,'O:');
         coordinates.className+=' scene-point-coordinate-row';
         numberField(parent,'x:',obj.pos[0],v=>{obj.pos[0]=v; edited('task');},
           {row:coordinates,className:'scene-editor-input scene-point-coordinate-input'});
         numberField(parent,'y:',obj.pos[1],v=>{obj.pos[1]=v; edited('task');},
           {row:coordinates,className:'scene-editor-input scene-point-coordinate-input'});
-      } else {
+      } else if(obj.type === 'intersection'){
         row(parent,'Type:').appendChild(element('span','Skjæringspunkt'));
-        row(parent,'ID:').appendChild(element('span',obj.id));
         (obj.sources || []).forEach(source=>row(parent,'Geometri:').appendChild(element('span',`${source.ref} ${source.segment || ''}`)));
+      } else {
+        row(parent,'Type:').appendChild(element('span','Festet punkt'));
+        row(parent,'Geometri:').appendChild(element('span',
+          `${obj.attachment?.ref||'Ukjent kilde'} ${obj.attachment?.segment||''}`));
+        if(obj.valid===false) row(parent,'Status:').appendChild(element('span',obj.reason||'Kilden er ugyldig.'));
       }
       const convert=element('button',obj.type==='intersection'
-        ? 'Gjør om til fritt punkt' : 'Gjør om til skjæringspunkt',{type:'button'});
+        ? 'Gjør om til fritt punkt' : obj.type==='attached'
+          ? 'Løsne fra sporet' : 'Gjør om til skjæringspunkt',{type:'button'});
       convert.addEventListener('click',()=>{
-        if(obj.type!=='intersection'){
+        if(obj.type==='free'){
           startIntersection(obj);
           return;
         }
@@ -599,6 +785,7 @@
         }
         obj.pos=pos.slice();
         obj.type='free';
+        delete obj.attachment;
         delete obj.sources;
         delete obj.branch;
         delete obj.lastValidPos;
@@ -607,6 +794,11 @@
         edited('task');
       });
       parent.appendChild(convert);
+      if(obj.type==='free'||obj.type==='attached'){
+        const attach=element('button',obj.type==='attached'?'Velg nytt sporsted':'Fest til spor',{type:'button'});
+        attach.addEventListener('click',()=>startAttachedPoint(obj));
+        parent.appendChild(attach);
+      }
       if(obj.type==='intersection'){
         const change=element('button','Velg skjæring på nytt',{type:'button'});
         change.addEventListener('click',()=>startIntersection(obj));
@@ -646,6 +838,14 @@
       title:`Slett ${type}`, 'aria-label':`Slett ${type}`});
     remove.addEventListener('click',()=>{
       cancel();
+      if(type==='wagon'){
+        const idx=window.currentTask.scene.wagons?.indexOf(obj)??-1;
+        if(idx<0)return;
+        model().deleteWagon(window.currentTask,obj,idx);
+        window.selectedSceneElement=null;
+        edited('task','forces');
+        return;
+      }
       const array=window.currentTask.scene[type+'s'], idx=array.indexOf(obj);
       if(idx < 0) return;
       model().remapReferences(window.currentTask,type,idx,'delete');
@@ -887,11 +1087,161 @@
     pointMode=mode;
     const button=document.getElementById('btn-add-point');
     if(!button) return;
-    button.title=mode==='free' ? 'Fritt punkt – følger snapping' : 'Skjæringspunkt – velg geometrier';
+    button.title=mode==='free' ? 'Fritt punkt – følger snapping' :
+      mode==='attached' ? 'Festet punkt – velg ellipse, segment eller rektangelside' :
+        'Skjæringspunkt – velg geometrier';
     button.dataset.mode=mode;
-    button.innerHTML=mode==='free' ? '●' :
+    button.innerHTML=mode==='free' ? '●' : mode==='attached' ? '⊙' :
       '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h20M4 22Q4 10 20 6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12" r="2.5" fill="currentColor"/></svg>';
     button.setAttribute('aria-label',button.title);
+  }
+  function trackSources(task){
+    const geometries=model().geometries(task);
+    const scene=task.scene;
+    const owners=new Map();
+    for(const [type,collection] of [['ellipse','ellipses'],['rect','rects'],['segment','segments']]){
+      (scene[collection]||[]).forEach(obj=>owners.set(obj.id,type));
+    }
+    return geometries.filter(source=>owners.has(source.ref)).map(source=>({...source,
+      segments:source.curve ? window.geometry.sampleEllipse(source.value) : [[source.value.a,source.value.b]]
+    }));
+  }
+  function projectTrackHit(pos,sources){
+    let best=null;
+    for(const source of sources||[]){
+      for(const [a,b] of source.segments||[]){
+        const dx=b[0]-a[0],dy=b[1]-a[1],den=dx*dx+dy*dy;
+        const u=den>0?Math.max(0,Math.min(1,((pos[0]-a[0])*dx+(pos[1]-a[1])*dy)/den)):0;
+        const projected=[a[0]+u*dx,a[1]+u*dy],distance=Math.hypot(pos[0]-projected[0],pos[1]-projected[1]);
+        if(!best||distance<best.distance){
+          let exact=projected;
+          if(source.curve){
+            const angle=window.geometry.ellipseParameter(source.value,projected);
+            exact=window.geometry.ellipsePoint(source.value,angle*180/Math.PI);
+          }
+          best={source,pos:exact,distance};
+        }
+      }
+    }
+    return best;
+  }
+  function snapTrackHit(hit,excludePoint){
+    if(!hit || !window.enableSnap) return hit;
+    const {source,pos}=hit,g=window.geometry;
+    const points=[...(window.snapPoints||[]),
+      ...window.snapping.buildSnapPoints(null,window.fm?.forces||[])];
+    const onTrack=points.filter(point=>{
+      if(excludePoint && g.distance(point,excludePoint.pos)<1e-8) return false;
+      if(source.curve){
+        const degrees=g.ellipseParameter(source.value,point)*180/Math.PI;
+        return g.ellipseAngleInSweep(source.value,degrees) &&
+          g.distance(point,g.ellipsePoint(source.value,degrees))<1e-6;
+      }
+      return projectTrackHit(point,[source])?.distance<1e-6;
+    });
+    const anchor=window.snapping.snapPoint(pos,{snapOn:true,points:onTrack});
+    if(anchor!==pos) return {...hit,pos:anchor,snapped:true};
+    const step=window.GRID_STEP;
+    if(!(Number.isFinite(step)&&step>0)) return hit;
+    const gridPoints=[];
+    for(const origin of [[0,0],window.DRAW_CENTER||[0,0]]){
+      for(let axis=0;axis<2;axis++){
+        const index=Math.floor((pos[axis]-origin[axis])/step);
+        for(const offset of [0,1]){
+          const coordinate=origin[axis]+(index+offset)*step;
+          if(source.curve){
+            const frame=g.ellipseFrame(source.value);
+            const a=frame.rx*frame.t[axis],b=frame.ry*frame.n[axis],radius=Math.hypot(a,b);
+            const ratio=(coordinate-frame.center[axis])/radius;
+            if(Math.abs(ratio)>1) continue;
+            const base=Math.atan2(b,a),delta=Math.acos(ratio);
+            for(const angle of [base-delta,base+delta]){
+              const degrees=g.wrapRadians(angle)*180/Math.PI;
+              if(g.ellipseAngleInSweep(source.value,degrees)) gridPoints.push(g.ellipsePoint(source.value,degrees));
+            }
+          }else{
+            const {a,b}=source.value,delta=b[axis]-a[axis];
+            if(Math.abs(delta)<1e-12) continue;
+            const u=(coordinate-a[axis])/delta;
+            if(u>=0&&u<=1) gridPoints.push([a[0]+u*(b[0]-a[0]),a[1]+u*(b[1]-a[1])]);
+          }
+        }
+      }
+    }
+    gridPoints.sort((a,b)=>g.distance(a,pos)-g.distance(b,pos));
+    return gridPoints.length ? {...hit,pos:gridPoints[0],snapped:true} : hit;
+  }
+  function nearestTrackHit(pos,sources){
+    const hit=projectTrackHit(pos,sources);
+    return hit&&hit.distance<=14 ? snapTrackHit(hit,active?.editPoint) : null;
+  }
+  function moveAttachedPoint(point,pos){
+    const task=window.currentTask;
+    if(point?.type!=='attached'||!model().pointStatus(task,point).valid) return null;
+    const source=trackSources(task).find(source=>source.ref===point.attachment.ref &&
+      (source.curve ? point.attachment.curve : source.source.segment===point.attachment.segment));
+    if(!source) return null;
+    const hit=snapTrackHit(projectTrackHit(pos,[source]),point);
+    if(!hit) return null;
+    model().setPointAttachment(task,point,source,hit.pos);
+    window.snapIndicator=hit.snapped ? {pos:point.pos} : null;
+    return point.pos;
+  }
+  function resizeWagon(wagon,handleType,pos){
+    const task=window.currentTask,g=model().wagonGeometry(task,wagon);
+    if(!g?.corners) return null;
+    let handle;
+    if(handleType==='width'){
+      const point=task.scene.points.find(point=>point.id===wagon.pointId);
+      if(!point || !model().pointStatus(task,point).valid) return null;
+      const source=trackSources(task).find(source=>source.ref===point.attachment.ref &&
+        (source.curve ? point.attachment.curve : source.source.segment===point.attachment.segment));
+      if(!source) return null;
+      // Straight tracks retain the wagon's permitted overhang beyond segment ends.
+      const hit=source.curve ? snapTrackHit(projectTrackHit(pos,[source]),point) : null;
+      const target=hit?.pos || (window.enableSnap ? window.snapping.snap(pos,{
+        points:[],gridStep:window.GRID_STEP,origin:window.DRAW_CENTER
+      }).pos : pos);
+      const halfWidth=model().wagonHalfWidthAt(task,wagon,target);
+      if(!Number.isFinite(halfWidth)||halfWidth<=0.1) return null;
+      wagon.halfWidth=halfWidth;
+      model().update(task);
+      handle=model().wagonGeometry(task,wagon).bottomRight;
+      window.snapIndicator=hit?.snapped ? {pos:handle} : null;
+    }else if(handleType==='height'){
+      const target=window.enableSnap ? window.snapping.snap(pos,{
+        points:[],gridStep:window.GRID_STEP,origin:window.DRAW_CENTER
+      }).pos : pos;
+      const height=window.geometry.dot([target[0]-g.bottomCenter[0],target[1]-g.bottomCenter[1]],g.normal);
+      if(!Number.isFinite(height)||height<=0.1) return null;
+      wagon.height=height;
+      model().update(task);
+      handle=[g.bottomCenter[0]+g.normal[0]*height,g.bottomCenter[1]+g.normal[1]*height];
+      window.snapIndicator=null;
+    }else return null;
+    return handle;
+  }
+  function startAttachedPoint(editPoint){
+    activate({mode:'attached',editPoint,
+      alive:editPoint?()=>window.currentTask?.scene?.points?.includes(editPoint):null});
+    if(!active)return;
+    setPointMode('attached');
+    active.trackSources=trackSources(active.task);
+    active.panel=element('div',active.trackSources.length
+      ? 'Festet punkt – klikk på en ellipse, et segment eller en rektangelside. Esc avbryter.'
+      : 'Legg til en ellipse, et segment eller et rektangel før du fester punktet.',
+    {className:'scene-intersection-picker'});
+    document.getElementById('scene-panel')?.appendChild(active.panel);
+  }
+  function startWagonCreation(){
+    activate({mode:'wagon'});
+    if(!active)return;
+    active.trackSources=trackSources(active.task);
+    active.panel=element('div',active.trackSources.length
+      ? 'Ny vogn – klikk på en ellipse, et segment eller en rektangelside. Esc avbryter.'
+      : 'Legg til en ellipse, et segment eller et rektangel før du lager en vogn.',
+    {className:'scene-intersection-picker'});
+    document.getElementById('scene-panel')?.appendChild(active.panel);
   }
   function bindForcePicker(select,parent){
     if(!select || select.dataset.scenePickerBound) return;
@@ -955,8 +1305,39 @@
     checkTask();
     if(!window.editorMode) return;
     ctx.save();
+    if(constructionDrag){
+      const drag=constructionDrag;
+      const state=drag.preview?.valid?drag.preview:drag.last;
+      const clone=JSON.parse(JSON.stringify(drag.task));
+      const wagon=clone.scene.wagons[drag.index];
+      model().applyWagonConstruction(clone,wagon,state);
+      const shape=model().wagonGeometry(clone,wagon);
+      ctx.save();
+      ctx.strokeStyle=drag.preview?.valid?'#087d9a':'#d22';
+      ctx.lineWidth=2;
+      ctx.font='12px Arial';
+      ctx.beginPath();ctx.arc(...state.O,state.radius,0,2*Math.PI);ctx.stroke();
+      ctx.beginPath();
+      shape.corners.forEach((point,i)=>i?ctx.lineTo(...point):ctx.moveTo(...point));
+      ctx.closePath();ctx.stroke();
+      for(const name of ['C','P','Q','O']){
+        window.drawAnchorMarker(ctx,state[name],'pickerPreview');
+        ctx.fillText(name,state[name][0]+10,state[name][1]-10);
+      }
+      if(drag.preview?.valid===false){
+        ctx.beginPath();
+        ctx.moveTo(drag.pointer[0]-6,drag.pointer[1]-6);
+        ctx.lineTo(drag.pointer[0]+6,drag.pointer[1]+6);
+        ctx.moveTo(drag.pointer[0]-6,drag.pointer[1]+6);
+        ctx.lineTo(drag.pointer[0]+6,drag.pointer[1]-6);
+        ctx.stroke();
+        ctx.fillText(drag.preview.reason,drag.pointer[0]+12,drag.pointer[1]+20);
+      }
+      ctx.restore();
+    }
     if(active){
-      if(active.mode==='intersection'){
+      const trackMode=active.mode==='attached'||active.mode==='wagon';
+      if(active.mode==='intersection'||trackMode){
         const style=window.ANCHOR_MARKER_STYLES.pickerHovered;
         ctx.save();
         ctx.strokeStyle=style.color;
@@ -965,7 +1346,7 @@
         ctx.lineJoin='round';
         ctx.shadowColor=style.glowColor || style.color;
         ctx.shadowBlur=style.glowBlur || 0;
-        for(const source of active.previewGeometries){
+        for(const source of trackMode ? (active.candidate ? [active.candidate.source] : []) : active.previewGeometries){
           for(const [a,b] of source.segments){
             ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
           }
@@ -994,7 +1375,8 @@
           window.drawAnchorMarker(ctx,hit.pos,highlighted ? 'pickerHovered' : 'pickerPreview');
         }
       }
-      const positions=active.mode==='intersection' ? [] :
+      if(trackMode && active.candidate) window.drawAnchorMarker(ctx,active.candidate.pos,'pickerPreview');
+      const positions=active.mode==='intersection'||trackMode ? [] :
         active.pos && !active.candidate ? [active.pos] : [];
       positions.forEach(pos=>window.drawAnchorMarker(ctx,pos,'pickerPreview'));
     }
@@ -1067,6 +1449,7 @@
     const canvas=document.getElementById('app-canvas');
     if(!canvas) return;
     initialized=true;
+    initIdEditor();
     canvas.addEventListener('mousemove',event=>{
       const pos=window.getMousePos(event);
       api.mouse=pos;
@@ -1078,6 +1461,11 @@
         active.previewSource(null);
         active.hoveredHit=null;
       }
+      if(active?.mode==='attached'||active?.mode==='wagon'){
+        active.candidate=null;
+        active.pos=null;
+        window.snapIndicator=null;
+      }
     });
     canvas.addEventListener('mousedown',event=>{
       checkTask();
@@ -1088,10 +1476,25 @@
     canvas.addEventListener('mouseup',event=>{
       if(active || swallowRelease){event.preventDefault();event.stopImmediatePropagation();swallowRelease=false;}
     },true);
+    document.addEventListener('mouseup',event=>{
+      if(constructionDrag && event.target!==canvas){
+        finishConstructionDrag();
+        window.draggingHandle=null;
+        if(window.selectedSceneElement) delete window.selectedSceneElement._handleStartPos;
+      }
+    });
     document.addEventListener('keydown',event=>{
+      if(event.key==='Escape' && constructionDrag){
+        event.preventDefault();event.stopImmediatePropagation();
+        finishConstructionDrag(true);
+        window.draggingHandle=null;
+        if(window.selectedSceneElement) delete window.selectedSceneElement._handleStartPos;
+        return;
+      }
       if(event.key==='Escape' && active){event.preventDefault();event.stopImmediatePropagation();cancel();creation=null;}
     },true);
     document.addEventListener('click',event=>{
+      if(event.target.classList?.contains('scene-id-edit')) return;
       if(active?.mode!=='anchor' || event.target===canvas ||
         active.control?.button.contains(event.target) || active.control?.list.contains(event.target)) return;
       if(!event.target.closest?.('button, .scene-item-header, .scene-anchor-field')) return;
@@ -1106,9 +1509,11 @@
       creation=null;
     },true);
     document.getElementById('btn-add-point')?.addEventListener('click',()=>{
-      setPointMode(pointMode==='free' ? 'intersection' : 'free');
+      const next={free:'intersection',intersection:'attached',attached:'free'};
+      setPointMode(next[pointMode]||'free');
       const button=document.getElementById('btn-add-point');
       if(pointMode==='intersection') startIntersection();
+      else if(pointMode==='attached') startAttachedPoint();
       else {
         activate({mode:'free'});
         if(active){
@@ -1120,8 +1525,41 @@
       button.setAttribute('aria-pressed','true');
     });
   }
+  function beginConstructionDrag(index,handle){
+    const task=window.currentTask,wagon=task.scene.wagons[index];
+    const state=model().wagonConstruction(task,wagon);
+    if(!state) return false;
+    window.autoSave?.();
+    constructionDrag={task,index,handle,start:state,last:{...state,valid:true},preview:null,pointer:state[handle]};
+    return true;
+  }
+  function previewConstructionDrag(pos){
+    if(!constructionDrag) return;
+    const drag=constructionDrag;
+    const snapped=window.snapping.snap(pos,{points:[],gridStep:window.GRID_STEP,
+      origin:window.DRAW_CENTER,relativeGridOnly:true});
+    drag.pointer=snapped.pos;
+    drag.preview=model().solveWagonConstruction(drag.start,drag.handle,snapped.pos);
+    if(drag.preview.valid) drag.last=drag.preview;
+    window.snapIndicator=snapped.source&&drag.preview.valid?{pos:snapped.pos}:null;
+  }
+  function finishConstructionDrag(cancelled=false){
+    if(!constructionDrag) return false;
+    const drag=constructionDrag;
+    constructionDrag=null;
+    if(!cancelled && drag.task===window.currentTask){
+      model().applyWagonConstruction(drag.task,drag.task.scene.wagons[drag.index],drag.last);
+      edited('task');
+      window.autoSave?.();
+    }
+    window.snapIndicator=null;
+    return true;
+  }
   const api={init,install:init,cancel,checkTask,drawOverlay,buildProperties,bindForcePicker,applyForceAnchor,candidates,
-    startAngle,syncControl,reveal,revealSelection,showForceAnchorPicker,
+    openIdEditor,
+    beginConstructionDrag,previewConstructionDrag,finishConstructionDrag,
+    preferredConstructionHandle:()=>constructionHandle,
+    startAngle,startAttachedPoint,startWagonCreation,moveAttachedPoint,resizeWagon,syncControl,reveal,revealSelection,showForceAnchorPicker,
     previewSceneSource,chooseSceneSource,
     isSelectingGeometry:()=>active?.mode==='intersection' && active.slot!==null,
     isPicking:select=>active?.mode==='anchor' && active.select===select};

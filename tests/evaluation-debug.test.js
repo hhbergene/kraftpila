@@ -40,6 +40,10 @@ const context={
   }
 };
 vm.createContext(context);
+const normalizeStart=source.indexOf('  function normalizeName(');
+const eligibilityStart=source.indexOf('  function isEvaluationForce(');
+vm.runInContext(source.slice(normalizeStart,source.indexOf('\n',normalizeStart)),context);
+vm.runInContext(source.slice(eligibilityStart,source.indexOf('\n  /**',eligibilityStart)),context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'..','web','shared.js'),'utf8'),context);
 vm.runInContext(source.slice(relationsStart,relationsEnd),context);
 vm.runInContext(source.slice(start,end),context);

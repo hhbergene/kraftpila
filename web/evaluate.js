@@ -6,6 +6,8 @@
  * - Does NOT evaluate task.initialForces (pre-drawn forces locked in place)
  * - initialForces should NEVER be in the expectedForces array
  * - Non-expected student components are helper arrows, excluded from evaluation
+ * - A sole unmatched student arrow and expectation are paired even with poor geometry
+ * - Name errors do not hide geometry/relation feedback or reveal expected names
  * - expectedForces must have complete anchor specifications (type, ref, point/segment)
  * - Explicit sumF: {} disables equilibrium checks
  * - Missing sumF defaults to {x:0, y:0} only when no complete relations exist
@@ -266,6 +268,13 @@
     return !expected.some(spec=>nameMatchesSpec(force.name,spec,aliases));
   }
 
+  function isEvaluationForce(task, force){
+    if(force.isExpected===false || force.moveable===false || isIgnoredComponent(task,force)) return false;
+    if((task.initialForces || []).some(spec=>normalizeName(spec.name)===normalizeName(force.name))) return false;
+    return !!(force.anchor && force.arrowBase && force.arrowTip &&
+      (typeof force.isCompleted!=='function' || force.isCompleted()));
+  }
+
   /**
    * Get expected direction vector for a force
    * @param {Object} spec - Force spec with dir (array or string reference)
@@ -305,7 +314,7 @@
   /**
    * Match drawn forces to expected forces 
    * Scores based on name match, direction match and anchor position match
-   * Forces without correct names can still match if score is above threshold
+   * Forces without correct names can match above threshold or as the sole remaining pair
    * Uses greedy algorithm: highest scores matched first, each force matched at most once
    * @param {Object} task - Task with expectedForces array
    * @param {Object[]} forces - Array of drawn force objects with vec, anchor, name
@@ -315,18 +324,14 @@
     const aliasMap = buildAliasMap(task.expectedForces||[]);
     const expectedDict = {};
     (task.expectedForces||[]).forEach(spec=>{ expectedDict[spec.name] = spec; });
-    const initialNames = new Set((task.initialForces || []).map(spec=>normalizeName(spec.name)));
+    const candidates = forces.map((force,index)=>({force,index}))
+      .filter(({force})=>isEvaluationForce(task,force));
     
     // Compute pairwise match scores
     const pairs = []; // { score, taskName, forceIdx }
     for(const taskName in expectedDict){
       const spec = expectedDict[taskName];
-      for(let idx=0; idx<forces.length; idx++){
-        const drawnF = forces[idx];
-        if(drawnF.isExpected===false || drawnF.moveable===false || initialNames.has(normalizeName(drawnF.name))) continue;
-        if(isIgnoredComponent(task,drawnF)) continue;
-        const hasGeom = drawnF.anchor && drawnF.arrowBase && drawnF.arrowTip;
-        if(!hasGeom) continue;
+      for(const {force:drawnF,index:idx} of candidates){
         
         // Name match?
         let nameOk = nameMatchesSpec(drawnF.name, spec, aliasMap);
@@ -385,6 +390,13 @@
       matched[pair.taskName] = forces[pair.forceIdx];
       usedForces.add(pair.forceIdx);
       usedExpected.add(pair.taskName);
+    }
+
+    const remainingExpected = Object.keys(expectedDict).filter(name=>!usedExpected.has(name));
+    const remainingForces = candidates.filter(({index})=>!usedForces.has(index));
+    // Poor geometry is an error to explain, not evidence that the sole arrow is absent.
+    if(remainingExpected.length===1 && remainingForces.length===1){
+      matched[remainingExpected[0]] = remainingForces[0].force;
     }
     
     return matched;
@@ -709,8 +721,7 @@
   /**
    * Build user feedback lines for force and relation errors
    * Distinguishes missing names from wrong names
-   * Skips detail feedback for forces with explicitly wrong names
-   * Uses force name as fallback when drawnName is empty
+   * Shows detail feedback independently of name errors without revealing expected names
    * Includes anchor-specific messages for position errors
    * @param {Object[]} forceResults - Force evaluation results
    * @param {Object[]} relationResults - Relation evaluation results
@@ -722,6 +733,13 @@
    */
   function buildFeedbackLines(forceResults, relationResults, allForces, debugMode, task, neatness){
     const lines=[];
+    const matchedIndices = new Set(forceResults.filter(r=>r.found && r.index>=0).map(r=>r.index));
+    const extraIndices = (allForces || []).map((force,index)=>({force,index}))
+      .filter(({force,index})=>isEvaluationForce(task,force) && !matchedIndices.has(index))
+      .map(({index})=>index);
+    const missingForces = forceResults.filter(r=>!r.found);
+    const ambiguous = missingForces.length>0 && extraIndices.length>0;
+    const forceLabel = index=>allForces[index].name || 'den navnløse kraften';
     
     // Separate forces with missing names from those with wrong names
     const missingNames = forceResults.filter(r => r.found && !r.nameOk && !r.nameDuplicate && !r.drawnName);
@@ -764,8 +782,12 @@
     }
     
     // Count missing forces (not found at all)
-    const missingForces = forceResults.filter(r => !r.found);
-    if(missingForces.length > 0){
+    if(ambiguous){
+      lines.push({
+        text: 'Noen krefter kan ikke kobles sikkert til oppgaven. Kontroller navnene på de markerte kreftene.',
+        indices: extraIndices
+      });
+    } else if(missingForces.length > 0){
       let msg;
       if(missingForces.length === 1){
         msg = `Det mangler en kraft`;
@@ -781,15 +803,10 @@
       }
       
       // Check name, direction, position status
-      const nameOk = r.nameOk;
       const dirOk = r.dirOk;
       const posOk = (r.posErr!=null) && r.posOk;
       
-      // Skip detailed feedback if name is missing or wrong
-      if(!nameOk) return;
-      
-      // Use r.name as fallback when drawnName is empty (NEW)
-      const label = r.drawnName || r.name;
+      const label = forceLabel(r.index);
       
       // Build messages based on dir and pos status
       if(!dirOk){
@@ -842,15 +859,6 @@ if(r.anchorType === 'point'){
       
       if(involvedForcesMissing) return;
       
-      // Skip relation feedback if any involved force has wrong or missing name
-      const involvedForceHasWrongName = rr.indices.some(idx => {
-        const resultForForce = forceResults.find(r => r.index === idx);
-        if(resultForForce && !resultForForce.nameOk) return true;
-        return false;
-      });
-      
-      if(involvedForceHasWrongName) return;
-
       // Bygg navnsliste
       const forceNames = [];
       if(rr.forceNames && Array.isArray(rr.forceNames)){
@@ -859,14 +867,20 @@ if(r.anchorType === 'point'){
         if(rr.lhs) forceNames.push(rr.lhs);
         if(rr.rhs) forceNames.push(rr.rhs);
       }
+      const labels = forceNames.map(name=>{
+        const result = forceResults.find(r=>r.name===name && r.found);
+        const index = result ? result.index : allForces.findIndex(force=>normalizeName(force.name)===normalizeName(name));
+        return index>=0 ? forceLabel(index) : 'en kraft';
+      });
+      const description = labels.includes('den navnløse kraften') ? '' : 'kreftene ';
 
       let msg = '';
-      if(forceNames.length <= 2){
-        msg = `Lengdeforholdet mellom kreftene ${forceNames.join(' og ')} er feil`;
+      if(labels.length <= 2){
+        msg = `Lengdeforholdet mellom ${description}${labels.join(' og ')} er feil`;
       } else {
-        const allButLast = forceNames.slice(0, -1).join(', ');
-        const last = forceNames[forceNames.length-1];
-        msg = `Lengdeforholdet mellom kreftene ${allButLast} og ${last} er feil`;
+        const allButLast = labels.slice(0, -1).join(', ');
+        const last = labels[labels.length-1];
+        msg = `Lengdeforholdet mellom ${description}${allButLast} og ${last} er feil`;
       }
       
       // Feedback with measured vs expected ratio (only in debug mode)
@@ -885,36 +899,14 @@ if(r.anchorType === 'point'){
       lines.push({ text: msg, indices: rr.indices||[] });
     });
     
-    // Check for extra unmatched forces (exclude initialForces)
-    const matchedIndices = new Set();
-    forceResults.forEach(r => {
-      if(r.found && r.index >= 0) matchedIndices.add(r.index);
-    });
-    
-    // Build set of initialForce names for exclusion
-    const initialForceNames = new Set();
-    if(task.initialForces && Array.isArray(task.initialForces)){
-      task.initialForces.forEach(f => {
-        if(f.name) initialForceNames.add(f.name.toLowerCase().trim());
-      });
-    }
-    
-    const extraForces = (allForces||[]).filter((f, idx) => {
-      const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
-      // Exclude forces that are initialForces (matched by name)
-      const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
-      return isCompleted && !matchedIndices.has(idx) && !isInitialForce && !isIgnoredComponent(task,f);
-    });
-    
-    if(extraForces.length > 0){
+    if(extraIndices.length > 0 && !ambiguous){
       let msg;
-      if(extraForces.length === 1){
+      if(extraIndices.length === 1){
         msg = `Det er tegnet 1 kraft for mye`;
       } else {
-        msg = `Det er tegnet ${extraForces.length} krefter for mye`;
+        msg = `Det er tegnet ${extraIndices.length} krefter for mye`;
       }
-      const indices = extraForces.map((_, idx) => allForces.indexOf(extraForces[idx])).filter(idx => idx >= 0);
-      lines.push({ text: msg, indices });
+      lines.push({ text: msg, indices: extraIndices });
     }
     
     // Warn for shaft overlap or a shaft crossing another arrow's base point.
@@ -955,19 +947,8 @@ if(r.anchorType === 'point'){
       if(r.found && r.index >= 0) matchedIndices.add(r.index);
     });
     
-    // Build set of initialForce names for exclusion from extras count
-    const initialForceNames = new Set();
-    if(task.initialForces && Array.isArray(task.initialForces)){
-      task.initialForces.forEach(f => {
-        if(f.name) initialForceNames.add(f.name.toLowerCase().trim());
-      });
-    }
-    
     const extrasCount = (allForces||[]).reduce((count, f, idx) => {
-      const isCompleted = typeof f.isCompleted==='function' ? f.isCompleted() : (f.anchor && f.arrowBase && f.arrowTip);
-      // Exclude initialForces from extras count
-      const isInitialForce = f.name && initialForceNames.has(f.name.toLowerCase().trim());
-      return count + (isCompleted && !matchedIndices.has(idx) && !isInitialForce && !isIgnoredComponent(task,f) ? 1 : 0);
+      return count + (isEvaluationForce(task,f) && !matchedIndices.has(idx) ? 1 : 0);
     }, 0);
 
     // NEW: Per-force scoring including missing forces (count as 0)
@@ -1056,6 +1037,9 @@ if(r.anchorType === 'point'){
       (task.expectedForces || []).forEach(spec => {
         debugOutput += `  - ${spec.name}\n`;
       });
+      if(foundCount<expectedCount && extrasCount>0){
+        debugOutput += `  Usikker kobling: ${extrasCount} ukoblede elevkrefter og ${expectedCount-foundCount} ukoblede forventninger. Ukoblede forventninger gir 0 i score.\n`;
+      }
       
       debugOutput += `✏️ TEGNEDE KREFTER:\n`;
       // Only show drawn forces that correspond to expectedForces

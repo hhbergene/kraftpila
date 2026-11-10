@@ -891,7 +891,7 @@
       "category": "Fysikk 1",
       "help_lines": [
         "En kloss beveger seg på et horisontalt underlag med friksjon.",
-        "Vi trekker klossen med en kraft F horisontalt mot høyre.",
+        "Vi trekker klossen med en kraft F horisontalt mot høyre slik at farten til klossen er konstant.",
         "",
         "Tegn de andre kreftene som virker på klossen."
       ],
@@ -1187,19 +1187,392 @@
       }
     },
     {
+      "id": "task_1791480987572_yjio90r9e",
+      "title": "Kloss på kloss i ro horisontalt",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "En kloss B ligger oppå kloss A på et horisontalt underlag. Begge klossene ligger i ro. ",
+        "Tyngden til A er dobbelt så stor som tyngden til B. ",
+        "(Tyngdekraften på A er dobbelt så stor som tyngdekraften på B.)",
+        "",
+        "Kreftene som virker på kloss B er tegnet inn.",
+        "",
+        "Tegn kreftene som virker på kloss A."
+      ],
+      "scene": {
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "rect-1"
+          },
+          {
+            "width": 120,
+            "height": 80,
+            "bottomCenter": [
+              500,
+              240
+            ],
+            "angleDeg": 0,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "rect-2"
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn kreftene som virker på A.",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ],
+            "id": "Tekst-1"
+          },
+          {
+            "txt": "v = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ],
+            "id": "Tekst-2"
+          },
+          {
+            "txt": "m_A = 2 · m_B",
+            "pos": [
+              375,
+              124
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              124
+            ],
+            "id": "Tekst-3"
+          },
+          {
+            "txt": "A",
+            "pos": [
+              440,
+              260
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              440,
+              260
+            ],
+            "id": "Tekst-4"
+          },
+          {
+            "txt": "B",
+            "pos": [
+              460,
+              180
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              460,
+              180
+            ],
+            "id": "Tekst-5"
+          }
+        ],
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "Plan-1"
+          }
+        ],
+        "activePlaneId": "Plan-1"
+      },
+      "expectedForces": [
+        {
+          "name": "N_A",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect-1",
+            "segment": "bottom",
+            "u": 0.5
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              540,
+              360
+            ],
+            "arrowTip": [
+              540,
+              240
+            ]
+          },
+          "aliases": [
+            "N"
+          ],
+          "nameBase": "N",
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": false
+          }
+        },
+        {
+          "name": "G_A",
+          "anchor": {
+            "type": "point",
+            "ref": "rect-1",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "aliases": [
+            "G"
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              300
+            ],
+            "arrowBase": [
+              480,
+              300
+            ],
+            "arrowTip": [
+              480,
+              380
+            ]
+          },
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": false
+          }
+        },
+        {
+          "name": "N_B*",
+          "anchor": {
+            "type": "segment",
+            "ref": "rect-1",
+            "segment": "top",
+            "u": 0.5
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "nameBase": "N",
+          "drawn": {
+            "anchor": [
+              500,
+              240
+            ],
+            "arrowBase": [
+              480,
+              240
+            ],
+            "arrowTip": [
+              480,
+              280
+            ]
+          },
+          "role": "force",
+          "studentGiven": {
+            "name": false,
+            "role": false
+          }
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G_B",
+          "anchor": [
+            500,
+            200
+          ],
+          "arrowBase": [
+            460,
+            200
+          ],
+          "arrowTip": [
+            460,
+            240
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect-2",
+            "point": "center"
+          },
+          "role": "force"
+        },
+        {
+          "name": "N_B",
+          "anchor": [
+            500,
+            240
+          ],
+          "arrowBase": [
+            520,
+            240
+          ],
+          "arrowTip": [
+            520,
+            200
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "segment",
+            "ref": "rect-2",
+            "segment": "bottom",
+            "u": 0.5
+          },
+          "role": "force"
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G_A",
+              "component": "magnitude"
+            },
+            {
+              "name": "G_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N_A",
+              "component": "magnitude"
+            }
+          ]
+        },
+        {
+          "lhs": [
+            {
+              "name": "N_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N_B*",
+              "component": "magnitude"
+            }
+          ]
+        }
+      ],
+      "taskTitle": "Kloss på kloss i ro horisontalt",
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
       "id": "task_1793180732065_yjcow4p6n",
       "title": "Kloss-Trinse-Lodd",
       "category": "Fysikk 1",
       "help_lines": [
         "En kloss dras langs et horisontalt bord med en snor koblet til et lodd via en trinse.",
-        "Klossen har konstant fart mot høyre.",
+        "Klossen har konstant fart mot høyre.  Se bort fra massen til snora.",
         "",
         "Vi har tegnet inn:",
         "G_B - Tyngdekraften på loddet.",
         "N_A - Normalkraften på klossen fra bordet.",
-        "(Det mangler en kraft på loddet, denne skal ikke tegnes!)",
         "",
-        "Tegn inn de andre kreftene som virker på klossen."
+        "Tegn inn de andre kreftene som virker på klossen  (bruk _A på navnet)",
+        "og på loddet (bruk _B på navnet)"
       ],
       "scene": {
         "rects": [
@@ -1549,6 +1922,34 @@
             "name": false,
             "role": false
           }
+        },
+        {
+          "name": "S_B",
+          "role": "force",
+          "anchor": {
+            "type": "segment",
+            "ref": "Segment-2",
+            "segment": "segment",
+            "u": 1
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              620,
+              340
+            ],
+            "arrowBase": [
+              640,
+              340
+            ],
+            "arrowTip": [
+              640,
+              240
+            ]
+          }
         }
       ],
       "initialForces": [
@@ -1652,9 +2053,11 @@
       "title": "Krefter på vogn",
       "category": "Fysikk 1",
       "help_lines": [
-        "Et tog består av lokomotiv A og en vogn B.",
+        "Et tog består av en vogn A og et lokomotiv B.",
+        "Lokomotivet blir drevet av en kraft F_B.",
+        "Tyngdekreftene og normalkreftene G og N på A og B er tegnet inn.",
         "",
-        "Tegn snordragene S som virker på A og på B."
+        "Tegn snordragene S_A og S_B som virker på A og på B."
       ],
       "scene": {
         "rects": [
@@ -2042,379 +2445,6 @@
           "rhs": [
             {
               "name": "S_B",
-              "component": "magnitude"
-            }
-          ]
-        }
-      ],
-      "taskTitle": "Kloss på kloss i ro horisontalt",
-      "taskSubTitle": "",
-      "snapChecklist": {
-        "snapEnabled": true,
-        "guidelinesEnabled": true,
-        "showForceCoordinates": false,
-        "snapForceEndpoints": true,
-        "snapMatchLL": true,
-        "snapMatchLX": true,
-        "snapMatchLY": true,
-        "snapMatchLN": false,
-        "snapMatchLT": false,
-        "snapMatchXX": true,
-        "snapMatchYY": true,
-        "snapMatchXY": false,
-        "snapMatchNN": false,
-        "snapMatchTT": false,
-        "snapMatchNT": false,
-        "snapMatchXN": false,
-        "snapMatchXT": false,
-        "snapMatchYN": false,
-        "snapMatchYT": false
-      }
-    },
-    {
-      "id": "task_1791480987572_yjio90r9e",
-      "title": "Kloss på kloss i ro horisontalt",
-      "category": "Fysikk 1",
-      "help_lines": [
-        "En kloss B ligger oppå kloss A på et horisontalt underlag. Begge klossene ligger i ro. ",
-        "Tyngden til A er dobbelt så stor som tyngden til B. ",
-        "(Tyngdekraften på A er dobbelt så stor som tyngdekraften på B.)",
-        "",
-        "Kreftene som virker på kloss B er tegnet inn.",
-        "",
-        "Tegn kreftene som virker på kloss A."
-      ],
-      "scene": {
-        "rects": [
-          {
-            "width": 160,
-            "height": 120,
-            "bottomCenter": [
-              500,
-              360
-            ],
-            "angleDeg": 0,
-            "snapping": false,
-            "n_vec": [
-              0,
-              -1
-            ],
-            "t_vec": [
-              1,
-              0
-            ],
-            "id": "rect-1"
-          },
-          {
-            "width": 120,
-            "height": 80,
-            "bottomCenter": [
-              500,
-              240
-            ],
-            "angleDeg": 0,
-            "snapping": false,
-            "n_vec": [
-              0,
-              -1
-            ],
-            "t_vec": [
-              1,
-              0
-            ],
-            "id": "rect-2"
-          }
-        ],
-        "texts": [
-          {
-            "txt": "Tegn kreftene som virker på A.",
-            "pos": [
-              375,
-              80
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              80
-            ],
-            "id": "Tekst-1"
-          },
-          {
-            "txt": "v = 0",
-            "pos": [
-              375,
-              102
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              102
-            ],
-            "id": "Tekst-2"
-          },
-          {
-            "txt": "m_A = 2 · m_B",
-            "pos": [
-              375,
-              124
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              375,
-              124
-            ],
-            "id": "Tekst-3"
-          },
-          {
-            "txt": "A",
-            "pos": [
-              440,
-              260
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              440,
-              260
-            ],
-            "id": "Tekst-4"
-          },
-          {
-            "txt": "B",
-            "pos": [
-              460,
-              180
-            ],
-            "size": 14,
-            "align": "center",
-            "color": "#222",
-            "snapping": false,
-            "_renderedPos": [
-              460,
-              180
-            ],
-            "id": "Tekst-5"
-          }
-        ],
-        "points": [],
-        "planes": [
-          {
-            "angleDeg": 0,
-            "through": [
-              500,
-              360
-            ],
-            "draw": true,
-            "snapping": false,
-            "n_vec": [
-              0,
-              -1
-            ],
-            "t_vec": [
-              1,
-              0
-            ],
-            "id": "Plan-1"
-          }
-        ],
-        "activePlaneId": "Plan-1"
-      },
-      "expectedForces": [
-        {
-          "name": "N_A",
-          "anchor": {
-            "type": "segment",
-            "ref": "rect-1",
-            "segment": "bottom",
-            "u": 0.5
-          },
-          "dir": [
-            0,
-            -1
-          ],
-          "drawn": {
-            "anchor": [
-              500,
-              360
-            ],
-            "arrowBase": [
-              540,
-              360
-            ],
-            "arrowTip": [
-              540,
-              240
-            ]
-          },
-          "aliases": [
-            "N"
-          ],
-          "nameBase": "N",
-          "role": "force",
-          "studentGiven": {
-            "name": false,
-            "role": false
-          }
-        },
-        {
-          "name": "G_A",
-          "anchor": {
-            "type": "point",
-            "ref": "rect-1",
-            "point": "center"
-          },
-          "dir": [
-            0,
-            1
-          ],
-          "aliases": [
-            "G"
-          ],
-          "drawn": {
-            "anchor": [
-              500,
-              300
-            ],
-            "arrowBase": [
-              480,
-              300
-            ],
-            "arrowTip": [
-              480,
-              380
-            ]
-          },
-          "role": "force",
-          "studentGiven": {
-            "name": false,
-            "role": false
-          }
-        },
-        {
-          "name": "N_B*",
-          "anchor": {
-            "type": "segment",
-            "ref": "rect-1",
-            "segment": "top",
-            "u": 0.5
-          },
-          "dir": [
-            0,
-            1
-          ],
-          "nameBase": "N",
-          "drawn": {
-            "anchor": [
-              500,
-              240
-            ],
-            "arrowBase": [
-              480,
-              240
-            ],
-            "arrowTip": [
-              480,
-              280
-            ]
-          },
-          "role": "force",
-          "studentGiven": {
-            "name": false,
-            "role": false
-          }
-        }
-      ],
-      "initialForces": [
-        {
-          "name": "G_B",
-          "anchor": [
-            500,
-            200
-          ],
-          "arrowBase": [
-            460,
-            200
-          ],
-          "arrowTip": [
-            460,
-            240
-          ],
-          "moveable": false,
-          "anchorSpec": {
-            "type": "point",
-            "ref": "rect-2",
-            "point": "center"
-          },
-          "role": "force"
-        },
-        {
-          "name": "N_B",
-          "anchor": [
-            500,
-            240
-          ],
-          "arrowBase": [
-            520,
-            240
-          ],
-          "arrowTip": [
-            520,
-            200
-          ],
-          "moveable": false,
-          "anchorSpec": {
-            "type": "segment",
-            "ref": "rect-2",
-            "segment": "bottom",
-            "u": 0.5
-          },
-          "role": "force"
-        }
-      ],
-      "sumF": {
-        "x": 0,
-        "y": 0
-      },
-      "relations": [
-        {
-          "lhs": [
-            {
-              "name": "G_A",
-              "component": "magnitude"
-            },
-            {
-              "name": "G_B",
-              "component": "magnitude"
-            }
-          ],
-          "rhs": [
-            {
-              "name": "N_A",
-              "component": "magnitude"
-            }
-          ]
-        },
-        {
-          "lhs": [
-            {
-              "name": "N_B",
-              "component": "magnitude"
-            }
-          ],
-          "rhs": [
-            {
-              "name": "N_B*",
               "component": "magnitude"
             }
           ]
@@ -6570,9 +6600,9 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-10-30T05:01:06.745Z",
+    "exported": "2026-11-10T10:11:06.660Z",
     "count": 22,
-    "appVersion": "2026-10-29 11:24",
+    "appVersion": "2026-11-09 12:12",
     "tasksetVersion": 2
   }
 }

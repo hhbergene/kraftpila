@@ -1541,7 +1541,11 @@
               380
             ]
           },
-          "nameBase": "G"
+          "nameBase": "G",
+          "studentGiven": {
+            "name": true,
+            "role": false
+          }
         }
       ],
       "initialForces": [
@@ -7041,7 +7045,7 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-11-10T19:22:56.409Z",
+    "exported": "2026-11-10T19:35:29.275Z",
     "count": 24,
     "appVersion": "2026-11-10 13:05",
     "tasksetVersion": 2

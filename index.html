@@ -13,6 +13,7 @@
       <button class="btn-icon" id="btn-snap"        data-action="snap"        title="Snap"></button>
       <button class="btn-icon" id="btn-guidelines"  data-action="guidelines"  title="Guidelines"></button>
       <button class="btn-icon" id="btn-grid"        data-action="grid"        title="Grid"></button>
+      <button class="btn-icon" id="btn-instructions" data-action="instructions" title="Generelle instruksjoner" aria-label="Generelle instruksjoner">?</button>
 
       <button class="btn-icon" id="btn-prev"        data-action="prev"        title="Forrige"></button>
       <button class="btn-wide" id="btn-help"        data-action="help"        title="Oppgave"></button>
@@ -67,6 +68,48 @@
       </div>
       <div id="help-content" style="display:none;"></div>
       <div class="help-resize-handle" aria-hidden="true"></div>
+    </div>
+    <div id="instructions-modal" class="hidden modal" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
+      <div class="modal-content instructions-content">
+        <div class="instructions-header">
+          <h2 id="instructions-title">Slik bruker du programmet</h2>
+          <button id="instructions-close" type="button" title="Lukk instruksjonene" aria-label="Lukk instruksjonene">✖</button>
+        </div>
+        <section>
+          <h3>Tegne og redigere krefter</h3>
+          <ul>
+            <li>Tegn en kraft ved å klikke og dra fra et punkt som ikke allerede har en kraft. Slipp når pilen har ønsket retning og lengde.</li>
+            <li>Skriv navnet på kraften rett etter at du har tegnet den. Du trenger ikke først å velge tekstfeltet i kraftlista. Bruk understrek for indeks, for eksempel <code>F_g</code>.</li>
+            <li>Alle kraftsymboler må være unike. Skriv bare symbolet, ikke et beskrivende navn. Skriv for eksempel <code>G</code> for tyngdekraft.</li>
+            <li>Velg en kraft ved å klikke på den i tegningen eller i tekstfeltet i kraftlista til høyre.</li>
+            <li>Dra i angrepspunktet for å flytte kraften til et nytt angrepspunkt. Dra i pilspissen for å endre lengde og retning. Dra i pilskaftet for å flytte pilen parallelt uten å flytte angrepspunktet.</li>
+            <li>Slett den aktive kraften ved å klikke på søppelkurvikonet <span class="trash-symbol" aria-label="søppelkurv">🗑️</span> i kraftlista.</li>
+          </ul>
+          <figure class="force-handles-figure">
+            <h4 id="force-handles-title">Slik tegner og flytter du en kraft</h4>
+            <canvas id="force-demo-canvas" width="105" height="95" role="img" aria-label="Animasjon: tegn en kraft, parallellforskyv den med skaftet og endre kraften med pilspissen."></canvas>
+            <div id="force-demo-caption" class="force-demo-caption" aria-live="polite">1. Klikk og dra for å tegne kraftpilen.</div>
+          </figure>
+        </section>
+        <section>
+          <h3>Verktøy og oppgaver</h3>
+          <ul>
+            <li><span class="tool-symbol" aria-hidden="true">🧲</span> <strong>Snap:</strong> Snap er på som standard. Museposisjonen følger rutenettet eller geometriske sammenhenger i oppgaven. Klikk på knappen for å slå snap av eller på.</li>
+            <li><span class="tool-symbol" aria-hidden="true">📐</span> <strong>Linjal:</strong> Viser hjelpelinjer for normalretning eller tangentiell retning. Klikk på knappen for å slå hjelpelinjene av eller på.</li>
+            <li><span class="tool-symbol grid-symbol" aria-hidden="true">◻ / ⊞</span> <strong>Rutenett:</strong> Viser eller skjuler rutenettet i bakgrunnen. Rutenettet hjelper deg å se plassering og avstand; snap kan bruke rutenettet når snap er på.</li>
+            <li>Trykk på oppgaveknappen for å lese hele oppgaveteksten. Bruk pil høyre/venstre for å gå til neste/forrige oppgave.</li>
+            <li>Trykk <strong>Sjekk</strong> for tilbakemelding. Maksimal poengsum er 1,0 (2 poeng).</li>
+          </ul>
+        </section>
+        <section>
+          <h3>Tips</h3>
+          <ul>
+            <li>Se nøye på hvor kraften virker, hvilken vei den peker, og hvor lang den skal være før du slipper museknappen.</li>
+            <li>Hvis en bevegelse ikke gjør det du ønsker, kan du prøve å dra i et annet sted på kraftpilen: angrepspunkt, pilspiss og skaft har ulike funksjoner.</li>
+            <li>Skru av snap og linjal (og eventuelt rutenettet) hvis du vil øve på å være nøyaktig i tegningen uten verktøyhjelpen.</li>
+          </ul>
+        </section>
+      </div>
     </div>
     <!-- Settings panel overlay (right half) -->
     <div id="settings-panel" class="hidden">

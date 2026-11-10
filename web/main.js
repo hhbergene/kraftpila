@@ -2307,6 +2307,221 @@ window.TASKS = [];
 
   // ===== Knappe-klikk =====
   const buttons = document.querySelectorAll('#panel button');
+  let forceInstructionAnimationFrame = null;
+  let forceInstructionAnimationStart = 0;
+  let forceInstructionDemo = null;
+  let forceInstructionStage = -1;
+  let forceInstructionCaptionObserver = null;
+  const forceInstructionCaptions = [
+    '1. Klikk og dra for å tegne kraftpilen.',
+    '2. Parallellforskyv kraften uten å endre angrepspunktet ved å klikke og dra i pilskaftet.',
+    '3. Dra i pilspissen for å endre lengde og retning på kraften.',
+    '4. Hvis lengden blir 0, slettes kraftpila, og en ny kraft kan tegnes.'
+  ];
+
+  function reserveForceInstructionCaptionHeight(caption){
+    const width = caption.clientWidth;
+    if(width <= 0) return;
+    const measure = caption.cloneNode(false);
+    measure.removeAttribute('id');
+    measure.setAttribute('aria-hidden','true');
+    measure.style.position = 'absolute';
+    measure.style.left = '-10000px';
+    measure.style.top = '0';
+    measure.style.width = `${width}px`;
+    measure.style.height = 'auto';
+    measure.style.minHeight = '0';
+    measure.style.visibility = 'hidden';
+    caption.parentElement.appendChild(measure);
+    let maxHeight = 0;
+    for(const text of forceInstructionCaptions){
+      measure.textContent = text;
+      maxHeight = Math.max(maxHeight,measure.getBoundingClientRect().height);
+    }
+    measure.remove();
+    caption.style.height = `${maxHeight}px`;
+  }
+
+  function drawForceInstructionFrame(timestamp){
+    const canvas = document.getElementById('force-demo-canvas');
+    const caption = document.getElementById('force-demo-caption');
+    if(!canvas || !caption || !forceInstructionDemo) return;
+    const ctx = canvas.getContext('2d');
+    if(!ctx) throw new Error('Kunne ikke tegne animasjonen av kraftpilen.');
+
+    const elapsed = ((timestamp - forceInstructionAnimationStart) % 8000) / 1000;
+    const stage = Math.min(3, Math.floor(elapsed / 2));
+    const stageTime = elapsed - stage * 2;
+    const smooth = value => {
+      const t = Math.max(0, Math.min(1, value));
+      return t * t * (3 - 2 * t);
+    };
+    const mixPoint = (from, to, amount) => [
+      from[0] + (to[0] - from[0]) * amount,
+      from[1] + (to[1] - from[1]) * amount
+    ];
+
+    const force = forceInstructionDemo;
+    const anchor = [23, 13];
+    const toCanvas = point => [anchor[0] + point[0], anchor[1] + point[1]];
+    force.anchor = anchor.slice();
+    force.arrowBase = anchor.slice();
+    force.hovering = null;
+    force.dragging = null;
+    let cursor = [0, 0];
+    let cursorHand = false;
+    let captionText = '';
+
+    if(stage === 0){
+      const progress = smooth((stageTime - 0.25) / 1.75);
+      force.arrowTip = toCanvas(mixPoint([0, 0], [50, 50], progress));
+      force.hovering = stageTime < 0.25 ? 'anchor' : 'arrowTip';
+      force.dragging = stageTime < 0.25 ? null : 'arrowTip';
+      cursor = force.arrowTip.slice();
+      cursorHand = true;
+      captionText = forceInstructionCaptions[0];
+    }else if(stage === 1){
+      const dragProgress = Math.max(0, Math.min(1, (stageTime - 0.35) / 1.65));
+      const offsetProgress = dragProgress <= 0.5
+        ? smooth(dragProgress * 2)
+        : 1 - smooth((dragProgress - 0.5) * 2);
+      const normalOffset = offsetProgress * 10 / Math.sqrt(2);
+      const offset = [-normalOffset, normalOffset];
+      force.arrowBase = [anchor[0] + offset[0], anchor[1] + offset[1]];
+      force.arrowTip = [anchor[0] + 50 + offset[0], anchor[1] + 50 + offset[1]];
+      force.hovering = 'body';
+      force.dragging = stageTime < 0.35 ? null : 'body';
+      cursor = stageTime < 0.35
+        ? toCanvas(mixPoint([50, 50], [25, 25], smooth(stageTime / 0.35)))
+        : [anchor[0] + 25 + offset[0], anchor[1] + 25 + offset[1]];
+      cursorHand = stageTime >= 0.35;
+      captionText = forceInstructionCaptions[1];
+    }else if(stage === 2){
+      const travelTime = 0.3;
+      const tip = stageTime < travelTime
+        ? [50, 50]
+        : mixPoint([50, 50], [50, 0], smooth((stageTime - travelTime) / (2 - travelTime)));
+      force.arrowTip = toCanvas(tip);
+      force.hovering = stageTime < travelTime ? 'body' : 'arrowTip';
+      force.dragging = stageTime < travelTime ? null : 'arrowTip';
+      cursor = stageTime < travelTime
+        ? toCanvas(mixPoint([25, 25], [50, 50], smooth(stageTime / travelTime)))
+        : force.arrowTip.slice();
+      cursorHand = stageTime >= travelTime;
+      captionText = forceInstructionCaptions[2];
+    }else{
+      force.arrowTip = toCanvas(mixPoint([50, 0], [0, 0], smooth(stageTime / 2)));
+      force.hovering = 'arrowTip';
+      force.dragging = 'arrowTip';
+      cursor = force.arrowTip.slice();
+      cursorHand = true;
+      captionText = forceInstructionCaptions[3];
+    }
+
+    force.force_len = Math.hypot(
+      force.arrowTip[0] - force.arrowBase[0],
+      force.arrowTip[1] - force.arrowBase[1]
+    );
+    if(stage === 3 && force.force_len <= 0.1){
+      force.anchor = null;
+      force.arrowBase = null;
+      force.arrowTip = null;
+      force.force_len = 0;
+      cursorHand = false;
+    }
+    if(stage !== forceInstructionStage){
+      caption.textContent = captionText;
+      forceInstructionStage = stage;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    force.draw(ctx, true);
+
+    const mouse = cursor;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 2;
+    if(cursorHand){
+      ctx.beginPath();
+      ctx.moveTo(mouse[0], mouse[1]);
+      ctx.lineTo(mouse[0], mouse[1] + 12);
+      ctx.quadraticCurveTo(mouse[0], mouse[1] + 15, mouse[0] + 3, mouse[1] + 14);
+      ctx.lineTo(mouse[0] + 5, mouse[1] + 13);
+      ctx.lineTo(mouse[0] + 5, mouse[1] + 6);
+      ctx.quadraticCurveTo(mouse[0] + 5, mouse[1] + 3, mouse[0] + 8, mouse[1] + 3);
+      ctx.quadraticCurveTo(mouse[0] + 11, mouse[1] + 3, mouse[0] + 11, mouse[1] + 6);
+      ctx.lineTo(mouse[0] + 11, mouse[1] + 10);
+      ctx.lineTo(mouse[0] + 14, mouse[1] + 8);
+      ctx.quadraticCurveTo(mouse[0] + 17, mouse[1] + 7, mouse[0] + 18, mouse[1] + 10);
+      ctx.lineTo(mouse[0] + 20, mouse[1] + 16);
+      ctx.quadraticCurveTo(mouse[0] + 21, mouse[1] + 20, mouse[0] + 17, mouse[1] + 22);
+      ctx.lineTo(mouse[0] + 10, mouse[1] + 24);
+      ctx.quadraticCurveTo(mouse[0] + 6, mouse[1] + 25, mouse[0] + 3, mouse[1] + 21);
+      ctx.lineTo(mouse[0] - 1, mouse[1] + 16);
+      ctx.quadraticCurveTo(mouse[0] - 3, mouse[1] + 13, mouse[0], mouse[1] + 12);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1.25;
+      ctx.stroke();
+    }else{
+      ctx.beginPath();
+      ctx.moveTo(mouse[0], mouse[1]);
+      ctx.lineTo(mouse[0], mouse[1] + 18);
+      ctx.lineTo(mouse[0] + 4, mouse[1] + 14);
+      ctx.lineTo(mouse[0] + 8, mouse[1] + 22);
+      ctx.lineTo(mouse[0] + 11, mouse[1] + 20);
+      ctx.lineTo(mouse[0] + 7, mouse[1] + 12);
+      ctx.lineTo(mouse[0] + 14, mouse[1] + 12);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1.25;
+      ctx.stroke();
+    }
+    ctx.restore();
+    forceInstructionAnimationFrame = requestAnimationFrame(drawForceInstructionFrame);
+  }
+
+  function startForceInstructionAnimation(){
+    stopForceInstructionAnimation();
+    if(!window.Force) throw new Error('Kraftmotoren er ikke tilgjengelig for instruksjonsanimasjonen.');
+    forceInstructionDemo = new window.Force();
+    forceInstructionDemo.isExpected = true;
+    forceInstructionDemo.name = '';
+    forceInstructionStage = -1;
+    const caption = document.getElementById('force-demo-caption');
+    if(caption){
+      reserveForceInstructionCaptionHeight(caption);
+      if(typeof ResizeObserver === 'function'){
+        forceInstructionCaptionObserver = new ResizeObserver(entries=>{
+          const entry = entries[0];
+          if(entry && entry.contentRect.width > 0) reserveForceInstructionCaptionHeight(caption);
+        });
+        forceInstructionCaptionObserver.observe(caption);
+      }
+    }
+    forceInstructionAnimationStart = performance.now();
+    forceInstructionAnimationFrame = requestAnimationFrame(drawForceInstructionFrame);
+  }
+
+  function stopForceInstructionAnimation(){
+    forceInstructionCaptionObserver?.disconnect();
+    forceInstructionCaptionObserver = null;
+    if(forceInstructionAnimationFrame !== null){
+      cancelAnimationFrame(forceInstructionAnimationFrame);
+      forceInstructionAnimationFrame = null;
+    }
+    forceInstructionDemo = null;
+    forceInstructionStage = -1;
+  }
+
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       const action = btn.dataset.action;
@@ -2325,6 +2540,15 @@ window.TASKS = [];
         window.enableGuidelines = !window.enableGuidelines;
         btn.classList.toggle('btn-active', window.enableGuidelines);
         if(!window.enableGuidelines) window.currentGuidelines = null;
+        return;
+      }
+      if(action === 'instructions'){
+        const instructionsModal = document.getElementById('instructions-modal');
+        if(instructionsModal){
+          instructionsModal.classList.remove('hidden');
+          document.getElementById('instructions-close')?.focus();
+          startForceInstructionAnimation();
+        }
         return;
       }
       if(action === 'next'){
@@ -2501,6 +2725,17 @@ window.TASKS = [];
   const helpPanel = document.getElementById('help-panel');
   const helpCloseBtn = document.getElementById('help-close');
   if(helpCloseBtn){ helpCloseBtn.addEventListener('click', ()=>{ helpPanel && helpPanel.classList.add('hidden'); }); }
+  const instructionsModal = document.getElementById('instructions-modal');
+  const instructionsCloseBtn = document.getElementById('instructions-close');
+  const closeInstructions = ()=>{
+    instructionsModal?.classList.add('hidden');
+    stopForceInstructionAnimation();
+    document.getElementById('btn-instructions')?.focus();
+  };
+  instructionsCloseBtn?.addEventListener('click', closeInstructions);
+  instructionsModal?.addEventListener('click', event=>{
+    if(event.target === instructionsModal) closeInstructions();
+  });
   
   // Save help lines from textarea to task object
   // Help lines functions have been moved to ui.js
@@ -3572,6 +3807,12 @@ window.TASKS = [];
     if(e.key !== 'Escape') return;
     const settingsPanel = document.getElementById('settings-panel');
     const helpPanelEl = document.getElementById('help-panel');
+    const instructionsModal = document.getElementById('instructions-modal');
+    if(instructionsModal && !instructionsModal.classList.contains('hidden')){
+      instructionsModal.classList.add('hidden');
+      stopForceInstructionAnimation();
+      document.getElementById('btn-instructions')?.focus();
+    }
     // Close settings panel if open
     if(settingsPanel && !settingsPanel.classList.contains('hidden')){
       settingsPanel.classList.add('hidden');

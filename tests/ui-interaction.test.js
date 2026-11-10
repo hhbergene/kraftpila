@@ -6,6 +6,56 @@ const vm=require('node:vm');
 
 const source=name=>fs.readFileSync(path.join(__dirname,'..','web',name),'utf8');
 
+test('player provides a separate general-instructions dialog with the requested guidance',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const main=source('main.js');
+  assert.match(html,/id="btn-instructions"[^>]*data-action="instructions"/);
+  assert.match(html,/id="instructions-modal"[^>]*role="dialog"/);
+  for(const text of [
+    'punkt som ikke allerede har en kraft',
+    'rett etter at du har tegnet den',
+    'Alle kraftsymboler må være unike',
+    'tekstfeltet i kraftlista til høyre',
+    'angrepspunktet',
+    'pilspissen',
+    'pilskaftet',
+    'søppelkurvikonet',
+    '🗑️',
+    'Snap er på som standard',
+    'normalretning eller tangentiell retning',
+    'Rutenettet hjelper',
+    'verktøyhjelpen',
+    'neste/forrige oppgave',
+    'Maksimal poengsum er 1,0 (2 poeng)'
+  ]) assert.ok(html.includes(text),`instructions include "${text}"`);
+  assert.doesNotMatch(html,/Delete|Ctrl<\/kbd> \+ <kbd>[ZY]/);
+  assert.match(html,/id="force-demo-canvas"[^>]*width="105"[^>]*height="95"/);
+  assert.match(html,/id="force-handles-title"/);
+  assert.doesNotMatch(html,/<ol class="force-demo-steps">/);
+  for(const step of [
+    '1. Klikk og dra for å tegne kraftpilen.',
+    '2. Parallellforskyv kraften uten å endre angrepspunktet',
+    '3. Dra i pilspissen for å endre lengde og retning på kraften.',
+    '4. Hvis lengden blir 0, slettes kraftpila'
+  ]) assert.ok(main.includes(step),`animation caption includes "${step}"`);
+  assert.match(main,/if\(action === 'instructions'\)/);
+  assert.match(main,/force\.draw\(ctx, true\)/);
+  assert.match(main,/mixPoint\(\[0, 0\], \[50, 50\]/);
+  assert.match(main,/const offset = \[-normalOffset, normalOffset\]/);
+  assert.doesNotMatch(main,/ctx\.scale\(2\.5, 2\.5\)/);
+  assert.doesNotMatch(main,/Pilspiss \(\$\{Math\.round/);
+  assert.match(main,/mixPoint\(\[50, 0\], \[0, 0\]/);
+  assert.match(main,/ctx\.quadraticCurveTo\(mouse\[0\], mouse\[1\] \+ 15/);
+  assert.match(source('style.css'),/force-handles-figure canvas \{ display:block; width:105px; height:95px; max-width:100%; margin:0 auto; \}/);
+  assert.match(source('style.css'),/force-handles-figure \{ position:relative; width:100%;/);
+  assert.match(main,/function reserveForceInstructionCaptionHeight\(caption\)/);
+  assert.match(main,/measure\.getBoundingClientRect\(\)\.height/);
+  assert.match(main,/new ResizeObserver\(entries=>/);
+  assert.match(main,/const anchor = \[23, 13\]/);
+  assert.match(main,/cancelAnimationFrame\(forceInstructionAnimationFrame\)/);
+  assert.match(main,/instructions-close[\s\S]*addEventListener\('click', closeInstructions\)/);
+});
+
 test('help title pointer events keep native focus and selection without moving the panel',()=>{
   const ui=source('ui.js');
   const start=ui.indexOf('function setupHelpPanelPositioning(){');

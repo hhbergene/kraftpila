@@ -1187,6 +1187,432 @@
       }
     },
     {
+      "id": "task_1791480987572_yjio90r9e.",
+      "title": "Kloss på kloss Newtons 3. lov",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "En kloss ligger i ro på et horisontalt underlag.  ",
+        "",
+        "N - Normalkraften som virker på kloss B er tegnet inn.",
+        "",
+        "Newtons 3. lov sier at kraft og motkraft er like store med motsatt retning.",
+        "",
+        "Tegn motkraften til N"
+      ],
+      "scene": {
+        "rects": [
+          {
+            "width": 160,
+            "height": 120,
+            "bottomCenter": [
+              500,
+              360
+            ],
+            "angleDeg": 0,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "rect-1"
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn motkraften til N",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ],
+            "id": "Tekst-1"
+          },
+          {
+            "txt": "v = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ],
+            "id": "Tekst-2"
+          }
+        ],
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              360
+            ],
+            "draw": true,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "Plan-1"
+          }
+        ],
+        "activePlaneId": "Plan-1"
+      },
+      "expectedForces": [
+        {
+          "name": "N*",
+          "role": "force",
+          "anchor": {
+            "type": "point",
+            "ref": "rect-1",
+            "point": "bottom_center"
+          },
+          "dir": [
+            0,
+            1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              360
+            ],
+            "arrowBase": [
+              480,
+              360
+            ],
+            "arrowTip": [
+              480,
+              420
+            ]
+          },
+          "nameBase": "N"
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "N",
+          "anchor": [
+            500,
+            360
+          ],
+          "arrowBase": [
+            520,
+            360
+          ],
+          "arrowTip": [
+            520,
+            300
+          ],
+          "moveable": false,
+          "anchorSpec": {
+            "type": "point",
+            "ref": "rect-1",
+            "point": "bottom_center"
+          },
+          "role": "force"
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "N*",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "N",
+              "component": "magnitude"
+            }
+          ]
+        }
+      ],
+      "taskTitle": "Kloss på kloss i ro horisontalt",
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
+      "id": "task_1791480987572_yjio90r9e..",
+      "title": "Den lille prinsen og Newtons 3. lov",
+      "category": "Fysikk 1",
+      "help_lines": [
+        "Den lille prinsen står i ro på Asteroiden B-612",
+        "",
+        "G - Tyngdekraften som virker på han er tegnet inn.",
+        "",
+        "Newtons 3. lov sier at kraft og motkraft er like store med motsatt retning.",
+        "",
+        "Tegn motkraften til G"
+      ],
+      "scene": {
+        "rects": [
+          {
+            "width": 40,
+            "height": 80,
+            "bottomCenter": [
+              500,
+              280
+            ],
+            "angleDeg": 0,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "snapping": true,
+            "id": "Rektangel-1",
+            "color": "#42ff45"
+          }
+        ],
+        "texts": [
+          {
+            "txt": "Tegn motkraften til G",
+            "pos": [
+              375,
+              80
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              80
+            ],
+            "id": "Tekst-1"
+          },
+          {
+            "txt": "v = 0",
+            "pos": [
+              375,
+              102
+            ],
+            "size": 14,
+            "align": "center",
+            "color": "#222",
+            "snapping": false,
+            "_renderedPos": [
+              375,
+              102
+            ],
+            "id": "Tekst-2"
+          }
+        ],
+        "points": [],
+        "planes": [
+          {
+            "angleDeg": 0,
+            "through": [
+              500,
+              600
+            ],
+            "draw": false,
+            "snapping": false,
+            "n_vec": [
+              0,
+              -1
+            ],
+            "t_vec": [
+              1,
+              0
+            ],
+            "id": "Plan-1"
+          }
+        ],
+        "activePlaneId": "Plan-1",
+        "ellipses": [
+          {
+            "center": [
+              500,
+              440
+            ],
+            "width": 320,
+            "height": 320,
+            "t_vec": [
+              1,
+              0
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "lockAxes": true,
+            "color": "#4090ff",
+            "lineWidth": 2,
+            "snapping": true,
+            "id": "Ellipse-1"
+          },
+          {
+            "center": [
+              500,
+              160
+            ],
+            "width": 80,
+            "height": 80,
+            "t_vec": [
+              1,
+              0
+            ],
+            "n_vec": [
+              0,
+              -1
+            ],
+            "lockAxes": true,
+            "color": "#ffb042",
+            "lineWidth": 2,
+            "snapping": true,
+            "id": "Ellipse-2",
+            "fill_color": "#ffc342"
+          }
+        ]
+      },
+      "expectedForces": [
+        {
+          "name": "G*",
+          "role": "force",
+          "anchor": {
+            "type": "point",
+            "ref": "Ellipse-1",
+            "point": "center"
+          },
+          "dir": [
+            0,
+            -1
+          ],
+          "drawn": {
+            "anchor": [
+              500,
+              440
+            ],
+            "arrowBase": [
+              480,
+              440
+            ],
+            "arrowTip": [
+              480,
+              380
+            ]
+          },
+          "nameBase": "N"
+        }
+      ],
+      "initialForces": [
+        {
+          "name": "G",
+          "role": "force",
+          "anchorSpec": {
+            "type": "point",
+            "ref": "Rektangel-1",
+            "point": "center"
+          },
+          "anchor": [
+            500,
+            240
+          ],
+          "arrowBase": [
+            520,
+            240
+          ],
+          "arrowTip": [
+            520,
+            300
+          ],
+          "moveable": false
+        }
+      ],
+      "sumF": {
+        "x": 0,
+        "y": 0
+      },
+      "relations": [
+        {
+          "lhs": [
+            {
+              "name": "G*",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "G",
+              "component": "magnitude"
+            }
+          ]
+        }
+      ],
+      "taskTitle": "Kloss på kloss i ro horisontalt",
+      "taskSubTitle": "",
+      "snapChecklist": {
+        "snapEnabled": true,
+        "guidelinesEnabled": true,
+        "showForceCoordinates": false,
+        "snapForceEndpoints": true,
+        "snapMatchLL": true,
+        "snapMatchLX": true,
+        "snapMatchLY": true,
+        "snapMatchLN": false,
+        "snapMatchLT": false,
+        "snapMatchXX": true,
+        "snapMatchYY": true,
+        "snapMatchXY": false,
+        "snapMatchNN": false,
+        "snapMatchTT": false,
+        "snapMatchNT": false,
+        "snapMatchXN": false,
+        "snapMatchXT": false,
+        "snapMatchYN": false,
+        "snapMatchYT": false
+      }
+    },
+    {
       "id": "task_1791480987572_yjio90r9e",
       "title": "Kloss på kloss i ro horisontalt",
       "category": "Fysikk 1",
@@ -1740,7 +2166,7 @@
             "id": "Tekst-1"
           },
           {
-            "txt": "og på kloss B",
+            "txt": "(Ikke tegn krefter på kloss B)",
             "pos": [
               260,
               59
@@ -2022,6 +2448,21 @@
               "component": "magnitude"
             }
           ]
+        },
+        {
+          "lhs": [
+            {
+              "name": "S_B",
+              "component": "magnitude"
+            }
+          ],
+          "rhs": [
+            {
+              "name": "S_A",
+              "component": "magnitude"
+            }
+          ],
+          "ratio": 1
         }
       ],
       "taskSubTitle": "Trinse",
@@ -6600,9 +7041,9 @@
   ],
   "metadata": {
     "name": "Default",
-    "exported": "2026-11-10T10:11:06.660Z",
-    "count": 22,
-    "appVersion": "2026-11-09 12:12",
+    "exported": "2026-11-10T19:22:56.409Z",
+    "count": 24,
+    "appVersion": "2026-11-10 13:05",
     "tasksetVersion": 2
   }
 }

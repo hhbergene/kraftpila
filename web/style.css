@@ -172,6 +172,24 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:2000; }
 .modal.hidden { display:none; }
 .modal-content { background:#ffffff; padding:24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); max-width:500px; max-height:90vh; overflow-y:auto; }
+.instructions-content { width:min(680px, calc(100vw - 32px)); max-width:none; }
+.instructions-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.instructions-header h2 { margin:0; font-size:20px; }
+#instructions-close { flex:0 0 32px; width:32px; height:32px; border:1px solid #777; border-radius:4px; background:#fafafa; cursor:pointer; }
+#instructions-close:hover { background:#ffecec; }
+.instructions-content section + section { margin-top:16px; }
+.instructions-content h3 { margin:0 0 6px; font-size:16px; color:#222; }
+.instructions-content ul { margin:0; padding-left:22px; }
+.instructions-content li { margin:0 0 6px; font-size:14px; line-height:1.45; color:#333; }
+.instructions-content code { padding:1px 3px; border-radius:3px; background:#f0f0f0; }
+.instructions-content kbd { padding:1px 4px; border:1px solid #aaa; border-radius:3px; background:#f7f7f7; font:inherit; }
+.instructions-content .trash-symbol { white-space:nowrap; }
+.instructions-content .tool-symbol { display:inline-block; min-width:30px; text-align:center; font-size:19px; vertical-align:middle; }
+.instructions-content .grid-symbol { font-size:15px; font-weight:700; }
+.force-handles-figure { position:relative; width:100%; margin:8px auto 0; padding:4px; border:1px solid #d5dbe3; border-radius:6px; background:#f8fafc; }
+.force-handles-figure h4 { margin:0 0 4px; font-size:14px; text-align:center; }
+.force-handles-figure canvas { display:block; width:105px; height:95px; max-width:100%; margin:0 auto; }
+.force-demo-caption { min-height:20px; margin:2px 0 6px; color:#333; font-size:13px; font-weight:600; line-height:1.4; text-align:center; }
 #task-order-modal .modal-content { max-width:650px; }
 .modal-content h3 { margin:0 0 12px; font-size:18px; color:#d32f2f; }
 .modal-content p { margin:0 0 16px; font-size:14px; line-height:1.5; color:#333; }
@@ -193,6 +211,7 @@ footer { padding:0px 0px; background:#fff; border-top:1px solid #ccc; font-size:
 #btn-snap       { left:20px;  top:20px; }
 #btn-guidelines { left:62px;  top:20px; }
 #btn-grid       { left:104px; top:20px; }
+#btn-instructions { left:146px; top:20px; font-size:20px; font-weight:700; }
 #btn-undo       { left:146px; top:20px; }
 #btn-redo       { left:188px; top:20px; }
 .btn-icon:disabled { opacity:0.35; cursor:default; }
